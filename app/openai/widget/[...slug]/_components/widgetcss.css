@@ -1,0 +1,210 @@
+body {
+	font-family: 'Inter', sans-serif;
+	font-size: 14px;
+}	
+	
+.chataffy-widgetBtn-box {
+    background: #222;
+    width: 76px;
+    height: 76px;
+    box-shadow: 0px 20px 20px -8px rgba(26, 26, 26, 0.28), 0px 1px 0px 0px rgba(204, 204, 204, 0.50) inset, 0px -1px 0px 0px rgba(0, 0, 0, 0.17) inset, -1px 0px 0px 0px rgba(0, 0, 0, 0.17) inset, 1px 0px 0px 0px rgba(0, 0, 0, 0.13) inset;
+    border-radius: 100px;
+    text-align: center;
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 2;
+	cursor: pointer;
+}
+	
+.chataffy-widget-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+}	
+	
+.chataffy-messageFrame {
+    z-index: 2147483000;
+    position: fixed;
+    bottom: 124px;
+    background: #fff;
+    right: 20px;
+    transform-origin: right bottom;
+    height: min(624px, 100% - 140px);
+    min-height: 80px;
+    width: 380px;
+    max-height: 624px;
+    box-shadow: 0px 20px 20px -8px rgba(26, 26, 26, 0.28);
+    border-radius: 20px;
+    overflow: hidden;
+    opacity: 1;
+    transition: width 200ms ease 0s, height 200ms ease 0s, max-height 200ms ease 0s, transform 300ms cubic-bezier(0, 1.2, 1, 1) 0s, opacity 83ms ease-out 0s;
+    pointer-events: all;
+}	
+	
+.chataffy-widget-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+}
+	
+.chataffy-widget-headLeft {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+	
+.chataffy-head-clientLogo {
+    background: #fff;
+    border-radius: 100px;
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+}	
+	
+.chataffy-headName {
+    font-weight: 600;
+}
+	
+.chataffy-headStatus {
+    font-size: 11px;
+    margin-top: 3px;
+}
+	
+.chataffy-statusPoint {
+    background: #3EDF4E;
+    width: 6px;
+    height: 6px;
+    border-radius: 100px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-top: -2px;
+}
+	
+.chataffy-widget-closeBtn {
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+    cursor: pointer;
+}	
+	
+.chataffy-widget-messageImage {
+    border-radius: 100px;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #F3F3F3;
+    line-height: 40px;
+}
+	
+.chataffy-widget-messageImage img {
+    width: 40px;
+    height: 40px;
+}
+	
+.chataffy-widget-message {
+    padding: 16px 15px;
+    background: #F3F3F3;
+    border-radius: 10px;
+}
+	
+.chataffy-widget-message p {
+    margin: 0;
+    line-height: 19.6px;
+}
+	
+.chataffy-widget-messageArea {
+    margin-top: 20px;
+    display: flex;
+    gap: 15px;
+}
+	
+.chataffy-widget-messageClient {
+    margin-top: 20px;
+    padding-left: 55px;
+}
+	
+.chataffy-widget-messageInfo {
+    width: 100%;
+    display: inline-block;
+    color: #737376;
+    font-size: 13px;
+    margin-top: 6px;
+}
+	
+.chataffy-widget-messageClient .chataffy-widget-message {
+    float: right;
+}
+	
+.chataffy-widget-messageClient .chataffy-widget-messageBox .chataffy-widget-messageInfo {
+    text-align: right;
+}	
+	
+.chataffy-widget-textarea {
+    border-top: 1px solid #F3F3F3;
+}
+	
+.chataffy-widget-textarea .form-control {
+    width: 100%;
+    border: none;
+    padding: 16px 20px;
+}
+	
+.chataffy-widget-body {
+    height: calc(60% - -112px);
+    padding: 0 20px 20px;
+    overflow: auto;
+    position: relative;
+}	
+	
+.chataffy-widget-textarea .form-control {
+    width: calc(100% - 75px);
+    border: none;
+    padding: 16px 20px;
+}	
+	
+.chataffy-widget-textarea .form-control:focus {
+    box-shadow: none;
+    border: none;
+    outline: none;
+}	
+	
+.chataffy-widget-textarea {
+    position: relative;
+}
+	
+.chataffy-widget-textareaBtn {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    background: transparent;
+    border: none;
+    padding: 0;
+    transform: translateY(-50%);
+}	
+	
+.chataffy-widget-messageInfo.dangerText {
+    color: #FE8585;
+}
+	
+.chataffy-widget-messageInfo img {
+    vertical-align: middle;
+    margin-right: 5px;
+    margin-top: -3px;
+}
+	
+.chataffy-widget-internetIssue {
+    background: #F6D661;
+    padding: 14px 20px;
+    position: absolute;
+    bottom: -50px;
+    width: calc(100% - 40px);
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
