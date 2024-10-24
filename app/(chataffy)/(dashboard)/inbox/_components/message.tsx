@@ -57,6 +57,31 @@ export default function Message(props: any) {
             </div>
           </div>
         );
+        case 'agent':
+          message = (
+            <div className="message-box ai-message">
+              <div className="d-flex align-items-end justify-content-end gap-16">
+                <div className="chat-messageArea d-flex flex-column align-items-end">
+                  <div className="chat-messageBox" dangerouslySetInnerHTML={{ __html: messageData.message }} />
+                </div>
+                <div className="chatMessage-logo">
+                  <Image src={trainingIconImage} alt="" />
+                </div>
+              </div>
+  
+              <div className={`chat-messageInfo`}>
+                <div className="d-flex gap-10">
+                  {!!messageData.infoSources.length && <><span className="sourceChat-box">
+                    <button type="button" className="plain-btn sourceChat" onClick={()=>toggleExpandedSources()}>
+                      <Image src={chatSourceIconImage} alt="" />
+                    </button>
+                    {isExpanded && <InformationSources trainingListIds={messageData.infoSources} />}
+                  </span></>}
+                  <span>11:44 AM</span>
+                </div>
+              </div>
+            </div>
+          );
         break;
       case 'visitor':
         message = (

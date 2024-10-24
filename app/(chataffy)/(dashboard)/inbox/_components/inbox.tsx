@@ -44,6 +44,10 @@ export default function Inbox(Props: any) {
   const [conversationsList, setConversationsList] = useState<any>({ data: [], loading: true })
   const [conversationMessages, setConversationMessages] = useState<any>({ data: [], loading: true, conversationId: null, visitorName: '' })
   const [inputMessage, setInputMessage] = useState('')
+  const [openConversatinVistorId,setOpenConversatinVistorId] = useState<any>(null)
+  const [openConversatinVistorName,setOpenConversatinVistorName] = useState<any>(null)
+  const [conversationLength,setConversationLength] =useState<number>(0)
+
 
   const openConversation = async (_id: any, visitorName: string) => {
     try {
@@ -51,10 +55,12 @@ export default function Inbox(Props: any) {
       // const response = await fetch(`your-api-endpoint/${_id}`);
       // const data = await response.json();
       // const data = ["hello","hi"]
-
+      setOpenConversatinVistorId(_id);
+      setOpenConversatinVistorName(visitorName);
       getConversationMessages(_id).then((data: any) => {
         // Update the state with the result
         setConversationMessages({ data, loading: false, conversationId: _id, visitorName });
+        setConversationLength(data.length)
       });
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -97,6 +103,9 @@ export default function Inbox(Props: any) {
       router.replace('/login')
     })
 
+    // socket.on('conversation-append-message', (data: any) => {
+    // });
+
     socket.emit('client-connect')
   }
 
@@ -105,15 +114,18 @@ export default function Inbox(Props: any) {
   }, [])
 
   const handleMessageSend = () => {
-    console.log(inputMessage,"This is message")
+    console.log(inputMessage,"This is message      ",openConversatinVistorId)
 		if (inputMessage.trim() != '') {
 			const id = Date.now()
-			// visitorMessageRemove.current = true
-			socket.emit('client-send-message', { message: inputMessage, id: id });
+			socket.emit('client-send-message', { message: inputMessage, conversationId: openConversatinVistorId });
 		}
 		setInputMessage('')
 
 	}
+
+  useEffect(()=>{
+    openConversation(openConversatinVistorId,openConversatinVistorName);
+  },[conversationLength,inputMessage])
 
   
 	// useEffect(() => {

@@ -2,7 +2,7 @@
 'use client'
 
 import Accordion from 'react-bootstrap/Accordion';
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useReducer } from 'react'
 import { getWidgetToken } from '@/app/_api/dashboard/action'
 import { useRouter } from 'next/navigation'
 import EmbeddingCode from './embeddingCode'
@@ -18,8 +18,201 @@ import closeBtnImage from '@/images/close-btn.svg'
 import sendIconWidgetImage from '@/images/send-icon-widget.svg'
 import Image from 'next/image';
 
+const initialState = {
+  logo: null,
+  titleBar: "",
+  welcomeMessage: "👋 Hi there! How can I help?",
+  showLogo: true,
+  isPreChatFormEnabled: true,
+  fields: [
+    { id: 1, name: 'Name', value: '', required: true },
+    { id: 2, name: 'Email', value: '', required: true },
+    { id: 3, name: 'Phone', value: '', required: true },
+  ],
+  colorFields: [
+    { id: 1, name: 'title_bar', value: '#FFFFFF' },
+    { id: 2, name: 'title_bar_text', value: '#FFFFFF' },
+    { id: 3, name: 'visitor_bubble', value: '#FFFFFF' },
+    { id: 4, name: 'visitor_bubble_text', value: '#FFFFFF' },
+    { id: 5, name: 'ai_bubble', value: '#FFFFFF' },
+    { id: 6, name: 'ai_bubble_text', value: '#FFFFFF' },
+  ]
+};
+
+const actionTypes = {
+  UPDATE_FIELD_VALUE: 'UPDATE_FIELD_VALUE',
+  TOGGLE_REQUIRED: 'TOGGLE_REQUIRED',
+  REMOVE_FIELD: 'REMOVE_FIELD',
+  ADD_FIELD: 'ADD_FIELD',
+  TOGGLE_PRE_CHAT_FORM: 'TOGGLE_PRE_CHAT_FORM',
+  TITLE_BAR_COLOR: 'TITLE_BAR_COLOR',
+  TITLE_BAR_TEXT_COLOR: 'TITLE_BAR_TEXT_COLOR',
+  VISITOR_BUBBLE_COLOR: 'VISITOR_BUBBLE_COLOR',
+  VISITOR_BUBBLE_TEXT_COLOR: 'VISITOR_BUBBLE_TEXT_COLOR',
+  AI_BUBBLE_COLOR: 'AI_BUBBLE_COLOR',
+  AI_BUBBLE_TEXT_COLOR: 'AI_BUBBLE_TEXT_COLOR',
+  SHOW_LOGO: "SHOW_LOGO",
+  SHOW_WHITE_LABEL: "SHOW_WHITE_LABEL",
+
+};
+
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "SET_LOGO":
+      return { ...state, logo: action.payload };
+    case "SET_TITLE_BAR":
+      return { ...state, titleBar: action.payload };
+    case "SET_WELCOME_MESSAGE":
+      return { ...state, welcomeMessage: action.payload };
+
+    case actionTypes.TOGGLE_PRE_CHAT_FORM:
+      return {
+        ...state,
+        isPreChatFormEnabled: !state.isPreChatFormEnabled
+      };
+    case "COLOR_CHANGE":
+      return {
+        ...state,
+        chatColorSetting: {
+          ...state.chatColorSetting,
+        },
+      };
+
+    case actionTypes.UPDATE_FIELD_VALUE:
+      return {
+        ...state,
+        fields: state.fields.map((field: any) =>
+          field.id === action.payload.id
+            ? { ...field, value: action.payload.value }
+            : field
+        )
+      };
+    case actionTypes.TOGGLE_REQUIRED:
+      return {
+        ...state,
+        fields: state.fields.map((field: any) =>
+          field.id === action.payload.id
+            ? { ...field, required: !field.required }
+            : field
+        )
+      };
+    case actionTypes.REMOVE_FIELD:
+      return {
+        ...state,
+        fields: state.fields.filter((field: any) => field.id !== action.payload.id)
+      };
+    case actionTypes.ADD_FIELD:
+      return {
+        ...state,
+        fields: [
+          ...state.fields,
+          { id: state.fields.length + 1, name: `Field ${state.fields.length + 1}`, value: '', required: false }
+        ]
+      };
+    case actionTypes.TITLE_BAR_COLOR:
+      return {
+        ...state,
+        colorFields: state.colorFields.map((colorField: any) =>
+          colorField.id === action.payload.id
+            ? { ...colorField, value: action.payload.value }
+            : colorField
+        )
+      };
+
+    case actionTypes.SHOW_LOGO:
+      return {
+        ...state,
+        showLogo: !state.showLogo
+      }
+
+    case actionTypes.SHOW_WHITE_LABEL:
+      return {
+        ...state,
+        showWhiteLabel: !state.showWhiteLabel
+      }
+
+    default:
+      return state;
+  }
+};
+
 
 export default function Widget() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [selectedLogo,setSelectedLogo] = useState(clientLogoImage)
+  const [error, setError] = useState<string | null>(null); // For validation errors
+
+  const handleLogoChange = (e: any) => {
+    const file = e.target.files?.[0];
+    dispatch({ type: "SET_LOGO", payload: e.target.files[0] });
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedLogo(reader.result as string); // Set image preview
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageClick = () => {
+    document.getElementById("logoUploadInput")!.click(); // Trigger file input click
+  };
+
+  const handleTitleBarChange = (e: any) => {
+    dispatch({ type: "SET_TITLE_BAR", payload: e.target.value })
+  };
+
+  const handleWelcomeBarChange = (e: any) => {
+    dispatch({ type: "SET_WELCOME_MESSAGE", payload: e.target.value })
+  };
+
+  const handleInputChange = (id, value) => {
+    dispatch({
+      type: actionTypes.UPDATE_FIELD_VALUE,
+      payload: { id, value }
+    });
+  };
+
+  const handleToggleRequired = (id) => {
+    dispatch({
+      type: actionTypes.TOGGLE_REQUIRED,
+      payload: { id }
+    });
+  };
+
+  const handleRemoveField = (id) => {
+    dispatch({
+      type: actionTypes.REMOVE_FIELD,
+      payload: { id }
+    });
+  };
+
+  const handleAddField = () => {
+    dispatch({ type: actionTypes.ADD_FIELD });
+  };
+
+  const handleTogglePreChatForm = () => {
+    dispatch({ type: actionTypes.TOGGLE_PRE_CHAT_FORM });
+  };
+
+  const handleColorChange = (event: React.ChangeEvent<HTMLInputElement>, id: any) => {
+    let value = event.target.value;
+    dispatch({
+      type: actionTypes.TITLE_BAR_COLOR,
+      payload: { id, value }
+    })
+  };
+
+  const handleToggleShowLogo = () => {
+    dispatch({
+      type: actionTypes.SHOW_LOGO,
+    })
+  }
+
+  const handleTogglewhiteLabel = () => {
+    dispatch({
+      type: actionTypes.SHOW_WHITE_LABEL,
+    })
+  }
+
 
   return (
     <><div className="main-content-area">
@@ -28,7 +221,7 @@ export default function Widget() {
           <div className="inbox-heading d-flex justify-content-between align-item-center">
             <div className="top-headbar-heading">Widget Setting</div>
           </div>
-    
+
           <div className="widget-settingInner custom-scrollbar">
             <div className="widget-settingBox">
               <Accordion className="accordion Contentdetails-accordion" id="accordionExample">
@@ -46,94 +239,49 @@ export default function Widget() {
                 <Accordion.Item eventKey="0" className="accordion-item">
                   <Accordion.Header><Image src={appearanceIconImage} alt="" /> Appearance</Accordion.Header>
                   <Accordion.Body className="accordion-body">
-                      <div className="setting-accordionArea">
-                        <div className="setting-field widget-logoUpload mb-20">
-                        <Image src={logoUploadImage} alt="" />
-                        </div>
-                        <p className="mb-20"><strong>Note:</strong> Please upload jpg, png, or gif file that is no larger than 1500x1000 pixels.</p>
-
-                        <div className="input-box mb-20">
-                          <label>Title Bar Text</label>
-                          <input type="text" placeholder="Enter a title" className="form-control" />
-                        </div>
-
-                        <div className="input-box mb-20">
-                          <label>Title Bar Text</label>
-                          <textarea className="form-control" placeholder="Welcome Message here"></textarea>
-                        </div>
-
-                        <div className="widget-colorPicker flex-wrap d-flex gap-20">
-                          <div className="color-pickerBox">
-                            <label className="form-label">Title Bar</label>
-                            <div className="border rounded-3 d-flex align-item-center justify-content-between">
-                              <span className="colorCode">#FFFFFF</span>
-                              <div className="pick-colorBox">
-                                <span></span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="color-pickerBox">
-                            <label className="form-label">Title Bar</label>
-                            <div className="border rounded-3 d-flex align-item-center justify-content-between">
-                              <span className="colorCode">#FFFFFF</span>
-                              <div className="pick-colorBox">
-                                <span></span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="color-pickerBox">
-                            <label className="form-label">Title Bar</label>
-                            <div className="border rounded-3 d-flex align-item-center justify-content-between">
-                              <span className="colorCode">#FFFFFF</span>
-                              <div className="pick-colorBox">
-                                <span></span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="color-pickerBox">
-                            <label className="form-label">Title Bar</label>
-                            <div className="border rounded-3 d-flex align-item-center justify-content-between">
-                              <span className="colorCode">#FFFFFF</span>
-                              <div className="pick-colorBox">
-                                <span></span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="color-pickerBox">
-                            <label className="form-label">Title Bar</label>
-                            <div className="border rounded-3 d-flex align-item-center justify-content-between">
-                              <span className="colorCode">#FFFFFF</span>
-                              <div className="pick-colorBox">
-                                <span></span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="color-pickerBox">
-                            <label className="form-label">Title Bar</label>
-                            <div className="border rounded-3 d-flex align-item-center justify-content-between">
-                              <span className="colorCode">#FFFFFF</span>
-                              <div className="pick-colorBox">
-                                <span></span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="color-pickerBox">
-                            <label className="form-label">Title Bar</label>
-                            <div className="border rounded-3 d-flex align-item-center justify-content-between">
-                              <span className="colorCode">#FFFFFF</span>
-                              <div className="pick-colorBox">
-                                <span></span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                    <div className="setting-accordionArea">
+                      <div className="setting-field widget-logoUpload mb-20">
+                        <Image src={logoUploadImage} alt="" onClick={handleImageClick}
+                          style={{ cursor: 'pointer' }} />
+                        <input
+                          type="file"
+                          id="logoUploadInput"
+                          style={{ display: "none" }}
+                          accept="image/*"
+                          onChange={handleLogoChange}
+                        />
                       </div>
+                      <p className="mb-20"><strong>Note:</strong> Please upload jpg, png, or gif file that is no larger than 1500x1000 pixels.</p>
+
+                      <div className="input-box mb-20">
+                        <label>Title Bar Text</label>
+                        <input type="text" placeholder="Enter a title" className="form-control" value={state.titleBar} onChange={handleTitleBarChange} />
+                      </div>
+
+                      <div className="input-box mb-20">
+                        <label>Welcome Message</label>
+                        <textarea className="form-control" placeholder="Welcome Message here" value={state.welcomeBar} onChange={handleWelcomeBarChange}></textarea>
+                      </div>
+
+                      <div className="widget-colorPicker flex-wrap d-flex gap-20">
+
+                        {state.colorFields.map((field) => (
+                          <div className="color-pickerBox">
+                            <label className="form-label">{field.name}</label>
+                            <div className="border rounded-3 d-flex align-items-center justify-content-between">
+                              <span className="colorCode">{field.value}</span>
+                              <div className="pick-colorBox">
+                                <input
+                                  type="color"
+                                  value={field.value} // Set the current selected color
+                                  onChange={(event) => handleColorChange(event, field.id)} // Handle color change
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </Accordion.Body>
                 </Accordion.Item>
               </Accordion>
@@ -144,33 +292,33 @@ export default function Widget() {
                 <Accordion.Item eventKey="0" className="accordion-item">
                   <Accordion.Header><Image src={widgetPositionIconImage} alt="" /> Widget Position</Accordion.Header>
                   <Accordion.Body className="accordion-body">
-                      <div className="setting-accordionArea widget-position">
-                        <div className="d-flex gap-20">
-                          <div className="custom-dropi">
-                            <label className="form-label">Align to:</label>
-                            <select className="form-select width-100">
-                              <option>Right</option>
-                              <option>Left</option>
-                            </select>
-                          </div>
+                    <div className="setting-accordionArea widget-position">
+                      <div className="d-flex gap-20">
+                        <div className="custom-dropi">
+                          <label className="form-label">Align to:</label>
+                          <select className="form-select width-100">
+                            <option>Right</option>
+                            <option>Left</option>
+                          </select>
+                        </div>
 
-                          <div>
-                            <label className="form-label">Side spacing:</label>
-                            <div className="d-flex align-item-center gap-2">
-                              <input type="text" className="form-control width-100" defaultValue="0" />
-                                <label className="form-label mb-0">px</label>
-                            </div>
+                        <div>
+                          <label className="form-label">Side spacing:</label>
+                          <div className="d-flex align-item-center gap-2">
+                            <input type="text" className="form-control width-100" defaultValue="0" />
+                            <label className="form-label mb-0">px</label>
                           </div>
+                        </div>
 
-                          <div>
-                            <label className="form-label">Bottom spacing:</label>
-                            <div className="d-flex align-item-center gap-2">
-                              <input type="text" className="form-control width-100" defaultValue="0" />
-                                <label className="form-label mb-0">px</label>
-                            </div>
+                        <div>
+                          <label className="form-label">Bottom spacing:</label>
+                          <div className="d-flex align-item-center gap-2">
+                            <input type="text" className="form-control width-100" defaultValue="0" />
+                            <label className="form-label mb-0">px</label>
                           </div>
                         </div>
                       </div>
+                    </div>
                   </Accordion.Body>
                 </Accordion.Item>
               </Accordion>
@@ -180,68 +328,64 @@ export default function Widget() {
               <Accordion className="accordion Contentdetails-accordion" id="accordionExample3">
                 <Accordion.Item eventKey="0" className="accordion-item">
                   <Accordion.Header><Image src={preChatFormIconImage} alt="" />
-                          Pre Chat Form
-                          <label className="toggle ml-10">
-                            <input className="toggle-checkbox" type="checkbox" defaultChecked />
-                              <div className="toggle-switch"></div>
-                          </label>
+                    Pre Chat Form
+                    <label className="toggle ml-10">
+                      {/* <input className="toggle-checkbox" type="checkbox" defaultChecked />
+                       */}
+                      <input
+                        className="toggle-checkbox"
+                        type="checkbox"
+                        checked={state.isPreChatFormEnabled}
+                        onChange={handleTogglePreChatForm}  // Toggles the pre-chat form enabled state
+                      />
+                      <div className="toggle-switch"></div>
+                    </label>
                   </Accordion.Header>
                   <Accordion.Body className="accordion-body">
+                    {state.isPreChatFormEnabled && (
                       <div className="setting-accordionArea">
                         <div className="pre-chatArea">
-                          <div className="preChat-box mb-20">
-                            <div className="preChat-head d-flex justify-content-end">
-                              <div className="d-flex align-item-center gap-2">
-                                <div className="form-check">
-                                  <input className="form-check-input" type="checkbox" defaultChecked id="flexCheckDefault" />
+                          {state.fields.map((field, index) => (
+                            <div className="preChat-box mb-20">
+                              <div className="preChat-head d-flex justify-content-end">
+                                <div className="d-flex align-item-center gap-2">
+                                  <div className="form-check">
+                                    <input className="form-check-input"
+                                      type="checkbox"
+                                      checked={field.required}
+                                      onChange={() => handleToggleRequired(field.id)}
+                                      id={`flexCheckDefault${index}`}
+                                    />
+                                  </div>
+                                  <label htmlFor={`flexCheckDefault${index}`}>Required</label>
+
+
+                                  <button
+                                    type="button"
+                                    className="btn-close ml-10"
+                                    onClick={() => handleRemoveField(field.id)}
+                                  ></button>
+
                                 </div>
-                                <label htmlFor="flexCheckDefault">Required</label>
-                                <button type="button" className="btn-close ml-10"></button>
+                              </div>
+                              <div className="input-box mt-3">
+                                <input
+                                  type={field.name === 'Email' ? 'email' : 'text'}
+                                  placeholder={field.name}
+                                  className="form-control"
+                                  value={field.value}
+                                  onChange={(e) => handleInputChange(field.id, e.target.value)}
+                                />
                               </div>
                             </div>
+                          ))}
+                        </div>
 
-                            <div className="input-box mt-3">
-                              <input type="text" placeholder="Name" className="form-control" />
-                            </div>
-                          </div>
-
-                          <div className="preChat-box mb-20">
-                            <div className="preChat-head d-flex justify-content-end">
-                              <div className="d-flex align-item-center gap-2">
-                                <div className="form-check">
-                                  <input className="form-check-input" type="checkbox" defaultChecked id="flexCheckDefault2" />
-                                </div>
-                                <label htmlFor="flexCheckDefault2">Required</label>
-                                <button type="button" className="btn-close ml-10"></button>
-                              </div>
-                            </div>
-
-                            <div className="input-box mt-3">
-                              <input type="email" placeholder="Email" className="form-control" />
-                            </div>
-                          </div>
-
-                          <div className="preChat-box mb-20">
-                            <div className="preChat-head d-flex justify-content-end">
-                              <div className="d-flex align-item-center gap-2">
-                                <div className="form-check">
-                                  <input className="form-check-input" type="checkbox" defaultChecked id="flexCheckDefault3" />
-                                </div>
-                                <label htmlFor="flexCheckDefault3">Required</label>
-                                <button type="button" className="btn-close ml-10"></button>
-                              </div>
-                            </div>
-
-                            <div className="input-box mt-3">
-                              <input type="text" placeholder="Phone" className="form-control" />
-                            </div>
-                          </div>
-
-                          <div>
-                            <button className="custom-btn d-flex gap-2 align-item-center"><Image src={tagPlusImage} alt="" /> Add Element</button>
-                          </div>
+                        <div>
+                          <button className="custom-btn d-flex gap-2 align-item-center" onClick={handleAddField}><Image src={tagPlusImage} alt="" /> Add Element</button>
                         </div>
                       </div>
+                    )}
                   </Accordion.Body>
                 </Accordion.Item>
               </Accordion>
@@ -252,25 +396,35 @@ export default function Widget() {
                 <Accordion.Item eventKey="0" className="accordion-item">
                   <Accordion.Header><Image src={additionalTweaksIconImage} alt="" /> Additional tweaks</Accordion.Header>
                   <Accordion.Body className="accordion-body">
-                      <div className="setting-accordionArea">
-                        <div className="additional-tweakArea mt-20">
-                          <div className="additional-tweakBox d-flex align-item-center mb-20 position-relative">
-                            <h4 className="mb-0">Show logo</h4>
-                            <label className="toggle">
-                              <input className="toggle-checkbox" type="checkbox" defaultChecked />
-                                <div className="toggle-switch"></div>
-                            </label>
-                          </div>
+                    <div className="setting-accordionArea">
+                      <div className="additional-tweakArea mt-20">
+                        <div className="additional-tweakBox d-flex align-item-center mb-20 position-relative">
+                          <h4 className="mb-0">Show logo</h4>
+                          <label className="toggle">
+                            <input
+                              className="toggle-checkbox"
+                              type="checkbox"
+                              checked={state.showLogo}
+                              onChange={() => handleToggleShowLogo()}
+                            />
+                            <div className="toggle-switch"></div>
+                          </label>
+                        </div>
 
-                          <div className="additional-tweakBox d-flex align-item-center position-relative">
-                            <h4 className="mb-0">White label widget</h4>
-                            <label className="toggle">
-                              <input className="toggle-checkbox" type="checkbox" defaultChecked />
-                                <div className="toggle-switch"></div>
-                            </label>
-                          </div>
+                        <div className="additional-tweakBox d-flex align-item-center position-relative">
+                          <h4 className="mb-0">White label widget</h4>
+                          <label className="toggle">
+                            <input
+                              className="toggle-checkbox"
+                              type="checkbox"
+                              checked={state.showWhiteLabel}
+                              onChange={() => handleTogglewhiteLabel()}
+                            />
+                            <div className="toggle-switch"></div>
+                          </label>
                         </div>
                       </div>
+                    </div>
                   </Accordion.Body>
                 </Accordion.Item>
               </Accordion>
@@ -286,17 +440,19 @@ export default function Widget() {
           </div>
 
           <div className="chataffy-widget-area">
-            <div className="chataffy-widgetBtn-box" style={{right: "40px"}}>
+            <div className="chataffy-widgetBtn-box" style={{ right: "40px" }}>
               <div className="chataffy-widget-btn"><Image src={widgetIconImage} alt="" width={37} height={37} /></div>
             </div>
 
             <div className="chataffy-messageFrame">
-              <div className="chataffy-widget-head" style={{background: "#222222"}}>
+              <div className="chataffy-widget-head" style={{ background: state.colorFields[0].value }}>
                 <div className="chataffy-widget-headLeft">
-                  <div className="chataffy-head-clientLogo"><Image src={clientLogoImage} alt="" width={40} height={40} /></div>
+                  <div className="chataffy-head-clientLogo">
+                    {state.showLogo && <Image src={selectedLogo} alt="" width={40} height={40} />}
+                  </div>
                   <div className="chataffy-head-infoArea">
-                    <div className="chataffy-headName" style={{color: "#ffffff"}}>Chataffy</div>
-                    <div className="chataffy-headStatus" style={{color: "#ffffff"}}><span className="chataffy-statusPoint"></span> Online</div>
+                    <div className="chataffy-headName" style={{ color: state.colorFields[1].value }}>{state.titleBar} </div>
+                    <div className="chataffy-headStatus" style={{ color: "#ffffff" }}><span className="chataffy-statusPoint"></span> Online</div>
                   </div>
                 </div>
 
@@ -309,12 +465,12 @@ export default function Widget() {
                 <div className="chataffy-widget-chatArea">
                   <div className="chataffy-widget-messageArea">
                     <div className="chataffy-widget-messageImage">
-                      <Image src={clientLogoImage} alt="" width={40} height={40} />
+                      <Image src={selectedLogo} alt="" width={40} height={40} />
                     </div>
 
                     <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message">
-                        <p>👋 Hi there! How can I help?</p>
+                      <div className="chataffy-widget-message" style={{ background: state.colorFields[4].value, color: state.colorFields[5].value }}>
+                        <p>{state.welcomeMessage}</p>
                       </div>
                       <div className="chataffy-widget-messageInfo">
                         03:10 PM
@@ -324,7 +480,7 @@ export default function Widget() {
 
                   <div className="chataffy-widget-messageClient">
                     <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message" style={{background: "#222222", color: "#ffffff"}}>
+                      <div className="chataffy-widget-message" style={{ background: state.colorFields[2].value, color: state.colorFields[3].value }}>
                         <p>Can I change the date of my reservation?</p>
                       </div>
                       <div className="chataffy-widget-messageInfo">
@@ -335,11 +491,11 @@ export default function Widget() {
 
                   <div className="chataffy-widget-messageArea">
                     <div className="chataffy-widget-messageImage">
-                      <Image src={clientLogoImage} alt="" width={40} height={40} />
+                      <Image src={selectedLogo} alt="" width={40} height={40} />
                     </div>
 
                     <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message">
+                      <div className="chataffy-widget-message" style={{ background: state.colorFields[4].value, color: state.colorFields[5].value }}>
                         <p>Yes, you can change the date of your reservation for up to seven days in advance. To do this, first go to “Your Reservations” and click the relevant one. Then, go to “Change Details” and enter a new date. Finally, click “Confirm”. That’s it!</p>
                       </div>
                       <div className="chataffy-widget-messageInfo">
@@ -352,16 +508,18 @@ export default function Widget() {
                 </div>
               </div>
 
-              <div className="chataffy-widget-textarea">
+              <div className="chataffy-widget-textarea" style={{ border: '2px' }}>
                 <input type="text" placeholder="Type a message..." className="form-control" />
-                  <button type="button" className="chataffy-widget-textareaBtn"><Image src={sendIconWidgetImage} alt="" /></button>
+                <button type="button" className="chataffy-widget-textareaBtn"><Image src={sendIconWidgetImage} alt="" /></button>
               </div>
+
             </div>
+            {state.showWhiteLabel && <div style={{ backgroundColor: "green", fontSize: 20, padding: 10, marginBottom: 10, }}>hello</div>}
           </div>
         </div>
       </div>
 
 
-    </div></>
+    </div ></>
   )
 }

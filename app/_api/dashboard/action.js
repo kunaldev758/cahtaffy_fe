@@ -20,6 +20,23 @@ async function fetchData(endpoint, requestData = {}) {
   return data
 }
 
+async function getFetchData(endpoint) {
+  const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+    method: 'GET',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: cookies().get('token').value
+    },
+  });
+  const data = await response.json();
+  if(data.status_code==401){
+    cookies().delete('token')
+    return 'error'
+  }
+  return data
+}
+
 export async function webPageScrapeApi(sitemap) {
   return await fetchData('scrape', { sitemap });
 }
@@ -90,6 +107,14 @@ export async function getBasicInfoApi(basicInfo) {
 }
 export async function setBasicInfoApi(basicInfo) {
   return await fetchData('setBasicInfo', { basicInfo });
+}
+
+export async function getThemeSettings() {
+  return await getFetchData('getThemeSettings');
+}
+
+export async function updateThemeSettings(themeSettings) {
+  return await FetchData('updateThemeSettings', { themeSettings });
 }
 
 export async function logoutApi() {

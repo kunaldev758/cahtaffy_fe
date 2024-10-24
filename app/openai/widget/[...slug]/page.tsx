@@ -7,6 +7,8 @@ import Image from "next/image"
 import { basePath } from "@/next.config"
 import { format } from "date-fns"
 
+import { getThemeSettings } from "@/app/_api/dashboard/action";
+
 let socket: any
 
 
@@ -18,6 +20,7 @@ export default function Home({ params }: { params: { slug: any } }) {
 	const [showWidget, setShowWidget] = useState(true)
 	const [socketConnection, setSocketConnection] = useState(false)
 	const [error, setError] = useState(false)
+	const [themeSettings,setThemeSettings] = useState<any>(null)
 
 	const chatBottomRef = useRef<any>(null)
 	const visitorMessageRemove = useRef(false)
@@ -38,6 +41,18 @@ export default function Home({ params }: { params: { slug: any } }) {
 		setInputMessage('')
 
 	}
+
+	const getThemeSettingsAPI = async()=>{
+        const response = await getThemeSettings();
+        if (response && response.status_code == 200) {
+            setThemeSettings(response.data);
+        }
+    };
+
+	useEffect(()=>{
+        getThemeSettingsAPI();
+    },[]);
+
 
 
 
@@ -120,7 +135,7 @@ export default function Home({ params }: { params: { slug: any } }) {
 							<div className="chataffy-widget-headLeft">
 								<div className="chataffy-head-clientLogo"><Image src={`${basePath}/images/widget/client-logo.png`} width={40} height={40} alt="" /></div>
 								<div className="chataffy-head-infoArea">
-									<div className="chataffy-headName" style={{ "color": "#ffffff" }}>Chataffy</div>
+									<div className="chataffy-headName" style={{ "color": "#ffffff" }}>{themeSettings?.titleBar?themeSettings?.titleBar:"Chataffy"}</div>
 									<div className="chataffy-headStatus" style={{ "color": "#ffffff" }}><span className="chataffy-statusPoint"></span> Online</div>
 								</div>
 							</div>
@@ -134,7 +149,7 @@ export default function Home({ params }: { params: { slug: any } }) {
 							<div className="chataffy-widget-chatArea">
 								{conversation.map((item: any, key: any) => (
 									<div key={key}>
-										{(item.sender_type == 'system' || item.sender_type == 'bot') &&
+										{(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent') &&
 											<div className="chataffy-widget-messageArea" ref={chatBottomRef}>
 												<div className="chataffy-widget-messageImage">
 													<Image src={`${basePath}/images/widget/client-logo.png`} width={40} height={40} alt="" />
