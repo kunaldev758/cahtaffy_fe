@@ -10,6 +10,7 @@ import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 
 import InformationSources from './informationSources';
+import { format } from "date-fns"
 
 export default function Message(props: any) {
 
@@ -52,7 +53,7 @@ export default function Message(props: any) {
                   </button>
                   {isExpanded && <InformationSources trainingListIds={messageData.infoSources} />}
                 </span></>}
-                <span>11:44 AM</span>
+                <span>{format(messageData.createdAt, 'hh:mm:ss a')}</span>
               </div>
             </div>
           </div>
@@ -77,7 +78,7 @@ export default function Message(props: any) {
                     </button>
                     {isExpanded && <InformationSources trainingListIds={messageData.infoSources} />}
                   </span></>}
-                  <span>11:44 AM</span>
+                  <span>{format(messageData.createdAt, 'hh:mm:ss a')}</span>
                 </div>
               </div>
             </div>
@@ -98,7 +99,7 @@ export default function Message(props: any) {
 
             <div className="chat-messageInfo">
               <div className="d-flex gap-10">
-                <span>11:44 AM</span>
+                <span>{format(messageData.createdAt, 'hh:mm:ss a')}</span>
               </div>
             </div>
           </div>

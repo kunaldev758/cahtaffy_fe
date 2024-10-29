@@ -20,8 +20,10 @@ async function fetchData(endpoint, requestData = {}) {
   return data
 }
 
-async function getFetchData(endpoint) {
-  const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+async function getFetchData(endpoint,params=null) {
+  let response =null;
+  if(params){
+  response = await fetch(`${process.env.API_HOST}${endpoint}/${params}`, {
     method: 'GET',
     cache: 'no-cache',
     headers: {
@@ -29,6 +31,16 @@ async function getFetchData(endpoint) {
       Authorization: cookies().get('token').value
     },
   });
+}else{
+  response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+    method: 'GET',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: cookies().get('token').value
+    },
+  });
+}
   const data = await response.json();
   if(data.status_code==401){
     cookies().delete('token')
@@ -116,6 +128,14 @@ export async function getThemeSettings() {
 export async function updateThemeSettings(themeSettings) {
   return await FetchData('updateThemeSettings', { themeSettings });
 }
+
+export async function getAllNotesOfConversation(id) {
+  return await getFetchData('getAllNoteToConveration',  id );
+}
+export async function addNoteToConversation(basicInfo) {
+  return await fetchData('addNoteToConveration', { basicInfo });
+}
+
 
 export async function logoutApi() {
   cookies().delete('token')
