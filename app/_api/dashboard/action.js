@@ -136,6 +136,29 @@ export async function addNoteToConversation(basicInfo) {
   return await fetchData('addNoteToConveration', { basicInfo });
 }
 
+export async function getSearchConversationList(basicInfo) {
+  return await fetchData('getSearchConversationList', { basicInfo });
+}
+
+export async function getAllOldConversationOfVisitor(basicInfo) {
+  return await fetchData('getAllOldConversationOfVisitor', { basicInfo });
+}
+
+export async function getVisitorDetails(basicInfo) {
+  return await fetchData('getVisitorDetails', { basicInfo });
+}
+
+export async function getConversationTags(basicInfo) {
+  return await fetchData('getConversationTags', { basicInfo });
+}
+
+export async function removeTagFromConversation(basicInfo) {
+  return await fetchData('removeTagFromConversation', { basicInfo });
+}
+
+export async function addTagToConversation(basicInfo) {
+  return await fetchData('addTagToConversation', { basicInfo });
+}
 
 export async function logoutApi() {
   cookies().delete('token')
