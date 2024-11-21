@@ -13,7 +13,7 @@ import InformationSources from './informationSources';
 import { format } from "date-fns"
 
 export default function Message(props: any) {
-
+  console.log(props,"the props")
     const { messageData, messageIndex, expandedSources, setExpandedSources } = props;
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -63,7 +63,7 @@ export default function Message(props: any) {
             <div className="message-box ai-message">
               <div className="d-flex align-items-end justify-content-end gap-16">
                 <div className="chat-messageArea d-flex flex-column align-items-end">
-                  <div className="chat-messageBox" dangerouslySetInnerHTML={{ __html: messageData.message }} />
+                  <div className="chat-messageBox" style={messageData.is_note =='true' ? { backgroundColor: 'yellow' } : {}} dangerouslySetInnerHTML={{ __html: messageData.message }} />
                 </div>
                 <div className="chatMessage-logo">
                   <Image src={trainingIconImage} alt="" />

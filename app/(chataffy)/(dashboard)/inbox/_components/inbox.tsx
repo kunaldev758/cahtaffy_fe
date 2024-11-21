@@ -8,7 +8,7 @@ import chatNoteIconImage from "@/images/chat-note-icon.svg";
 import micIconImage from "@/images/mic-icon.svg";
 import { useEffect } from "react";
 import { io } from "socket.io-client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 import { logoutApi } from "@/app/_api/dashboard/action";
 import { useRouter } from "next/navigation";
@@ -16,13 +16,15 @@ import { useRouter } from "next/navigation";
 import {
   getConversationMessages,
   getAllNotesOfConversation,
-  addNoteToConversation,
   getSearchConversationList,
   getAllOldConversationOfVisitor,
   getVisitorDetails,
   getConversationTags,
   removeTagFromConversation,
   addTagToConversation,
+  getOldConversationMessages,
+  addConversationToArchive,
+  blockVisitor,
 } from "@/app/_api/dashboard/action";
 
 import Skeleton from "react-loading-skeleton";
@@ -67,12 +69,16 @@ export default function Inbox(Props: any) {
   const [openConversatinVistorName, setOpenConversatinVistorName] =
     useState<any>(null);
   const [conversationLength, setConversationLength] = useState<number>(0);
+  const [openConversatinId, setOpenConversatinId] =
+    useState<any>(null);
   const [isNoteActive, setIsNotActive] = useState<boolean>(false);
-  const [isChatActive, setIsChatActive] = useState<boolean>(true);
   const [notesList, setNotesList] = useState<any>([]);
-  const [oldConversationList, setOldConversationList] = useState<any>([]);
+  const [oldConversationList, setOldConversationList] = useState<any>({
+    data: [],
+    loading: true,
+  });
   const [visitorDetails, setVisitorDetails] = useState<any>();
-  const [status, setStatus] = useState("Open");
+  const [status, setStatus] = useState("open");
   const [inputSearchText, setInputSeachText] = useState("");
   const [searchConversationsList, setSearchConversationsList] = useState<any>({
     data: [],
@@ -81,36 +87,52 @@ export default function Inbox(Props: any) {
   const [addTag, setAddTag] = useState<boolean>(false);
   const [inputAddTag, setInputAddTag] = useState<any>("");
   const [tags, setTags] = useState<any>([]);
+  const [openConversationStatus, setOpenConversationStatus] = useState<any>('close')
+  // const [isToggled, setIsToggled] = useState(false);
+  const [isAIChat, setIsAIChat] = useState(true);
 
   const openConversation = async (_id: any, visitorName: string) => {
     try {
+      console.log(_id, "this is id ,", visitorName, "This is visitor name")
       setOpenConversatinVistorId(_id);
       setOpenConversatinVistorName(visitorName);
       getConversationMessages(_id).then((data: any) => {
         // Update the state with the result
+        console.log(data, "Conv Data")
         setConversationMessages({
-          data,
+          data: data.chatMessages,
           loading: false,
-          conversationId: _id,
+          conversationId: data.chatMessages[0].conversation_id,
           visitorName,
         });
-        setConversationLength(data.length);
+        setOpenConversationStatus(data.conversationOpenStatus);
+        setOpenConversatinId(data.chatMessages[0].conversation_id);
+        setConversationLength(data.chatMessages.length);
       });
     } catch (error) {
       console.error("Error fetching data:", error);
     }
   };
 
-  useEffect(() => {
-    async function fetchData() {
-      const data = await getSearchConversationList();
-      if (data) {
-        setSearchConversationsList(data);
-      }
+  const openOldConversation = async (conversationId: any, visitorName: string) => {
+    try {
+      getOldConversationMessages({ conversationId }).then((data: any) => {
+        // Update the state with the result
+        console.log(data, "old conv data")
+        setConversationMessages({
+          data: data.chatMessages,
+          loading: false,
+          conversationId: data.chatMessages[0].conversation_id,
+          visitorName,
+        });
+        setOpenConversationStatus(data.conversationOpenStatus);
+        setOpenConversatinId(data.chatMessages[0].conversation_id);
+        setConversationLength(data.chatMessages.length);
+      });
+    } catch (error) {
+      console.error("Error fetching data:", error);
     }
-
-    fetchData();
-  }, [searchConversationsList]);
+  };
 
   const getData = () => {
     socket.on("client-connect-response", function () {
@@ -146,9 +168,6 @@ export default function Inbox(Props: any) {
       router.replace("/login");
     });
 
-    // socket.on('conversation-append-message', (data: any) => {
-    // });
-
     socket.emit("client-connect");
   };
 
@@ -162,11 +181,29 @@ export default function Inbox(Props: any) {
       const id = Date.now();
       socket.emit("client-send-message", {
         message: inputMessage,
-        conversationId: openConversatinVistorId,
+        visitorId: openConversatinVistorId,
+        conversationId: openConversatinId,
       });
     }
+    console.log(conversationMessages.data, "conversationMessages.data")
+    setConversationMessages((prevState: any) => ({
+      ...prevState,
+      data: [
+        ...prevState.data,
+        {
+          infoSources: [],
+          is_note: "false",
+          message: inputMessage,
+          sender_type: "agent",
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }
+      ]
+    }));
     setInputMessage("");
   };
+
+  console.log(openConversatinVistorId, "openConversatinVistorId", openConversatinId, "openConversatinId")
 
   const handleAddNote = () => {
     console.log(inputMessage, "This is message      ", openConversatinVistorId);
@@ -174,42 +211,35 @@ export default function Inbox(Props: any) {
       const id = Date.now();
       socket.emit("client-send-add-note", {
         message: inputMessage,
-        conversationId: openConversatinVistorId,
+        visitorId: openConversatinVistorId,
+        conversationId: openConversatinId,
       });
     }
+    setNotesList((prev: any) => [...prev, { message: inputMessage, createdAt: Date.now() }])
+    setConversationMessages((prevState: any) => ({
+      ...prevState,
+      data: [
+        ...prevState.data,
+        {
+          infoSources: [],
+          is_note: "true",
+          message: inputMessage,
+          sender_type: "agent",
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }
+      ]
+    }));
     setInputMessage("");
   };
 
-  const handleIsNoteActive = (message: any) => {
-    if (isNoteActive) {
-      let data = { message, id: openConversatinVistorId };
-      addNoteToConversation(data);
-    }
-    setIsNotActive(!isNoteActive);
+  const handleIsNoteActive = () => {
+    setIsNotActive(true);
   };
 
-  useEffect(() => {
-    openConversation(openConversatinVistorId, openConversatinVistorName);
-  }, [conversationLength]);
-
-  const handleConversationChange = (id: any, name: any) => {
-    openConversation(id, name);
+  const handleConversationChange = (id: any) => {
+    openOldConversation(id, openConversatinVistorName);
   };
-
-  // useEffect(() => {
-  // 	socket = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-  // 		path: `${process.env.NEXT_PUBLIC_SOCKET_PATH || ""}/socket.io`,
-  // 		query: {
-  // 			// widgetId: widgetId,
-  // 			// widgetAuthToken: widgetToken,
-  // 			// visitorId: localStorage.getItem('openaiVisitorId'),
-  // 			embedType: 'openai'
-  // 		},
-  // 	})
-  // 	return () => {
-  // 		socket.disconnect()
-  // 	}
-  // }, [])
 
   useEffect(() => {
     socket.emit("visitor-connect");
@@ -218,26 +248,25 @@ export default function Inbox(Props: any) {
   useEffect(() => {
     console.log("inside use effect");
     const fetchData = async () => {
-      const data = await getAllNotesOfConversation(openConversatinVistorId);
+      const data = await getAllNotesOfConversation({ conversationId: openConversatinId });
       console.log("This is notes data:", data);
       setNotesList(data);
 
-      const convData = await getAllOldConversationOfVisitor(
-        openConversatinVistorId
-      );
+      const convData = await getAllOldConversationOfVisitor({ visitor_id: openConversatinVistorId });
       console.log("This is old conversation data:", convData);
-      setOldConversationList(convData);
+      setOldConversationList({ loading: false, data: convData });
 
-      const visitorData = await getVisitorDetails(openConversatinVistorId);
+      const visitorData = await getVisitorDetails({ visitorId: openConversatinVistorId });
       console.log("This is visitor data:", visitorData);
       setVisitorDetails(visitorData);
     };
 
     fetchData();
-  }, [openConversatinVistorId]);
+  }, [openConversatinVistorId, openConversatinId]);
 
   // Function to handle the change event
   const handleChange = (event: any) => {
+    console.log(event.target.value, "this is val")
     setStatus(event.target.value);
   };
 
@@ -248,28 +277,104 @@ export default function Inbox(Props: any) {
   const handleAddTagClick = async () => {
     try {
       setAddTag(false);
-      await addTagToConversation(id, inputAddTag);
-      const result = await getConversationTags();
-      setTags(result.data);
+      console.log(inputAddTag, "inputAddTag", openConversatinId, "openConversatinId");
+      await addTagToConversation({ name: inputAddTag, conversationId: openConversatinId });
+      const result = await getConversationTags({ conversationId: openConversatinId });
+      console.log(result, "tags")
+      setTags(result);
       setInputAddTag("");
     } catch (err) {
       throw err;
     }
   };
+  useEffect(() => {
+    async function fetchData() {
+      const result = await getConversationTags({ conversationId: openConversatinId });
+      console.log(result, "tags")
+      setTags(result);
+    }
+    fetchData();
+  }, [openConversatinId])
 
   const handleTagDelete = async (id: any) => {
     try {
-      await removeTagFromConversation(id, id);
-
+      console.log(id, "id to del")
       const newTag = tags.filter((tag: any) => {
-        tag.id != id;
+        console.log(tag, "tags val")
+        tag._id !== id;
       });
       setTags(newTag);
+      await removeTagFromConversation({ id });
     } catch (err) {
       throw err;
     }
   };
 
+  console.log(conversationMessages, "this is conv message")
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  // Scroll to the bottom whenever conversationMessages changes
+  useEffect(() => {
+    // Delay scrolling to ensure the DOM has updated
+    const scrollTimeout = setTimeout(() => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    }, 100); // Adjust delay if necessary
+
+    return () => clearTimeout(scrollTimeout); // Clean up timeout on unmount
+  }, [conversationMessages?.data]);
+
+  // Scroll to a specific message
+  const scrollToMessage = (index: any) => {
+    console.log(index, "msg index")
+    const messageIndex = conversationMessages.data.findIndex((msg: any) => msg._id === index);
+    if (messageIndex !== -1) {
+      const messageElement = messageRefs.current[messageIndex];
+      if (messageElement && containerRef.current) {
+        containerRef.current.scrollTop = messageElement.offsetTop - containerRef.current.offsetTop;
+      }
+    }
+  };
+
+  const handleConversationSearch = async () => {
+    const data = await getSearchConversationList({ query: inputSearchText });
+    setConversationsList({ data: data, loading: false })
+  }
+
+  const handleArchiveConversation = async (event: any) => {
+    event.target.style.backgroundColor = 'black';
+    event.target.style.color = 'white';
+    event.target.innerText = 'Archived';
+    await addConversationToArchive({ conversationId: openConversatinId })
+    router.push('inbox/archive')
+  }
+
+  const handleCloseConversation = async (event: any) => {
+    event.target.style.backgroundColor = 'black';
+    event.target.style.color = 'white';
+    event.target.innerText = 'Closed';
+    socket.emit('close-conversation', {
+      conversationId: openConversatinId,
+      status: 'close'
+    })
+    setOpenConversationStatus('close')
+    // await addConversationToArchive({conversationId:openConversatinId})
+  }
+
+  const handleBlockVisitor = async (event: any) => {
+    event.target.style.backgroundColor = 'black';
+    event.target.style.color = 'white';
+    event.target.innerText = 'Blocked';
+    // await blockVisitor({visitorId:openConversatinVistorId});
+  }
+
+  // Function to handle toggle
+  const handleToggle = () => {
+    setIsAIChat(!isAIChat);
+  };
   return (
     <>
       <div className="main-content-area">
@@ -279,8 +384,17 @@ export default function Inbox(Props: any) {
               <div className="inbox-heading d-flex justify-content-between align-item-center">
                 <div className="top-headbar-heading">Inbox</div>
                 <div className="chat-listSearch">
-                  <input type="text" placeholder="search"></input>
-                  <button type="button" className="plain-btn">
+                  {/* <input type="text" placeholder="search"></input> */}
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    className="form-control"
+                    value={inputSearchText}
+                    onChange={(event) => {
+                      setInputSeachText(event.target.value);
+                    }}
+                  />
+                  <button type="button" className="plain-btn" onClick={handleConversationSearch}>
                     <Image src={searchIconImage} alt="" />
                   </button>
                 </div>
@@ -301,8 +415,8 @@ export default function Inbox(Props: any) {
                       value={status}
                       onChange={handleChange}
                     >
-                      <option>Open</option>
-                      <option>Close</option>
+                      <option>open</option>
+                      <option>close</option>
                     </select>
                   </div>
                 </div>
@@ -330,19 +444,14 @@ export default function Inbox(Props: any) {
                     <>
                       {conversationsList.data
                         .filter(
-                          (conversation: any) => conversation.status === status
-                        )
-                        .filter(
-                          (conversation: any) =>
-                            conversation.isArchived === false
+                          (conversation: any) => conversation.conversation?.conversationOpenStatus === status
                         )
                         .map((item: any, index: any) => (
                           <div
-                            className={`chat-listBox gap-10 d-flex${
-                              conversationMessages.conversationId == item._id
-                                ? " active"
-                                : ""
-                            }`}
+                            className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
+                              ? " active"
+                              : ""
+                              }`}
                             key={index}
                             onClick={() =>
                               openConversation(item._id, item.name)
@@ -375,6 +484,77 @@ export default function Inbox(Props: any) {
                 <div className="top-headbar-heading">
                   {conversationMessages.visitorName}
                 </div>
+                {/* <button onClick={handleArchiveConversation}>Archive Conversation</button> */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: "20px",
+                    gap: "10px",
+                  }}
+                >
+                  <label
+                    style={{
+                      position: "relative",
+                      display: "inline-block",
+                      width: "60px",
+                      height: "34px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isAIChat}
+                      onChange={handleToggle}
+                      style={{
+                        opacity: 0,
+                        width: 0,
+                        height: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: "absolute",
+                        cursor: "pointer",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: isAIChat ? "#2196F3" : "#ccc",
+                        transition: "0.4s",
+                        borderRadius: "34px",
+                      }}
+                    ></span>
+                    <span
+                      style={{
+                        position: "absolute",
+                        content: '""',
+                        height: "26px",
+                        width: "26px",
+                        left: isAIChat ? "30px" : "4px",
+                        bottom: "4px",
+                        backgroundColor: "white",
+                        transition: "0.4s",
+                        borderRadius: "50%",
+                      }}
+                    ></span>
+                  </label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      fontSize: "16px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    <span style={{ color: isAIChat ? "#2196F3" : "#555" }}>AI Chat</span>
+                    <span style={{ color: !isAIChat ? "#2196F3" : "#555" }}>
+                      Agent Chat
+                    </span>
+                  </div>
+                </div>
+                <button onClick={handleCloseConversation}>Close Conversation Conversation</button>
+                <button onClick={handleBlockVisitor}>Block Visitor</button>
                 <div className="chat-tagArea d-flex gap-16">
                   <div className="chat-taglist">
                     {tags.map((tag: any) => (
@@ -384,7 +564,7 @@ export default function Inbox(Props: any) {
                           <Image
                             src={closeSmallImage}
                             alt=""
-                            onClick={() => handleTagDelete(tag.id)}
+                            onClick={() => handleTagDelete(tag._id)}
                           />
                         </button>
                       </span>
@@ -401,21 +581,25 @@ export default function Inbox(Props: any) {
                     >
                       Add Tag
                     </a>
-                    {addTag && (
-                      <div>
-                        <input
-                          type="text"
-                          placeholder="Add Tag Name"
-                          value={inputAddTag}
-                          onChange={(event) => {
-                            setInputAddTag(event.target.value);
-                          }}
-                        ></input>
-                        <button onClick={handleAddTagClick}>Add</button>
-                      </div>
-                    )}
 
-                    <ul className="dropdown-menu">
+                    <div>
+                      {addTag && (
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Add Tag Name"
+                            value={inputAddTag}
+                            onChange={(event) => {
+                              setInputAddTag(event.target.value);
+                            }}
+                          ></input>
+                          <button onClick={handleAddTagClick}>Add</button>
+                        </div>
+                      )}
+                    </div>
+
+
+                    {/* <ul className="dropdown-menu">
                       <li>
                         <div className="input-box input-iconBox">
                           <span className="input-icon">
@@ -432,13 +616,19 @@ export default function Inbox(Props: any) {
                           />
                         </div>
                       </li>
-                    </ul>
+                    </ul> */}
                   </div>
                 </div>
               </div>
 
               <div className="message-section">
-                <div className="message-chatArea custom-scrollbar">
+                <div className="message-chatArea custom-scrollbar"
+                  ref={containerRef}
+                  style={{
+                    overflowY: "auto", // Enable vertical scrolling
+                    overflowX: "hidden",
+                  }}
+                >
                   {conversationMessages.loading ? (
                     <>
                       {[...Array(10)].map((_, index) => (
@@ -449,38 +639,28 @@ export default function Inbox(Props: any) {
                     </>
                   ) : (
                     <>
-                      {/* <p><strong>Conversation: {conversationMessages.conversationId}</strong></p> */}
-                      {conversationMessages.data.map(
+
+                      {conversationMessages?.data?.map(
                         (item: any, index: any) => (
-                          <Message
+                          <div
                             key={index}
-                            messageData={item}
-                            messageIndex={index}
-                            expandedSources={expandedSources}
-                            setExpandedSources={setExpandedSources}
-                          />
+                            ref={(el) => {
+                              messageRefs.current[index] = el; // Assign ref to each message
+                            }}
+                          >
+                            <Message
+                              key={index}
+                              messageData={item}
+                              messageIndex={index}
+                              expandedSources={expandedSources}
+                              setExpandedSources={setExpandedSources}
+                            />
+                          </div>
                         )
                       )}
+
                     </>
                   )}
-                  {/* <div className="message-box ai-message noteBox">
-                <div className="d-flex align-items-end justify-content-end gap-16">
-                  <div className="chat-messageArea d-flex flex-column align-items-end">
-                    <div className="chat-messageBox"><span>@riyaz</span> Lorem ipsum us dummy text</div>
-                  </div>
-
-                  <div className="chatMessage-logo">
-                    <Image src={trainingIconImage} alt="" />
-                  </div>
-                </div>
-
-                <div className="chat-messageInfo">
-                  <div className="d-flex gap-10">
-                    <span><Image src={chatSourceIconImage} alt="" /></span>
-                    <span>11:44 AM</span>
-                  </div>
-                </div>
-              </div> */}
                 </div>
 
                 <div className="messgae-answerArea">
@@ -490,7 +670,7 @@ export default function Inbox(Props: any) {
                       id="myTab"
                       role="tablist"
                     >
-                      <li className="nav-item" role="presentation">
+                      {openConversationStatus == 'open' && <li className="nav-item" role="presentation">
                         <button
                           className="nav-link active"
                           id="chat-tab"
@@ -500,11 +680,11 @@ export default function Inbox(Props: any) {
                           role="tab"
                           aria-controls="chat-tab-pane"
                           aria-selected="true"
-                          onClick={handleIsNoteActive}
+                          onClick={() => { setIsNotActive(false) }}
                         >
                           <Image src={chatMessageIconImage} alt="" /> Chat
                         </button>
-                      </li>
+                      </li>}
                       <li className="nav-item" role="presentation">
                         <button
                           className="nav-link"
@@ -523,14 +703,7 @@ export default function Inbox(Props: any) {
                     </ul>
                     <div className="tab-content" id="myTabContent">
                       {isNoteActive ? (
-                        <div
-                          className="tab-pane note-tab fade"
-                          id="note-tab-pane"
-                          role="tabpanel"
-                          aria-labelledby="note-tab"
-                          tabIndex={1}
-                        >
-                          {/* <textarea className="form-control" placeholder="Enter Note Here..."></textarea> */}
+                        <>
                           <input
                             type="text"
                             placeholder="Enter Note Here..."
@@ -552,7 +725,7 @@ export default function Inbox(Props: any) {
                           >
                             <Image src={sendIconImage} alt="" />
                           </button>
-                        </div>
+                        </>
                       ) : (
                         <div
                           className="tab-pane fade show active"
@@ -561,14 +734,7 @@ export default function Inbox(Props: any) {
                           aria-labelledby="chat-tab"
                           tabIndex={0}
                         >
-                          {/* <textarea className="form-control" placeholder="Enter text here...."></textarea>
-                    <div className="chat-messageBtns">
-                      <div className="d-flex gap-16">
-                        <button type="button" className="custom-btn default-btn"><Image src={micIconImage} alt="" /></button>
-                        <button type="button" className="custom-btn"><Image src={sendIconImage} alt="" /></button>
-                      </div>
-                    </div> */}
-                          {/* <input type="text" placeholder="Type a message..." className="form-control" value={inputMessage}
+                          <textarea className="form-control" placeholder="Enter text here...." value={inputMessage}
                             onChange={(event) => {
                               setInputMessage(event.target.value)
                             }}
@@ -577,34 +743,11 @@ export default function Inbox(Props: any) {
                                 handleMessageSend()
 
                               }
-                            }} /> */}
-                          <input
-                            type="text"
-                            placeholder="Enter Note Here..."
-                            className="form-control"
-                            value={inputMessage}
-                            onChange={(event) => {
-                              setInputMessage(event.target.value);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                handleAddNote();
-                              }
-                            }}
-                          />
+                            }}></textarea>
                           <div className="chat-messageBtns">
                             <div className="d-flex gap-16">
-                              {/* <button type="button" className="custom-btn default-btn" onClick={handleMessageSend}><Image src={sendIconImage} alt="" /></button> */}
-                              <button
-                                type="button"
-                                className="custom-btn"
-                                onClick={handleAddNote}
-                              >
-                                <Image src={sendIconImage} alt="" />
-                              </button>
-                              <button type="button" className="custom-btn">
-                                <Image src={sendIconImage} alt="" />
-                              </button>
+                              <button type="button" className="custom-btn default-btn"><Image src={micIconImage} alt="" /></button>
+                              <button type="button" className="custom-btn"><Image src={sendIconImage} alt="" /></button>
                             </div>
                           </div>
                         </div>
@@ -626,14 +769,14 @@ export default function Inbox(Props: any) {
                     <li>
                       <div className="d-flex">
                         <div className="chat-detailsTitle">Name:-</div>
-                        <div className="">{visitorDetails.name ?? "name"}</div>
+                        <div className="">{visitorDetails?.name ?? "name"}</div>
                       </div>
                     </li>
 
                     <li>
                       <div className="d-flex">
                         <div className="chat-detailsTitle">Email:-</div>
-                        <div className="">{visitorDetails.name ?? "email"}</div>
+                        <div className="">{visitorDetails?.email ?? "email"}</div>
                       </div>
                     </li>
 
@@ -641,7 +784,7 @@ export default function Inbox(Props: any) {
                       <div className="d-flex">
                         <div className="chat-detailsTitle">Phone:-</div>
                         <div className="">
-                          {visitorDetails.phone ?? "phone"}
+                          {visitorDetails?.phone ?? "phone"}
                         </div>
                       </div>
                     </li>
@@ -650,7 +793,7 @@ export default function Inbox(Props: any) {
                       <div className="d-flex">
                         <div className="chat-detailsTitle">Location:-</div>
                         <div className="">
-                          {visitorDetails.location ?? "Location"}
+                          {visitorDetails?.location ?? "Location"}
                         </div>
                       </div>
                     </li>
@@ -661,8 +804,9 @@ export default function Inbox(Props: any) {
                   <div className="note-heading">Notes</div>
                   {notesList.length ? (
                     <div className="note-listArea custom-scrollbar">
-                      {notesList.map((note: any) => (
+                      {notesList.map((note: any, index: any) => (
                         <div className="note-listBox">
+                          <button key={index} onClick={() => scrollToMessage(note._id)}></button>
                           <h6>@riyaz</h6>
                           <div className="note-listDescribe-area d-flex justify-content-between">
                             <p>{note.message}</p>
@@ -678,21 +822,21 @@ export default function Inbox(Props: any) {
 
                 <div className="note-area">
                   <div className="note-heading">Old Converstion</div>
-                  {oldConversationList.length ? (
+                  {oldConversationList.data.length ? (
                     <div className="note-listArea custom-scrollbar">
-                      {oldConversationList.map((list: any) => (
+                      {oldConversationList.data.map((list: any) => (
                         <div
                           className="note-listBox"
                           onClick={() =>
-                            handleConversationChange(list.id, list.name)
+                            handleConversationChange(list.conversation_id)
                           }
                         >
-                          <h6>@{list.name}</h6>
+                          <h6>@{openConversatinVistorName}</h6>
                           <div className="note-listDescribe-area d-flex justify-content-between">
                             <p>
-                              Hi there, there so man Lorem ipsum id dummy text
+                              {list.message}
                             </p>
-                            <span>1d ago</span>
+                            <span>{list.createdAt} ago</span>
                           </div>
                         </div>
                       ))}

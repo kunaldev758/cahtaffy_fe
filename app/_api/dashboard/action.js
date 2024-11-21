@@ -13,6 +13,7 @@ async function fetchData(endpoint, requestData = {}) {
     body: JSON.stringify(requestData)
   });
   const data = await response.json();
+  console.log(response,"status code")
   if(data.status_code==401){
     cookies().delete('token')
     return 'error'
@@ -110,8 +111,29 @@ export async function getTensorflowTrainingListDetail(id) {
 export async function getConversationMessages(id) {
   return await fetchData('getConversationMessages', { id });
 }
+
+export async function getOldConversationMessages(id) {
+  return await fetchData('getOldConversationMessages', { id });
+}
+
 export async function getMessageSources(trainingListIds) {
   return await fetchData('getMessageSources', { trainingListIds });
+}
+
+export async function addConversationToArchive(basicInfo) {
+  return await fetchData('addConversationToArchive', { basicInfo });
+}
+
+export async function getTrainingStatus(basicInfo) {
+  return await fetchData('getTrainingStatus', { basicInfo });
+}
+
+export async function blockVisitor(basicInfo) {
+  return await fetchData('blockVisitor', { basicInfo });
+}
+
+export async function saveVisitorDetails(basicInfo) {
+  return await fetchData('saveVisitorDetails', { basicInfo });
 }
 
 export async function getBasicInfoApi(basicInfo) {
@@ -121,19 +143,20 @@ export async function setBasicInfoApi(basicInfo) {
   return await fetchData('setBasicInfo', { basicInfo });
 }
 
-export async function getThemeSettings() {
-  return await getFetchData('getThemeSettings');
+export async function getThemeSettings(id) {
+  return await getFetchData('getThemeSettings',{id});
+}
+
+export async function getIsVisitorExists(id) {
+  return await getFetchData('getIsVisitorExists',{id});
 }
 
 export async function updateThemeSettings(themeSettings) {
-  return await FetchData('updateThemeSettings', { themeSettings });
+  return await fetchData('updateThemeSettings', { themeSettings });
 }
 
-export async function getAllNotesOfConversation(id) {
-  return await getFetchData('getAllNoteToConveration',  id );
-}
-export async function addNoteToConversation(basicInfo) {
-  return await fetchData('addNoteToConveration', { basicInfo });
+export async function getAllNotesOfConversation(basicInfo) {
+  return await fetchData('getAllNoteToConveration',  {basicInfo} );
 }
 
 export async function getSearchConversationList(basicInfo) {

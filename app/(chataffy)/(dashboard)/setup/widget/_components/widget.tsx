@@ -17,6 +17,9 @@ import clientLogoImage from '@/images/client-logo.png'
 import closeBtnImage from '@/images/close-btn.svg'
 import sendIconWidgetImage from '@/images/send-icon-widget.svg'
 import Image from 'next/image';
+import { updateThemeSettings ,getThemeSettings } from '@/app/_api/dashboard/action';
+
+
 
 const initialState = {
   logo: null,
@@ -53,11 +56,14 @@ const actionTypes = {
   AI_BUBBLE_TEXT_COLOR: 'AI_BUBBLE_TEXT_COLOR',
   SHOW_LOGO: "SHOW_LOGO",
   SHOW_WHITE_LABEL: "SHOW_WHITE_LABEL",
+  SET_THEME_DATA: 'SET_THEME_DATA',
 
 };
 
 const reducer = (state, action) => {
   switch (action.type) {
+    case actionTypes.SET_THEME_DATA:
+      return { ...state, ...action.payload };
     case "SET_LOGO":
       return { ...state, logo: action.payload };
     case "SET_TITLE_BAR":
@@ -138,9 +144,11 @@ const reducer = (state, action) => {
 
 
 export default function Widget() {
+  const [userId,setUserId] = useState<any>('6715dead44d18689b3f2acf8');
   const [state, dispatch] = useReducer(reducer, initialState);
   const [selectedLogo,setSelectedLogo] = useState(clientLogoImage)
   const [error, setError] = useState<string | null>(null); // For validation errors
+  const [themeData,setThemeData] = useState(null);
 
   const handleLogoChange = (e: any) => {
     const file = e.target.files?.[0];
@@ -212,6 +220,38 @@ export default function Widget() {
       type: actionTypes.SHOW_WHITE_LABEL,
     })
   }
+
+
+  const handelWidgetSettings = async () => {
+    const themeSettings = {
+      logo: state.logo,
+      titleBar: state.titleBar,
+      welcomeMessage: state.welcomeMessage,
+      showLogo: state.showLogo,
+      isPreChatFormEnabled: state.isPreChatFormEnabled,
+      fields: state.fields,
+      colorFields: state.colorFields,
+    };
+  
+    try {
+      await updateThemeSettings({themeSettings,userId});
+      // You could add more code here to handle a successful update if needed
+    } catch (error) {
+      setError("Failed to update theme settings.");
+    }
+  };
+
+  useEffect(()=>{
+    async function fetchData(){
+     const data =  await getThemeSettings({userId});
+     console.log(data,"theme data")
+     if (data) {
+      dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
+    }
+     setThemeData(data);
+    }
+    fetchData()
+  },[])
 
 
   return (
@@ -428,6 +468,10 @@ export default function Widget() {
                   </Accordion.Body>
                 </Accordion.Item>
               </Accordion>
+            </div>
+
+            <div>
+              <button onClick={handelWidgetSettings}>save</button>
             </div>
 
 
