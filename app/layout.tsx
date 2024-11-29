@@ -1,4 +1,4 @@
-
+import { SocketProvider } from "./socketContext"
 
 export default function RootLayout({
   children,
@@ -6,10 +6,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
 
-  
+
+
   return (
     <html lang="en" >
-      <body>{children}</body>
+      <body>
+      <SocketProvider>{children}</SocketProvider>
+      </body>
     </html>
   )
 }

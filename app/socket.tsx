@@ -1,11 +1,37 @@
-"use client";
+import { io, Socket } from "socket.io-client";
 
-import { io } from "socket.io-client";
+interface SocketOptions {
+  token?: string;
+  visitorId?:string,
+  widgetAuthToken?:string,
+  widgetId?:string,
+  embedType?: string;
+}
 
-export const socket = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST}`, {
-    path: `${process.env.NEXT_PUBLIC_SOCKET_PATH}/socket.io`,
-    // query: {
-    //   token: Props.token,
-    //   embedType: 'openai'
-    // },
-});
+const initializeSocket = (options: SocketOptions): Socket => {
+  const socket = io(process.env.NEXT_PUBLIC_SOCKET_HOST as string, {
+    query: options,
+    transports: ["websocket", "polling"], // Ensure compatibility
+    forceNew: true, // Prevent connection reuse
+  });
+  socket.on("connect_error", (err) => {
+    console.error("Connection error:", err);
+  });
+  
+  socket.on("connect_timeout", () => {
+    console.error("Connection timeout.");
+  });
+  
+
+  socket.on("connect", () => {
+    console.log("Socket connected:", socket.id);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Socket disconnected.");
+  });
+
+  return socket;
+};
+
+export default initializeSocket;

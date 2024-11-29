@@ -6,12 +6,14 @@ import sendIconImage from "@/images/send-icon.svg";
 import chatMessageIconImage from "@/images/chat-message-icon.svg";
 import chatNoteIconImage from "@/images/chat-note-icon.svg";
 import micIconImage from "@/images/mic-icon.svg";
-import { useEffect } from "react";
-import { io } from "socket.io-client";
-import { useState, useRef } from "react";
+// import {  } from "react";
+// import { io } from "socket.io-client";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 import { logoutApi } from "@/app/_api/dashboard/action";
 import { useRouter } from "next/navigation";
+
+import { useSocket } from "@/app/socketContext";
 
 import {
   getConversationMessages,
@@ -27,32 +29,22 @@ import {
   blockVisitor,
 } from "@/app/_api/dashboard/action";
 
+// import { useEffect, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import Message from "./message";
-
-let socket: any;
+// import { useSocket } from "@/app/socketContext";
+// import { useRouter } from "next/router";
 
 export default function Inbox(Props: any) {
+  console.log(Props, "my props")
   const router = useRouter();
+  const { socket } = useSocket();
 
   const [expandedSources, setExpandedSources] = useState<null | number>(null);
 
-  useEffect(() => {
-    socket = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-      path: `${process.env.NEXT_PUBLIC_SOCKET_PATH || ""}/socket.io`,
-      query: {
-        token: Props.token,
-        embedType: "openai",
-      },
-    });
-    return () => {
-      socket.disconnect();
-    };
-  }, [Props.token]);
-
   const [credit, setCredit] = useState({ used: 0, total: 0 });
-  const [isConverstionAvailable, setIsConverstionAvailable] = useState(true);
+  const [isConversationAvailable, setIsConversationAvailable] = useState(true);
   const [conversationsList, setConversationsList] = useState<any>({
     data: [],
     loading: true,
@@ -64,14 +56,11 @@ export default function Inbox(Props: any) {
     visitorName: "",
   });
   const [inputMessage, setInputMessage] = useState("");
-  const [openConversatinVistorId, setOpenConversatinVistorId] =
-    useState<any>(null);
-  const [openConversatinVistorName, setOpenConversatinVistorName] =
-    useState<any>(null);
+  const [openVisitorId, setOpenVisitorId] = useState<any>(null);
+  const [openVisitorName, setOpenVisitorName] = useState<any>(null);
   const [conversationLength, setConversationLength] = useState<number>(0);
-  const [openConversatinId, setOpenConversatinId] =
-    useState<any>(null);
-  const [isNoteActive, setIsNotActive] = useState<boolean>(false);
+  const [openConversationId, setOpenConversationId] = useState<any>(null);
+  const [isNoteActive, setIsNoteActive] = useState<boolean>(false);
   const [notesList, setNotesList] = useState<any>([]);
   const [oldConversationList, setOldConversationList] = useState<any>({
     data: [],
@@ -79,190 +68,346 @@ export default function Inbox(Props: any) {
   });
   const [visitorDetails, setVisitorDetails] = useState<any>();
   const [status, setStatus] = useState("open");
-  const [inputSearchText, setInputSeachText] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [searchValue, setSearchValue] = useState("");
   const [searchConversationsList, setSearchConversationsList] = useState<any>({
     data: [],
     loading: true,
   });
   const [addTag, setAddTag] = useState<boolean>(false);
-  const [inputAddTag, setInputAddTag] = useState<any>("");
+  const [inputAddTag, setInputAddTag] = useState<string>("");
   const [tags, setTags] = useState<any>([]);
-  const [openConversationStatus, setOpenConversationStatus] = useState<any>('close')
-  // const [isToggled, setIsToggled] = useState(false);
+  const [openConversationStatus, setOpenConversationStatus] = useState<any>("close");
   const [isAIChat, setIsAIChat] = useState(true);
 
-  const openConversation = async (_id: any, visitorName: string) => {
+  // Open conversation and fetch messages
+  const openConversation = async (visitorId: any, visitorName: string) => {
     try {
-      console.log(_id, "this is id ,", visitorName, "This is visitor name")
-      setOpenConversatinVistorId(_id);
-      setOpenConversatinVistorName(visitorName);
-      getConversationMessages(_id).then((data: any) => {
-        // Update the state with the result
-        console.log(data, "Conv Data")
+      setOpenVisitorId(visitorId);
+      setOpenVisitorName(visitorName);
+
+      const data = await getConversationMessages(visitorId);
+      console.log(data, "conv data")
+      if (data) {
         setConversationMessages({
           data: data.chatMessages,
           loading: false,
-          conversationId: data.chatMessages[0].conversation_id,
+          conversationId: data.chatMessages[0]?.conversation_id,
           visitorName,
         });
         setOpenConversationStatus(data.conversationOpenStatus);
-        setOpenConversatinId(data.chatMessages[0].conversation_id);
+        setOpenConversationId(data.chatMessages[0]?.conversation_id);
         setConversationLength(data.chatMessages.length);
-      });
+      }
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching conversation messages:", error);
     }
   };
 
+  // Open old conversation
   const openOldConversation = async (conversationId: any, visitorName: string) => {
     try {
-      getOldConversationMessages({ conversationId }).then((data: any) => {
-        // Update the state with the result
-        console.log(data, "old conv data")
+      const data = await getOldConversationMessages({ conversationId });
+      if (data) {
         setConversationMessages({
           data: data.chatMessages,
           loading: false,
-          conversationId: data.chatMessages[0].conversation_id,
+          conversationId: data.chatMessages[0]?.conversation_id,
           visitorName,
         });
         setOpenConversationStatus(data.conversationOpenStatus);
-        setOpenConversatinId(data.chatMessages[0].conversation_id);
+        setOpenConversationId(data.chatMessages[0]?.conversation_id);
         setConversationLength(data.chatMessages.length);
-      });
+      }
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching old conversation messages:", error);
     }
   };
 
-  const getData = () => {
-    socket.on("client-connect-response", function () {
-      socket.emit("get-credit-count");
-      socket.emit("get-conversations-list");
-    });
+  // Handle message send
+  const handleMessageSend = () => {
+    if (!inputMessage.trim() || !socket) return;
 
-    socket.on("get-credit-count-response", function ({ data }: any) {
-      setCredit({ used: data.used, total: data.total });
-    });
-
-    console.log(credit, "Credit from socket");
-    socket.on("get-conversations-list-response", function ({ data }: any) {
-      console.log(data, "conversations list");
-      setConversationsList({ data: data, loading: false });
-      if (data.length) {
-        openConversation(data[0]._id, data[0].name);
-      } else {
-        setIsConverstionAvailable(false);
+    const messageData = { message: inputMessage, visitorId: openVisitorId };
+    socket.emit("client-send-message", messageData, (response: any) => {
+      if (response?.chatMessage) {
+        setConversationMessages((prev: any) => ({
+          ...prev,
+          data: [...prev.data, response.chatMessage],
+        }));
+        setInputMessage("");
       }
     });
-
-    socket.on("conversations-list-update", function ({ data }: any) {
-      setConversationsList((conversationsList: any) => {
-        const newData = [data, ...conversationsList.data];
-        return { data: newData, loading: false };
-      });
-      setIsConverstionAvailable(true);
-    });
-
-    socket.on("error-handler", async function (data: any) {
-      await logoutApi();
-      router.replace("/login");
-    });
-
-    socket.emit("client-connect");
   };
 
-  useEffect(() => {
-    getData();
-  }, []);
-
-  const handleMessageSend = () => {
-    console.log(inputMessage, "This is message      ", openConversatinVistorId);
-    if (inputMessage.trim() != "") {
-      const id = Date.now();
-      socket.emit("client-send-message", {
-        message: inputMessage,
-        visitorId: openConversatinVistorId,
-        conversationId: openConversatinId,
-      });
-    }
-    console.log(conversationMessages.data, "conversationMessages.data")
-    setConversationMessages((prevState: any) => ({
-      ...prevState,
-      data: [
-        ...prevState.data,
-        {
-          infoSources: [],
-          is_note: "false",
-          message: inputMessage,
-          sender_type: "agent",
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        }
-      ]
-    }));
-    setInputMessage("");
-  };
-
-  console.log(openConversatinVistorId, "openConversatinVistorId", openConversatinId, "openConversatinId")
-
+  // Handle adding a note
   const handleAddNote = () => {
-    console.log(inputMessage, "This is message      ", openConversatinVistorId);
-    if (inputMessage.trim() != "") {
-      const id = Date.now();
-      socket.emit("client-send-add-note", {
-        message: inputMessage,
-        visitorId: openConversatinVistorId,
-        conversationId: openConversatinId,
-      });
-    }
-    setNotesList((prev: any) => [...prev, { message: inputMessage, createdAt: Date.now() }])
+    if (!inputMessage.trim() || !socket) return;
+
+    const noteData = {
+      message: inputMessage,
+      visitorId: openVisitorId,
+      conversationId: openConversationId,
+    };
+    socket.emit("client-send-add-note", noteData);
+
+    setNotesList((prev: any) => [
+      ...prev,
+      { message: inputMessage, createdAt: Date.now() },
+    ]);
+
     setConversationMessages((prevState: any) => ({
       ...prevState,
       data: [
         ...prevState.data,
         {
           infoSources: [],
-          is_note: "true",
+          is_note: true,
           message: inputMessage,
           sender_type: "agent",
           createdAt: Date.now(),
-          updatedAt: Date.now()
-        }
-      ]
+        },
+      ],
     }));
     setInputMessage("");
   };
 
-  const handleIsNoteActive = () => {
-    setIsNotActive(true);
-  };
-
-  const handleConversationChange = (id: any) => {
-    openOldConversation(id, openConversatinVistorName);
-  };
-
+  // Socket event listeners
   useEffect(() => {
-    socket.emit("visitor-connect");
-  }, []);
+    if (!socket) return;
 
-  useEffect(() => {
-    console.log("inside use effect");
-    const fetchData = async () => {
-      const data = await getAllNotesOfConversation({ conversationId: openConversatinId });
-      console.log("This is notes data:", data);
-      setNotesList(data);
+    // Emit "get-conversations-list" event to fetch conversations
+    const userId = localStorage.getItem("userId");
+    socket.emit("get-conversations-list", { userId });
 
-      const convData = await getAllOldConversationOfVisitor({ visitor_id: openConversatinVistorId });
-      console.log("This is old conversation data:", convData);
-      setOldConversationList({ loading: false, data: convData });
-
-      const visitorData = await getVisitorDetails({ visitorId: openConversatinVistorId });
-      console.log("This is visitor data:", visitorData);
-      setVisitorDetails(visitorData);
+    const handleConversationsListResponse = (data: any) => {
+      console.log("conv list", data.conversations)
+      setConversationsList({ data: data.conversations, loading: false });
+      openConversation(data.conversations[0]._id, data.conversations[0].name)
     };
 
-    fetchData();
-  }, [openConversatinVistorId, openConversatinId]);
+    const handleAppendMessage = (data: any) => {
+      console.log(data, "socket conv data")
+      setConversationMessages((prev: any) => ({
+        ...prev,
+        data: [...prev.data, data.chatMessage],
+      }));
+    };
+
+
+    socket.on("get-conversations-list-response", handleConversationsListResponse);
+    socket.on("conversation-append-message", handleAppendMessage);
+
+    return () => {
+      socket.off("get-conversations-list-response", handleConversationsListResponse);
+      socket.off("conversation-append-message", handleAppendMessage);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+    if (openConversationId) {
+      console.log(openConversationId, "notes openConversationId")
+      socket.emit("get-all-note-messages", { conversationId: openConversationId }, (response: any) => {
+        if (response.success) {
+          console.log("conv notes", response)
+          setNotesList(response.notes);
+        } else {
+          console.error("Error fetching notes:", response.error);
+        }
+      })
+    }
+    if (openVisitorId) {
+      socket.emit("get-visitor-old-conversations", { visitorId: openVisitorId }, (response: any) => {
+        if (response.success) {
+          console.log("old Conversations", response)
+          setOldConversationList({
+            data: response.conversations,
+            loading: false,
+          });
+        } else {
+          console.error("Error fetching notes:", response.error);
+        }
+      })
+    }
+  }, [socket, openConversationId, openVisitorId])
+
+
+  const handleAddTagClick = async () => {
+    try {
+      setAddTag(false);
+      console.log(inputAddTag, "inputAddTag", openConversationId, "openConversatinId");
+
+      // Emit event to add a tag to the conversation
+      socket?.emit(
+        "add-conversation-tag",
+        { name: inputAddTag, conversationId: openConversationId },
+        (response: any) => {
+          if (response.success) {
+            console.log("Tag added successfully:", response.tags);
+            setTags(response.tags); // Update tags with the response
+            setInputAddTag("");
+          } else {
+            console.error("Failed to add tag:", response.error);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error adding tag:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!socket || !openConversationId) return;
+
+    // Fetch tags when the conversation changes
+    socket.emit(
+      "get-conversation-tags",
+      { conversationId: openConversationId },
+      (response: any) => {
+        if (response.success) {
+          console.log("Fetched tags:", response.tags);
+          setTags(response.tags);
+        } else {
+          console.error("Failed to fetch tags:", response.error);
+        }
+      }
+    );
+  }, [socket, openConversationId]);
+
+  const handleTagDelete = async (id: any) => {
+    try {
+      console.log(id, "id to delete");
+
+      // Emit event to delete a tag from the conversation
+      socket?.emit(
+        "remove-conversation-tag",
+        { id, conversationId: openConversationId },
+        (response: any) => {
+          if (response.success) {
+            console.log("Tag deleted successfully:", response.tags);
+            setTags(response.tags); // Update tags with the response
+          } else {
+            console.error("Failed to delete tag:", response.error);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error deleting tag:", err);
+    }
+  };
+
+  const handleCloseConversation = async (event: any) => {
+    try {
+      // Emit event to close the conversation
+      socket?.emit(
+        "close-conversation",
+        { conversationId: openConversationId, status: "close" },
+        (response: any) => {
+          if (response.success) {
+            console.log("Conversation closed successfully.");
+            setOpenConversationStatus("close");
+
+            // Update UI
+            event.target.style.backgroundColor = "black";
+            event.target.style.color = "white";
+            event.target.innerText = "Closed";
+          } else {
+            console.error("Failed to close conversation:", response.error);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error closing conversation:", err);
+    }
+  };
+
+  const handleBlockVisitor = async (event: any) => {
+    try {
+      // Emit event to block a visitor
+      socket?.emit(
+        "block-visitor",
+        { visitorId: openVisitorId },
+        (response: any) => {
+          if (response.success) {
+            console.log("Visitor blocked successfully.");
+            // Update UI
+            event.target.style.backgroundColor = "black";
+            event.target.style.color = "white";
+            event.target.innerText = "Blocked";
+          } else {
+            console.error("Failed to block visitor:", response.error);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error blocking visitor:", err);
+    }
+  };
+
+
+  const handleSearchConversations = (searchText: string) => {
+    try {
+      setSearchConversationsList({ data: [], loading: true });
+      console.log(searchText, "Search Query");
+
+      // Emit a search event to the server
+      socket?.emit(
+        "search-conversations",
+        { query: searchText },
+        (response: any) => {
+          if (response.success) {
+            console.log("Search Results:", response.data);
+            setConversationsList({ data: response.data, loading: false });
+          } else {
+            console.error("Search Error:", response.error);
+            setSearchConversationsList({ data: [], loading: false });
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error in search:", err);
+      setSearchConversationsList({ data: [], loading: false });
+    }
+  };
+
+  const debounce = (func: Function, delay: number) => {
+    let timeout: NodeJS.Timeout;
+    return (...args: any[]) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  // Use this function to update search results when the input changes
+  // const handleSearchInputChange = useCallback(
+  //   debounce((e: React.ChangeEvent<HTMLInputElement>) => {
+  //     const searchValue = e.target.value;
+  //     setSearchText(searchValue);
+  //     console.log(searchValue, "this is searchValue")
+  //     if (searchValue.trim().length > 0) {
+  //       handleSearchConversations(searchValue);
+  //     } else {
+  //       setSearchConversationsList({ data: [], loading: false });
+  //     }
+  //   }, 300),
+  //   [setSearchText]
+  // );
+
+  const handleSearchInputChange = (e: any) => {
+    const searchValue = e.target.value;
+    setSearchText(searchValue);
+    console.log(searchValue, "this is searchValue");
+  };
+
+  const handleSearchInputClick = () => {
+    // console.log()
+    if (searchText.trim().length > 0) {
+      handleSearchConversations(searchText);
+    } else {
+      setSearchConversationsList({ data: [], loading: false });
+    }
+  }
 
   // Function to handle the change event
   const handleChange = (event: any) => {
@@ -274,41 +419,6 @@ export default function Inbox(Props: any) {
     setAddTag(true);
   };
 
-  const handleAddTagClick = async () => {
-    try {
-      setAddTag(false);
-      console.log(inputAddTag, "inputAddTag", openConversatinId, "openConversatinId");
-      await addTagToConversation({ name: inputAddTag, conversationId: openConversatinId });
-      const result = await getConversationTags({ conversationId: openConversatinId });
-      console.log(result, "tags")
-      setTags(result);
-      setInputAddTag("");
-    } catch (err) {
-      throw err;
-    }
-  };
-  useEffect(() => {
-    async function fetchData() {
-      const result = await getConversationTags({ conversationId: openConversatinId });
-      console.log(result, "tags")
-      setTags(result);
-    }
-    fetchData();
-  }, [openConversatinId])
-
-  const handleTagDelete = async (id: any) => {
-    try {
-      console.log(id, "id to del")
-      const newTag = tags.filter((tag: any) => {
-        console.log(tag, "tags val")
-        tag._id !== id;
-      });
-      setTags(newTag);
-      await removeTagFromConversation({ id });
-    } catch (err) {
-      throw err;
-    }
-  };
 
   console.log(conversationMessages, "this is conv message")
 
@@ -339,37 +449,6 @@ export default function Inbox(Props: any) {
     }
   };
 
-  const handleConversationSearch = async () => {
-    const data = await getSearchConversationList({ query: inputSearchText });
-    setConversationsList({ data: data, loading: false })
-  }
-
-  const handleArchiveConversation = async (event: any) => {
-    event.target.style.backgroundColor = 'black';
-    event.target.style.color = 'white';
-    event.target.innerText = 'Archived';
-    await addConversationToArchive({ conversationId: openConversatinId })
-    router.push('inbox/archive')
-  }
-
-  const handleCloseConversation = async (event: any) => {
-    event.target.style.backgroundColor = 'black';
-    event.target.style.color = 'white';
-    event.target.innerText = 'Closed';
-    socket.emit('close-conversation', {
-      conversationId: openConversatinId,
-      status: 'close'
-    })
-    setOpenConversationStatus('close')
-    // await addConversationToArchive({conversationId:openConversatinId})
-  }
-
-  const handleBlockVisitor = async (event: any) => {
-    event.target.style.backgroundColor = 'black';
-    event.target.style.color = 'white';
-    event.target.innerText = 'Blocked';
-    // await blockVisitor({visitorId:openConversatinVistorId});
-  }
 
   // Function to handle toggle
   const handleToggle = () => {
@@ -378,14 +457,14 @@ export default function Inbox(Props: any) {
   return (
     <>
       <div className="main-content-area">
-        {isConverstionAvailable ? (
+        {isConversationAvailable ? (
           <div className="inbox-area d-flex">
             <div className="chat-listArea">
               <div className="inbox-heading d-flex justify-content-between align-item-center">
                 <div className="top-headbar-heading">Inbox</div>
                 <div className="chat-listSearch">
                   {/* <input type="text" placeholder="search"></input> */}
-                  <input
+                  {/* <input
                     type="text"
                     placeholder="Search"
                     className="form-control"
@@ -393,8 +472,24 @@ export default function Inbox(Props: any) {
                     onChange={(event) => {
                       setInputSeachText(event.target.value);
                     }}
+                  /> */}
+                  <input
+                    type="text"
+                    value={searchText}
+                    onChange={handleSearchInputChange}
+                    placeholder="Search Conversations"
+                    className="search-input"
                   />
-                  <button type="button" className="plain-btn" onClick={handleConversationSearch}>
+                  {searchConversationsList.loading ? (
+                    <Skeleton count={1} />
+                  ) : (
+                    <ul>
+                      {searchConversationsList.data.map((conversation: any) => (
+                        <li key={conversation.id}>{conversation.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <button type="button" className="plain-btn" onClick={handleSearchInputClick}>
                     <Image src={searchIconImage} alt="" />
                   </button>
                 </div>
@@ -444,7 +539,7 @@ export default function Inbox(Props: any) {
                     <>
                       {conversationsList.data
                         .filter(
-                          (conversation: any) => conversation.conversation?.conversationOpenStatus === status
+                          (conversation: any) => conversation?.conversation?.conversationOpenStatus === status
                         )
                         .map((item: any, index: any) => (
                           <div
@@ -680,7 +775,7 @@ export default function Inbox(Props: any) {
                           role="tab"
                           aria-controls="chat-tab-pane"
                           aria-selected="true"
-                          onClick={() => { setIsNotActive(false) }}
+                          onClick={() => { setIsNoteActive(false) }}
                         >
                           <Image src={chatMessageIconImage} alt="" /> Chat
                         </button>
@@ -695,7 +790,7 @@ export default function Inbox(Props: any) {
                           role="tab"
                           aria-controls="note-tab-pane"
                           aria-selected="true"
-                          onClick={handleIsNoteActive}
+                          onClick={() => setIsNoteActive(true)}
                         >
                           <Image src={chatNoteIconImage} alt="" /> Note
                         </button>
@@ -822,16 +917,16 @@ export default function Inbox(Props: any) {
 
                 <div className="note-area">
                   <div className="note-heading">Old Converstion</div>
-                  {oldConversationList.data.length ? (
+                  {oldConversationList.data?.length ? (
                     <div className="note-listArea custom-scrollbar">
                       {oldConversationList.data.map((list: any) => (
                         <div
                           className="note-listBox"
                           onClick={() =>
-                            handleConversationChange(list.conversation_id)
+                            openOldConversation(list.conversation_id, openVisitorName)
                           }
                         >
-                          <h6>@{openConversatinVistorName}</h6>
+                          <h6>@{openVisitorName}</h6>
                           <div className="note-listDescribe-area d-flex justify-content-between">
                             <p>
                               {list.message}

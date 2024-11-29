@@ -17,6 +17,9 @@ import 'rsuite/dist/rsuite.min.css';
 import { useEffect, useState } from 'react';
 import { Chart } from "react-google-charts";
 import { getTrainingStatus } from '@/app/_api/dashboard/action'
+import io from 'socket.io-client';
+
+const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL as string);
 
 export default function Home() {
   const [dateRange, setDateRange] = useState<any>([new Date(), new Date()])
@@ -48,6 +51,52 @@ export default function Home() {
     ["INDIA", 200],
     ["PAKISTAN", 700],
   ];
+
+  // Emit a request for initial data
+  useEffect(() => {
+    // Emit event to fetch dashboard data
+    socket.emit('fetch-dashboard-data', { dateRange }, (response: any) => {
+      if (response.success) {
+        const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists, trainingStatus } = response.data;
+        setTotalChat(totalChat);
+        setTotalMessage(totalMessage);
+        setArt(art);
+        setCsat(csat);
+        setFallbackMessage(fallbackMessage);
+        setUptime(uptime);
+        setAiAssists(aiAssists);
+        setWebpageStatus(trainingStatus.webpageStatus);
+        setFaqStatus(trainingStatus.faqStatus);
+        setDocSnippetStatus(trainingStatus.docSnippetStatus);
+      }
+    });
+
+    // Listen for real-time updates
+    socket.on('update-dashboard-data', (data: any) => {
+      console.log('Real-time Update:', data);
+      const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists, trainingStatus } = data;
+      setTotalChat(totalChat);
+      setTotalMessage(totalMessage);
+      setArt(art);
+      setCsat(csat);
+      setFallbackMessage(fallbackMessage);
+      setUptime(uptime);
+      setAiAssists(aiAssists);
+      setWebpageStatus(trainingStatus.webpageStatus);
+      setFaqStatus(trainingStatus.faqStatus);
+      setDocSnippetStatus(trainingStatus.docSnippetStatus);
+    });
+
+    // Cleanup socket listeners on unmount
+    return () => {
+      socket.off('update-dashboard-data');
+    };
+  }, [dateRange]);
+
+  // Emit event when date range changes
+  useEffect(() => {
+    socket.emit('fetch-dashboard-data', { dateRange });
+  }, [dateRange]);
 
   return (
     <><div className="main-content">

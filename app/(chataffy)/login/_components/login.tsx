@@ -19,6 +19,8 @@ export default function Home() {
       setButtonStatus({ loading: false, disabled: false })
       if (response.status_code == 200) {
         router.replace(appUrl+'dashboard')
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('userId', response.userId);
       } else {
         toast.error(response.message)
       }
