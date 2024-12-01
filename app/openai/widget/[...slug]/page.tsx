@@ -6,6 +6,7 @@ import Image from "next/image";
 import './_components/widgetcss.css';
 import { format } from "date-fns";
 import {io,Socket } from 'socket.io-client'
+import { v4 as uuidv4 } from "uuid"; 
 
 const axios = require('axios');
 
@@ -15,7 +16,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [inputMessage, setInputMessage] = useState('');
   const [conversation, setConversation] = useState<any>([]);
   const [themeSettings, setThemeSettings] = useState<any>(null);
-  const [visitorExists, setVisitorExists] = useState(false);
+  const [visitorExists, setVisitorExists] = useState(true);
   const [formData, setFormData] = useState<any>({});
   const [fields, setFields] = useState<any>([]);
   const [conversationStatus, setConversationStatus] = useState('open');
@@ -30,11 +31,17 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
+    let storedVisitorId:any = localStorage.getItem('visitorId');
+    if (!storedVisitorId) {
+      // Generate and store new ID
+      storedVisitorId = uuidv4();
+      localStorage.setItem('visitorId', storedVisitorId);
+    }
     const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
       query: {
         widgetId,
         widgetAuthToken: widgetToken,
-        visitorId: '6731cc56aeb9b49329e272b8',
+        visitorId: localStorage.getItem('visitorId'),
         embedType: "openai",
       },
       transports: ["websocket", "polling"], // Ensure compatibility
@@ -70,7 +77,10 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
       setFields(data.themeSettings?.fields || []);
-      localStorage.setItem('openaiVisitorId', data.visitorId);
+      // localStorage.setItem('openaiVisitorId', data.visitorId);
+      if(data.chatMessages?.length <=0){
+        setVisitorExists(false);
+      }
     });
 
     socket.on("conversation-append-message", (data: any) => {

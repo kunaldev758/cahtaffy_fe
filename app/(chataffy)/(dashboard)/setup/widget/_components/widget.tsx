@@ -60,10 +60,23 @@ const actionTypes = {
 
 };
 
-const reducer = (state, action) => {
+
+
+const reducer = (state:any, action:any) => {
   switch (action.type) {
     case actionTypes.SET_THEME_DATA:
-      return { ...state, ...action.payload };
+      return { 
+        ...state, 
+        ...action.payload, 
+        // Fallback to existing values for missing fields
+        fields: action.payload.fields.length ? action.payload.fields : state.fields,
+        colorFields: action.payload.colorFields.length ? action.payload.colorFields : state.colorFields,
+        logo: action.payload.logo ?? state.logo,
+        titleBar: action.payload.titleBar.length ? action.payload.titleBar : state.titleBar,
+        welcomeMessage: action.payload.welcomeMessage.length ? action.payload.welcomeMessage : state.welcomeMessage,
+        showLogo: action.payload.showLogo ?? state.showLogo,
+        isPreChatFormEnabled: action.payload.isPreChatFormEnabled ?? state.isPreChatFormEnabled,
+      };
     case "SET_LOGO":
       return { ...state, logo: action.payload };
     case "SET_TITLE_BAR":
@@ -118,7 +131,7 @@ const reducer = (state, action) => {
     case actionTypes.TITLE_BAR_COLOR:
       return {
         ...state,
-        colorFields: state.colorFields.map((colorField: any) =>
+        colorFields: state?.colorFields?.map((colorField: any) =>
           colorField.id === action.payload.id
             ? { ...colorField, value: action.payload.value }
             : colorField
@@ -144,7 +157,7 @@ const reducer = (state, action) => {
 
 
 export default function Widget() {
-  const [userId,setUserId] = useState<any>('6715dead44d18689b3f2acf8');
+  const userId = localStorage.getItem('userId');
   const [state, dispatch] = useReducer(reducer, initialState);
   const [selectedLogo,setSelectedLogo] = useState(clientLogoImage)
   const [error, setError] = useState<string | null>(null); // For validation errors
@@ -172,21 +185,21 @@ export default function Widget() {
     dispatch({ type: "SET_WELCOME_MESSAGE", payload: e.target.value })
   };
 
-  const handleInputChange = (id, value) => {
+  const handleInputChange = (id:any, value:any) => {
     dispatch({
       type: actionTypes.UPDATE_FIELD_VALUE,
       payload: { id, value }
     });
   };
 
-  const handleToggleRequired = (id) => {
+  const handleToggleRequired = (id:any) => {
     dispatch({
       type: actionTypes.TOGGLE_REQUIRED,
       payload: { id }
     });
   };
 
-  const handleRemoveField = (id) => {
+  const handleRemoveField = (id:any) => {
     dispatch({
       type: actionTypes.REMOVE_FIELD,
       payload: { id }
@@ -300,7 +313,7 @@ export default function Widget() {
 
                       <div className="input-box mb-20">
                         <label>Welcome Message</label>
-                        <textarea className="form-control" placeholder="Welcome Message here" value={state.welcomeBar} onChange={handleWelcomeBarChange}></textarea>
+                        <textarea className="form-control" placeholder="Welcome Message here" value={state.welcomeMessage} onChange={handleWelcomeBarChange}></textarea>
                       </div>
 
                       <div className="widget-colorPicker flex-wrap d-flex gap-20">
@@ -385,7 +398,7 @@ export default function Widget() {
                     {state.isPreChatFormEnabled && (
                       <div className="setting-accordionArea">
                         <div className="pre-chatArea">
-                          {state.fields.map((field, index) => (
+                          {state?.fields?.map((field, index) => (
                             <div className="preChat-box mb-20">
                               <div className="preChat-head d-flex justify-content-end">
                                 <div className="d-flex align-item-center gap-2">
@@ -489,13 +502,13 @@ export default function Widget() {
             </div>
 
             <div className="chataffy-messageFrame">
-              <div className="chataffy-widget-head" style={{ background: state.colorFields[0].value }}>
+              <div className="chataffy-widget-head" style={{ background: state?.colorFields[0]?.value }}>
                 <div className="chataffy-widget-headLeft">
                   <div className="chataffy-head-clientLogo">
                     {state.showLogo && <Image src={selectedLogo} alt="" width={40} height={40} />}
                   </div>
                   <div className="chataffy-head-infoArea">
-                    <div className="chataffy-headName" style={{ color: state.colorFields[1].value }}>{state.titleBar} </div>
+                    <div className="chataffy-headName" style={{ color: state?.colorFields[1]?.value }}>{state.titleBar} </div>
                     <div className="chataffy-headStatus" style={{ color: "#ffffff" }}><span className="chataffy-statusPoint"></span> Online</div>
                   </div>
                 </div>
@@ -513,7 +526,7 @@ export default function Widget() {
                     </div>
 
                     <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message" style={{ background: state.colorFields[4].value, color: state.colorFields[5].value }}>
+                      <div className="chataffy-widget-message" style={{ background: state?.colorFields[4]?.value, color: state?.colorFields[5]?.value }}>
                         <p>{state.welcomeMessage}</p>
                       </div>
                       <div className="chataffy-widget-messageInfo">
@@ -524,7 +537,7 @@ export default function Widget() {
 
                   <div className="chataffy-widget-messageClient">
                     <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message" style={{ background: state.colorFields[2].value, color: state.colorFields[3].value }}>
+                      <div className="chataffy-widget-message" style={{ background: state?.colorFields[2]?.value, color: state?.colorFields[3]?.value }}>
                         <p>Can I change the date of my reservation?</p>
                       </div>
                       <div className="chataffy-widget-messageInfo">
@@ -539,7 +552,7 @@ export default function Widget() {
                     </div>
 
                     <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message" style={{ background: state.colorFields[4].value, color: state.colorFields[5].value }}>
+                      <div className="chataffy-widget-message" style={{ background: state?.colorFields[4]?.value, color: state?.colorFields[5]?.value }}>
                         <p>Yes, you can change the date of your reservation for up to seven days in advance. To do this, first go to “Your Reservations” and click the relevant one. Then, go to “Change Details” and enter a new date. Finally, click “Confirm”. That’s it!</p>
                       </div>
                       <div className="chataffy-widget-messageInfo">

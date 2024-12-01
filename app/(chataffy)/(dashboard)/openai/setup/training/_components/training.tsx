@@ -20,24 +20,27 @@ import searchIconPic from '@/images/search-icon.svg'
 import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 
+import { useSocket } from '@/app/socketContext'
 
-let socket: any;
+
+// let socket: any;
 
 export default function Home(Props: any) {
   const router = useRouter()
+  const { socket } = useSocket();
 
-  useEffect(() => {
-    socket = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST}`, {
-      path: `${process.env.NEXT_PUBLIC_SOCKET_PATH}/socket.io`,
-      query: {
-        token: Props.token,
-        embedType: 'openai'
-      },
-    });
-    return () => {
-      socket.disconnect();
-    };
-  }, [Props.token])
+  // useEffect(() => {
+  //   socket = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST}`, {
+  //     path: `${process.env.NEXT_PUBLIC_SOCKET_PATH}/socket.io`,
+  //     query: {
+  //       token: Props.token,
+  //       embedType: 'openai'
+  //     },
+  //   });
+  //   return () => {
+  //     socket.disconnect();
+  //   };
+  // }, [Props.token])
 
 
 
