@@ -157,7 +157,7 @@ const reducer = (state:any, action:any) => {
 
 
 export default function Widget() {
-  const userId = localStorage.getItem('userId');
+  const [userId,setUserId] = useState<string | null>(null);
   const [state, dispatch] = useReducer(reducer, initialState);
   const [selectedLogo,setSelectedLogo] = useState(clientLogoImage)
   const [error, setError] = useState<string | null>(null); // For validation errors
@@ -168,7 +168,7 @@ export default function Widget() {
     dispatch({ type: "SET_LOGO", payload: e.target.files[0] });
     const reader = new FileReader();
     reader.onload = () => {
-      setSelectedLogo(reader.result as string); // Set image preview
+      setSelectedLogo(reader.result as any); // Set image preview
     };
     reader.readAsDataURL(file);
   };
@@ -254,6 +254,14 @@ export default function Widget() {
     }
   };
 
+  useEffect(() => {
+    // Ensure this code runs only on the client side
+    if (typeof window !== 'undefined') {
+      const storedUserId = localStorage.getItem('userId');
+      setUserId(storedUserId);
+    }
+  }, []);
+
   useEffect(()=>{
     async function fetchData(){
      const data =  await getThemeSettings({userId});
@@ -318,7 +326,7 @@ export default function Widget() {
 
                       <div className="widget-colorPicker flex-wrap d-flex gap-20">
 
-                        {state.colorFields.map((field) => (
+                        {state.colorFields.map((field:any) => (
                           <div className="color-pickerBox">
                             <label className="form-label">{field.name}</label>
                             <div className="border rounded-3 d-flex align-items-center justify-content-between">
@@ -398,7 +406,7 @@ export default function Widget() {
                     {state.isPreChatFormEnabled && (
                       <div className="setting-accordionArea">
                         <div className="pre-chatArea">
-                          {state?.fields?.map((field, index) => (
+                          {state?.fields?.map((field:any, index:any) => (
                             <div className="preChat-box mb-20">
                               <div className="preChat-head d-flex justify-content-end">
                                 <div className="d-flex align-item-center gap-2">

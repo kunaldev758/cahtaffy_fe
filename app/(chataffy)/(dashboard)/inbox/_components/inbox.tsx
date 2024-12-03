@@ -951,7 +951,7 @@ export default function Inbox(Props: any) {
                       </div>
                     </li> */}
                     {Object.entries(visitorDetails || {}).map(
-                      ([fieldName, value]) => (
+                      ([fieldName, value]:any) => (
                         <li key={fieldName}>
                           <div className="d-flex">
                             <div className="chat-detailsTitle">{`${
@@ -959,7 +959,7 @@ export default function Inbox(Props: any) {
                               fieldName.slice(1)
                             }:-`}</div>
                             <div className="">
-                              {value || `${fieldName} not available`}
+                              {value}
                             </div>
                           </div>
                         </li>

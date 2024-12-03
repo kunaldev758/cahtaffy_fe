@@ -55,7 +55,7 @@ export default function Home(Props: any) {
   const [selectAllCheckbox, setSelectAllCheckbox] = useState(false)
 
   const getData = () => {
-
+    if(!socket) return;
     socket.on('client-connect-response', function () {
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
