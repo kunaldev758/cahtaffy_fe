@@ -7,6 +7,7 @@ import './_components/widgetcss.css';
 import { format } from "date-fns";
 import {io,Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid"; 
+import { basePath } from "@/next.config"
 
 const axios = require('axios');
 
@@ -23,6 +24,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [visitorIp, setVisitorIp] = useState('');
   const [visitorLocation, setVisitorLocation] = useState('');
   const [showWidget, setShowWidget] = useState(true);
+  const [feedback, setFeedback] = useState(null);
 
   const chatBottomRef = useRef<any>(null);
 
@@ -140,6 +142,25 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     setConversationStatus('close');
   };
 
+  const handleFeedback = (type: any, messageId: any) => {
+		// Emit the feedback to the server
+    const socket = socketRef.current;
+    if (!socket) return;
+		socket.emit(
+			"message-feedback",
+			{ messageId: messageId, feedback: type }, // Send message ID and feedback type
+			(response: any) => {
+				if (response.success) {
+					console.log("Feedback updated successfully:", response.updatedMessage);
+					setFeedback(type); // Update local state
+				} else {
+					console.error("Error updating feedback:", response.error);
+				}
+			}
+		);
+	};
+
+
   return (
     <>
       <div className="chataffy-widget-area">
@@ -186,30 +207,64 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                   <button type="submit">Save</button>
                 </form>
               ) : (
-                <div className="chataffy-widget-chatArea">
-                  {conversation.map((message: any, index: number) => (
-                    <div
-                      key={index}
-                      className={message.sender_type === "visitor" ? "chataffy-widget-messageClient" : "chataffy-widget-messageArea"}
-                      ref={chatBottomRef}
-                    >
-                      {message.sender_type !== "visitor" && (
-                        <Image src="/images/widget/client-logo.png" width={40} height={40} alt="Bot" />
-                      )}
-                      <div
-                        className="chataffy-widget-message"
-                        style={{
-                          background: themeSettings?.colorFields?.[message.sender_type === "visitor" ? 4 : 2]?.value,
-                          color: themeSettings?.colorFields?.[message.sender_type === "visitor" ? 5 : 3]?.value,
-                        }}
-                        dangerouslySetInnerHTML={{ __html: message.message }}
-                      />
-                      <div className="chataffy-widget-messageInfo">
-                        {message.createdAt ? format(new Date(message.createdAt), 'hh:mm:ss a') : "Sending..."}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <div>
+                {conversation.map((item: any, key: any) => (
+                  <div key={key}>
+                    {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent') &&
+                      <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
+                        <div className="chataffy-widget-messageImage">
+                          <Image src={`${basePath}/images/widget/client-logo.png`} width={40} height={40} alt="" />
+                        </div>
+
+                        <div className="chataffy-widget-messageBox">
+                          <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[2]?.value, "color": themeSettings?.colorFields[3]?.value }}>
+                            <div dangerouslySetInnerHTML={{ __html: item.message }} />
+                          </div>
+                          <div>
+                            <span>
+                              <button
+                                onClick={() => handleFeedback("like", item._id)}
+                                disabled={feedback === "like"}>👍</button>
+                            </span>
+                            <span>
+                              <button
+                                onClick={() => handleFeedback("dislike", item._id)}
+                                disabled={feedback === "dislike"}>👎</button>
+                            </span>
+                          </div>
+                          <div style={{ display: 'none' }}>
+                            {(item.infoSources) &&
+                              item.infoSources.map((source: any, sourceKey: any) => (
+                                <>{source}<br /></>
+                              ))
+                            }
+                          </div>
+                          <div className="chataffy-widget-messageInfo">
+                            {format(item.createdAt, 'hh:mm:ss a')}
+                          </div>
+                        </div>
+                      </div>}
+
+                    {item.sender_type == 'visitor' &&
+                      <div className="chataffy-widget-messageClient" ref={chatBottomRef}>
+                        <div className="chataffy-widget-messageBox">
+                          <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[4]?.value, "color": themeSettings?.colorFields[5]?.value }}>
+                            <div dangerouslySetInnerHTML={{ __html: item.message }} />
+                          </div>
+                          {item.createdAt ?
+                            <div className="chataffy-widget-messageInfo">
+                              {format(item.createdAt, 'hh:mm:ss a')}
+                            </div>
+                            :
+                            <div className="chataffy-widget-messageInfo">
+                              Sending...
+                            </div>
+                          }
+                        </div>
+                      </div>}
+                  </div>
+                ))}
+              </div>
               )}
             </div>
 

@@ -17,11 +17,13 @@ import 'rsuite/dist/rsuite.min.css';
 import { useEffect, useState } from 'react';
 import { Chart } from "react-google-charts";
 import { getTrainingStatus } from '@/app/_api/dashboard/action'
-import io from 'socket.io-client';
+// import io from 'socket.io-client';
+import { useSocket } from "@/app/socketContext";
 
-const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL as string);
+// const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL as string);
 
 export default function Home() {
+  const { socket } = useSocket();
   const [dateRange, setDateRange] = useState<any>([new Date(), new Date()])
   const [totalChat, setTotalChat] = useState(0)
   const [totalMessage, setTotalMessage] = useState(0)
@@ -29,7 +31,7 @@ export default function Home() {
   const [csat, setCsat] = useState(0)
   const [fallbackMessage, setFallbackMessage] = useState(0)
   const [uptime, setUptime] = useState(0)
-  const [aiAssists, setAiAssists] = useState({ aiChats: 0, totalChats: 0 })
+  const [aiChat, setAiChat] = useState(0)
   const [showGetStartedBox, setShowGetStartedBox] = useState(true)
 
   const [webpageStatus, setWebpageStatus] = useState(false)
@@ -54,49 +56,50 @@ export default function Home() {
 
   // Emit a request for initial data
   useEffect(() => {
+    if (!socket) return;
     // Emit event to fetch dashboard data
     socket.emit('fetch-dashboard-data', { dateRange }, (response: any) => {
       if (response.success) {
-        const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists, trainingStatus } = response.data;
+        const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists } = response.data;
         setTotalChat(totalChat);
         setTotalMessage(totalMessage);
         setArt(art);
         setCsat(csat);
         setFallbackMessage(fallbackMessage);
         setUptime(uptime);
-        setAiAssists(aiAssists);
-        setWebpageStatus(trainingStatus.webpageStatus);
-        setFaqStatus(trainingStatus.faqStatus);
-        setDocSnippetStatus(trainingStatus.docSnippetStatus);
+        setAiChat(aiAssists);
+        // setWebpageStatus(trainingStatus.webpageStatus);
+        // setFaqStatus(trainingStatus.faqStatus);
+        // setDocSnippetStatus(trainingStatus.docSnippetStatus);
       }
     });
 
     // Listen for real-time updates
     socket.on('update-dashboard-data', (data: any) => {
       console.log('Real-time Update:', data);
-      const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists, trainingStatus } = data;
+      const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists } = data;
       setTotalChat(totalChat);
       setTotalMessage(totalMessage);
       setArt(art);
       setCsat(csat);
       setFallbackMessage(fallbackMessage);
       setUptime(uptime);
-      setAiAssists(aiAssists);
-      setWebpageStatus(trainingStatus.webpageStatus);
-      setFaqStatus(trainingStatus.faqStatus);
-      setDocSnippetStatus(trainingStatus.docSnippetStatus);
+      setAiChat(aiAssists);
+      // setWebpageStatus(trainingStatus.webpageStatus);
+      // setFaqStatus(trainingStatus.faqStatus);
+      // setDocSnippetStatus(trainingStatus.docSnippetStatus);
     });
 
     // Cleanup socket listeners on unmount
     return () => {
       socket.off('update-dashboard-data');
     };
-  }, [dateRange]);
+  }, [dateRange,socket]);
 
   // Emit event when date range changes
-  useEffect(() => {
-    socket.emit('fetch-dashboard-data', { dateRange });
-  }, [dateRange]);
+  // useEffect(() => {
+  //   socket.emit('fetch-dashboard-data', { dateRange });
+  // }, [dateRange]);
 
   return (
     <><div className="main-content">
@@ -197,11 +200,11 @@ export default function Home() {
 
                 <div className="training-highlight-mid mt-3 mb-0">
                   <div className="training-highlight-count">
-                    <h3>{aiAssists.aiChats}</h3>
+                    <h3>{aiChat}</h3>
                     <p>AI Chats</p>
                   </div>
                   <div className="training-highlight-count">
-                    <h3>{aiAssists.totalChats}</h3>
+                    <h3>{totalChat}</h3>
                     <p>Total Chats</p>
                   </div>
                 </div>

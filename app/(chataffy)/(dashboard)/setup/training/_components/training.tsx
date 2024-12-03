@@ -20,25 +20,11 @@ import searchIconPic from '@/images/search-icon.svg'
 import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 
-
-let socket: any;
+import { useSocket } from "@/app/socketContext";
 
 export default function Home(Props: any) {
   const router = useRouter()
-  useEffect(() => {
-    socket = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-      path: `${process.env.NEXT_PUBLIC_SOCKET_PATH || ""}/socket.io`,
-      query: {
-        token: Props.token,
-        embedType: 'openai'
-      },
-    });
-    return () => {
-      socket.disconnect();
-    };
-  }, [Props.token])
-
-
+  const { socket } = useSocket();
 
   const [showModal, setShowModal] = useState(false)
   const [webPageCount, setWebPageCount] = useState({ crawled: 0, total: 0, loading: true })
@@ -51,11 +37,18 @@ export default function Home(Props: any) {
   const [selectAllCheckbox, setSelectAllCheckbox] = useState(false)
 
   const getData = () => {
+    if (!socket) return;
+    console.log("hello connected");
 
-    socket.on('client-connect-response', function () {
-      socket.emit('get-credit-count')
-      socket.emit('get-training-list-count')
-      socket.emit('get-training-list')
+    // socket.on('client-connect-response', function () {
+    //   socket.emit('get-credit-count')
+    //   socket.emit('get-conversations-list')
+    // })
+
+    socket.on('client-connect-response',async function () {
+      await socket.emit('get-credit-count')
+      await socket.emit('get-training-list-count')
+      await socket.emit('get-training-list')
     })
 
     socket.on('get-credit-count-response', function ({ data }: any) {
@@ -69,29 +62,7 @@ export default function Home(Props: any) {
     })
 
     socket.on('get-training-list-response', function ({ data }: any) {
-      // console.log(data)
       setTrainingList({ data: data, loading: false })
-
-
-      // setTrainingList((trainingList: any) => {
-
-      //   return trainingList.data.map((item1: any) => {
-      //     let findItem = obj.find((item: any) => item._id === item1._id)
-      //     if (findItem) {
-      //       return { ...item1, trainingStatus: 2 }
-      //     }
-      //     return item1
-      //   })
-      // })
-
-      // setTrainingList((trainingList: any) => ({
-      //   data: trainingList.data.map((item1: any) => {
-      //     let findItem = obj.find((item: any) => item._id === item1._id)
-      //     if (findItem) {
-      //       return { ...item1, trainingStatus: 2, loading: false }
-      //     }
-      //     return { item1, loading: false }
-      //   })) })
     })
 
     socket.on('error-handler', async function (data: any) {
@@ -169,15 +140,12 @@ export default function Home(Props: any) {
       
     })
 
-    socket.emit('client-connect')
-
-
-
+    socket.emit('client-connect');
   }
 
   useEffect(() => {
     getData()
-  }, [])
+  }, [socket])
 
   return (
     <>
