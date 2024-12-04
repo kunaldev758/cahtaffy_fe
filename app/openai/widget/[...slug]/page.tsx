@@ -17,7 +17,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [inputMessage, setInputMessage] = useState('');
   const [conversation, setConversation] = useState<any>([]);
   const [themeSettings, setThemeSettings] = useState<any>(null);
-  const [visitorExists, setVisitorExists] = useState(true);
+  const [visitorExists, setVisitorExists] = useState(false);
   const [formData, setFormData] = useState<any>({});
   const [fields, setFields] = useState<any>([]);
   const [conversationStatus, setConversationStatus] = useState('open');
@@ -81,7 +81,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       setFields(data.themeSettings?.fields || []);
       // localStorage.setItem('openaiVisitorId', data.visitorId);
       if(data.chatMessages?.length <=0){
-        setVisitorExists(false);
+        setVisitorExists(true);
       }
     });
 
@@ -190,23 +190,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
             </div>
 
             <div className="chataffy-widget-body">
-              {!visitorExists ? (
-                <form onSubmit={handleSubmitVisitorDetails}>
-                  {fields.map((field: any) => (
-                    <div key={field._id} style={{ marginBottom: "15px" }}>
-                      <label htmlFor={field._id}>{field.name}:</label>
-                      <input
-                        type={field.name.toLowerCase() === "email" ? "email" : "text"}
-                        id={field._id}
-                        required={field.required}
-                        value={formData[field.name] || ""}
-                        onChange={(e) => handleInputChange(field.name, e.target.value)}
-                      />
-                    </div>
-                  ))}
-                  <button type="submit">Save</button>
-                </form>
-              ) : (
+              {visitorExists ? (
                 <div>
                 {conversation.map((item: any, key: any) => (
                   <div key={key}>
@@ -265,6 +249,22 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                   </div>
                 ))}
               </div>
+              ) : (
+                <form onSubmit={handleSubmitVisitorDetails}>
+                {fields.map((field: any) => (
+                  <div key={field._id} style={{ marginBottom: "15px" }}>
+                    <label htmlFor={field._id}>{field.name}:</label>
+                    <input
+                      type={field.name.toLowerCase() === "email" ? "email" : "text"}
+                      id={field._id}
+                      required={field.required}
+                      value={formData[field.name] || ""}
+                      onChange={(e) => handleInputChange(field.name, e.target.value)}
+                    />
+                  </div>
+                ))}
+                <button type="submit">Save</button>
+              </form>
               )}
             </div>
 

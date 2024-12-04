@@ -487,7 +487,7 @@ export default function Inbox(Props: any) {
 
   // Function to handle toggle
   const handleToggle = () => {
-    setIsAIChat(!isAIChat);
+    setIsAIChat(false);
   };
   return (
     <>
@@ -515,7 +515,7 @@ export default function Inbox(Props: any) {
                     placeholder="Search Conversations"
                     className="search-input"
                   />
-                  {searchConversationsList.loading ? (
+                  {/* {searchConversationsList.loading ? (
                     <Skeleton count={1} />
                   ) : (
                     <ul>
@@ -523,7 +523,7 @@ export default function Inbox(Props: any) {
                         <li key={conversation.id}>{conversation.name}</li>
                       ))}
                     </ul>
-                  )}
+                  )} */}
                   <button
                     type="button"
                     className="plain-btn"
@@ -693,7 +693,7 @@ export default function Inbox(Props: any) {
                   </div>
                 </div>
                 <button onClick={handleCloseConversation}>
-                  Close Conversation Conversation
+                  Close Conversation
                 </button>
                 <button onClick={handleBlockVisitor}>Block Visitor</button>
                 <div className="chat-tagArea d-flex gap-16">
