@@ -16,6 +16,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
 
   const [inputMessage, setInputMessage] = useState('');
   const [conversation, setConversation] = useState<any>([]);
+  const [conversationId,setConversationId] =useState<any>(null);
   const [themeSettings, setThemeSettings] = useState<any>(null);
   const [visitorExists, setVisitorExists] = useState(false);
   const [formData, setFormData] = useState<any>({});
@@ -44,7 +45,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
         widgetId,
         widgetAuthToken: widgetToken,
         visitorId: localStorage.getItem('visitorId'),
-        embedType: "openai",
+        conversationId:conversationId,
       },
       transports: ["websocket", "polling"], // Ensure compatibility
     });
@@ -80,18 +81,27 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       setThemeSettings(data.themeSettings || {});
       setFields(data.themeSettings?.fields || []);
       // localStorage.setItem('openaiVisitorId', data.visitorId);
-      if(data.chatMessages?.length <=0){
+    
+      
+      if(data?.chatMessages?.length >0){
         setVisitorExists(true);
+        setConversationId(data.chatMessages[0]?.conversationId);
       }
     });
 
     socket.on("conversation-append-message", (data: any) => {
+      console.log("append msg res",data);
       setConversation((prev:any) => [...prev, data.chatMessage]);
+      if(!conversation.length){
+        setConversationId(data.chatMessage[0]?.conversationId);
+      }
     });
+    socket.on("visitor-blocked",handleCloseConversation);
 
     return () => {
       socket.off("visitor-connect-response");
       socket.off("conversation-append-message");
+      socket.off("visitor-blocked");
     };
   }, [ widgetId, widgetToken]);
 
@@ -138,7 +148,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const handleCloseConversation = () => {
     const socket = socketRef.current;
     if (!socket) return; // Guard against uninitialized socket
-    socket?.emit('close-conversation', { status: 'close' });
+    socket?.emit('close-conversation', { conversationId:conversation[0].conversation_id, status: 'close' });
     setConversationStatus('close');
   };
 
@@ -194,7 +204,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                 <div>
                 {conversation.map((item: any, key: any) => (
                   <div key={key}>
-                    {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent') &&
+                    {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent' && item.is_note == "false") &&
                       <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
                         <div className="chataffy-widget-messageImage">
                           <Image src={`${basePath}/images/widget/client-logo.png`} width={40} height={40} alt="" />

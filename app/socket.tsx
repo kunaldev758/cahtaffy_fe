@@ -5,7 +5,6 @@ interface SocketOptions {
   visitorId?:string,
   widgetAuthToken?:string,
   widgetId?:string,
-  embedType?: string;
 }
 
 const initializeSocket = (options: SocketOptions): Socket => {

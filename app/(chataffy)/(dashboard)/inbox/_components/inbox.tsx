@@ -6,40 +6,20 @@ import sendIconImage from "@/images/send-icon.svg";
 import chatMessageIconImage from "@/images/chat-message-icon.svg";
 import chatNoteIconImage from "@/images/chat-note-icon.svg";
 import micIconImage from "@/images/mic-icon.svg";
-// import {  } from "react";
-// import { io } from "socket.io-client";
-import { useState, useRef, useEffect, useCallback } from "react";
-
-import { logoutApi } from "@/app/_api/dashboard/action";
-import { useRouter } from "next/navigation";
-
-import { useSocket } from "@/app/socketContext";
-
-import {
-  getConversationMessages,
-  getAllNotesOfConversation,
-  getSearchConversationList,
-  getAllOldConversationOfVisitor,
-  getVisitorDetails,
-  getConversationTags,
-  removeTagFromConversation,
-  addTagToConversation,
-  getOldConversationMessages,
-  addConversationToArchive,
-  blockVisitor,
-} from "@/app/_api/dashboard/action";
-
-// import { useEffect, useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import Message from "./message";
-// import { useSocket } from "@/app/socketContext";
-// import { useRouter } from "next/router";
+import {io,Socket } from 'socket.io-client';
+import { format } from "date-fns";
+
+import {
+  getConversationMessages,
+  getOldConversationMessages,
+} from "@/app/_api/dashboard/action";
+
 
 export default function Inbox(Props: any) {
-  console.log(Props, "my props");
-  const router = useRouter();
-  const { socket } = useSocket();
 
   const [expandedSources, setExpandedSources] = useState<null | number>(null);
 
@@ -58,7 +38,6 @@ export default function Inbox(Props: any) {
   const [inputMessage, setInputMessage] = useState("");
   const [openVisitorId, setOpenVisitorId] = useState<any>(null);
   const [openVisitorName, setOpenVisitorName] = useState<any>(null);
-  const [conversationLength, setConversationLength] = useState<number>(0);
   const [openConversationId, setOpenConversationId] = useState<any>(null);
   const [isNoteActive, setIsNoteActive] = useState<boolean>(false);
   const [notesList, setNotesList] = useState<any>([]);
@@ -69,21 +48,39 @@ export default function Inbox(Props: any) {
   const [visitorDetails, setVisitorDetails] = useState<any>();
   const [status, setStatus] = useState("open");
   const [searchText, setSearchText] = useState("");
-  const [searchValue, setSearchValue] = useState("");
-  const [searchConversationsList, setSearchConversationsList] = useState<any>({
-    data: [],
-    loading: true,
-  });
   const [addTag, setAddTag] = useState<boolean>(false);
   const [inputAddTag, setInputAddTag] = useState<string>("");
   const [tags, setTags] = useState<any>([]);
-  const [openConversationStatus, setOpenConversationStatus] =
-    useState<any>("close");
+  const [openConversationStatus, setOpenConversationStatus] =useState<any>("close");
   const [isAIChat, setIsAIChat] = useState(true);
 
+  const socketRef = useRef<Socket | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
+      query: {
+        token: localStorage.getItem('token'),
+        conversationId:openConversationId
+      },
+      transports: ["websocket", "polling"], // Ensure compatibility
+    });
+
+    socketRef.current = socketInstance;
+
+    // Cleanup on unmount
+    return () => {
+      socketInstance.disconnect();
+      socketRef.current = null;
+    };
+  }, [openConversationId]);
+
   // Open conversation and fetch messages
-  const openConversation = async (visitorId: any, visitorName: string) => {
+  const openConversation = async (visitorId: any, visitorName: string,index:any) => {
     try {
+      console.log(index,"the index")
       setOpenVisitorId(visitorId);
       setOpenVisitorName(visitorName);
 
@@ -98,7 +95,8 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
-        setConversationLength(data.chatMessages.length);
+        // setConversationLength(data.chatMessages.length);   
+        setIsAIChat(conversationsList.data[index].conversation.aiChat);    
       }
     } catch (error) {
       console.error("Error fetching conversation messages:", error);
@@ -121,7 +119,7 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
-        setConversationLength(data.chatMessages.length);
+        // setConversationLength(data.chatMessages.length);
       }
     } catch (error) {
       console.error("Error fetching old conversation messages:", error);
@@ -130,6 +128,7 @@ export default function Inbox(Props: any) {
 
   // Handle message send
   const handleMessageSend = () => {
+    const socket = socketRef.current;
     if (!inputMessage.trim() || !socket) return;
 
     const messageData = { message: inputMessage, visitorId: openVisitorId };
@@ -146,6 +145,7 @@ export default function Inbox(Props: any) {
 
   // Handle adding a note
   const handleAddNote = () => {
+    const socket = socketRef.current;
     if (!inputMessage.trim() || !socket) return;
 
     const noteData = {
@@ -166,7 +166,7 @@ export default function Inbox(Props: any) {
         ...prevState.data,
         {
           infoSources: [],
-          is_note: true,
+          is_note: 'true',
           message: inputMessage,
           sender_type: "agent",
           createdAt: Date.now(),
@@ -178,17 +178,26 @@ export default function Inbox(Props: any) {
 
   // Socket event listeners
   useEffect(() => {
+    const socket = socketRef.current;
     if (!socket) return;
-
     // Emit "get-conversations-list" event to fetch conversations
     const userId = localStorage.getItem("userId");
+    // socket.on("visitor-connect-list-update",{socket.emit("get-conversations-list", { userId })})
     socket.emit("get-conversations-list", { userId });
+
+    // Handle the "visitor-connect-list-update" event
+  socket.on("visitor-connect-list-update", () => {
+    console.log("list Update")
+    socket.emit("get-conversations-list", { userId });
+  });
+
 
     const handleConversationsListResponse = (data: any) => {
       console.log("conv list", data.conversations);
       setConversationsList({ data: data.conversations, loading: false });
-      openConversation(data.conversations[0]._id, data.conversations[0].name);
+      openConversation(data.conversations[0]._id, data.conversations[0].name,0);
       // Transform the visitorDetails array to an object
+      setIsAIChat(data.conversations[0].conversation.aiChat);
       const transformedVisitorDetails =
         data?.conversations[0]?.visitorDetails?.reduce(
           (acc: any, { field, value }: { field: string; value: string }) => {
@@ -218,16 +227,19 @@ export default function Inbox(Props: any) {
     );
     socket.on("conversation-append-message", handleAppendMessage);
 
+    socket.on("visitor-close-chat",handleCloseConversation);
     return () => {
       socket.off(
         "get-conversations-list-response",
         handleConversationsListResponse
       );
       socket.off("conversation-append-message", handleAppendMessage);
+      socket.off("visitor-close-chat");
     };
-  }, [socket]);
+  }, [socketRef.current]);
 
   useEffect(() => {
+    const socket = socketRef.current;
     if (!socket) return;
     if (openConversationId) {
       console.log(openConversationId, "notes openConversationId");
@@ -261,10 +273,11 @@ export default function Inbox(Props: any) {
         }
       );
     }
-  }, [socket, openConversationId, openVisitorId]);
+  }, [socketRef.current, openConversationId, openVisitorId]);
 
   const handleAddTagClick = async () => {
     try {
+      const socket = socketRef.current;
       setAddTag(false);
       console.log(
         inputAddTag,
@@ -293,6 +306,7 @@ export default function Inbox(Props: any) {
   };
 
   useEffect(() => {
+    const socket = socketRef.current;
     if (!socket || !openConversationId) return;
 
     // Fetch tags when the conversation changes
@@ -308,12 +322,12 @@ export default function Inbox(Props: any) {
         }
       }
     );
-  }, [socket, openConversationId]);
+  }, [socketRef.current, openConversationId]);
 
   const handleTagDelete = async (id: any) => {
     try {
       console.log(id, "id to delete");
-
+      const socket = socketRef.current;
       // Emit event to delete a tag from the conversation
       socket?.emit(
         "remove-conversation-tag",
@@ -334,6 +348,7 @@ export default function Inbox(Props: any) {
 
   const handleCloseConversation = async (event: any) => {
     try {
+      const socket = socketRef.current;
       // Emit event to close the conversation
       socket?.emit(
         "close-conversation",
@@ -359,6 +374,7 @@ export default function Inbox(Props: any) {
 
   const handleBlockVisitor = async (event: any) => {
     try {
+      const socket = socketRef.current;
       // Emit event to block a visitor
       socket?.emit(
         "block-visitor",
@@ -382,7 +398,8 @@ export default function Inbox(Props: any) {
 
   const handleSearchConversations = (searchText: string) => {
     try {
-      setSearchConversationsList({ data: [], loading: true });
+      const socket = socketRef.current;
+      // setSearchConversationsList({ data: [], loading: true });
       console.log(searchText, "Search Query");
 
       // Emit a search event to the server
@@ -395,13 +412,13 @@ export default function Inbox(Props: any) {
             setConversationsList({ data: response.data, loading: false });
           } else {
             console.error("Search Error:", response.error);
-            setSearchConversationsList({ data: [], loading: false });
+            // setSearchConversationsList({ data: [], loading: false });
           }
         }
       );
     } catch (err) {
       console.error("Error in search:", err);
-      setSearchConversationsList({ data: [], loading: false });
+      // setSearchConversationsList({ data: [], loading: false });
     }
   };
 
@@ -439,7 +456,7 @@ export default function Inbox(Props: any) {
     if (searchText.trim().length > 0) {
       handleSearchConversations(searchText);
     } else {
-      setSearchConversationsList({ data: [], loading: false });
+      // setSearchConversationsList({ data: [], loading: false });
     }
   };
 
@@ -452,11 +469,6 @@ export default function Inbox(Props: any) {
   const handleAddTag = () => {
     setAddTag(true);
   };
-
-  console.log(conversationMessages, "this is conv message");
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // Scroll to the bottom whenever conversationMessages changes
   useEffect(() => {
@@ -487,7 +499,26 @@ export default function Inbox(Props: any) {
 
   // Function to handle toggle
   const handleToggle = () => {
-    setIsAIChat(false);
+    try {
+      const socket = socketRef.current;
+      // Emit event to block a visitor
+      if (isAIChat === true) {
+        socket?.emit(
+          "close-ai-response",
+          { conversationId: openConversationId },
+          (response: any) => {
+            if (response.success) {
+              console.log("Visitor blocked successfully.");
+              setIsAIChat(false);
+            } else {
+              console.error("Failed to block visitor:", response.error);
+            }
+          }
+        );
+      }
+    } catch (err) {
+      console.error("Error blocking visitor:", err);
+    }
   };
   return (
     <>
@@ -498,16 +529,6 @@ export default function Inbox(Props: any) {
               <div className="inbox-heading d-flex justify-content-between align-item-center">
                 <div className="top-headbar-heading">Inbox</div>
                 <div className="chat-listSearch">
-                  {/* <input type="text" placeholder="search"></input> */}
-                  {/* <input
-                    type="text"
-                    placeholder="Search"
-                    className="form-control"
-                    value={inputSearchText}
-                    onChange={(event) => {
-                      setInputSeachText(event.target.value);
-                    }}
-                  /> */}
                   <input
                     type="text"
                     value={searchText}
@@ -515,15 +536,7 @@ export default function Inbox(Props: any) {
                     placeholder="Search Conversations"
                     className="search-input"
                   />
-                  {/* {searchConversationsList.loading ? (
-                    <Skeleton count={1} />
-                  ) : (
-                    <ul>
-                      {searchConversationsList.data.map((conversation: any) => (
-                        <li key={conversation.id}>{conversation.name}</li>
-                      ))}
-                    </ul>
-                  )} */}
+    
                   <button
                     type="button"
                     className="plain-btn"
@@ -584,14 +597,13 @@ export default function Inbox(Props: any) {
                         )
                         .map((item: any, index: any) => (
                           <div
-                            className={`chat-listBox gap-10 d-flex${
-                              conversationMessages.conversationId == item._id
+                            className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
                                 ? " active"
                                 : ""
-                            }`}
+                              }`}
                             key={index}
                             onClick={() =>
-                              openConversation(item._id, item.name)
+                              openConversation(item._id, item.name,index)
                             }
                           >
                             <div className="chatlist-userLetter">
@@ -621,7 +633,6 @@ export default function Inbox(Props: any) {
                 <div className="top-headbar-heading">
                   {conversationMessages.visitorName}
                 </div>
-                {/* <button onClick={handleArchiveConversation}>Archive Conversation</button> */}
                 <div
                   style={{
                     display: "flex",
@@ -738,25 +749,6 @@ export default function Inbox(Props: any) {
                         </div>
                       )}
                     </div>
-
-                    {/* <ul className="dropdown-menu">
-                      <li>
-                        <div className="input-box input-iconBox">
-                          <span className="input-icon">
-                            <Image src={sendIconImage} alt="" />
-                          </span>
-                          <input
-                            type="text"
-                            placeholder="Search"
-                            className="form-control"
-                            value={inputSearchText}
-                            onChange={(event) => {
-                              setInputSeachText(event.target.value);
-                            }}
-                          />
-                        </div>
-                      </li>
-                    </ul> */}
                   </div>
                 </div>
               </div>
@@ -919,45 +911,13 @@ export default function Inbox(Props: any) {
               <div className="chat-detailsSec">
                 <div className="chat-detailsBox">
                   <ul className="list-unstyled mb-0">
-                    {/* <li>
-                      <div className="d-flex">
-                        <div className="chat-detailsTitle">Name:-</div>
-                        <div className="">{visitorDetails?.name ?? "name"}</div>
-                      </div>
-                    </li>
-
-                    <li>
-                      <div className="d-flex">
-                        <div className="chat-detailsTitle">Email:-</div>
-                        <div className="">{visitorDetails?.email ?? "email"}</div>
-                      </div>
-                    </li>
-
-                    <li>
-                      <div className="d-flex">
-                        <div className="chat-detailsTitle">Phone:-</div>
-                        <div className="">
-                          {visitorDetails?.phone ?? "phone"}
-                        </div>
-                      </div>
-                    </li>
-
-                    <li>
-                      <div className="d-flex">
-                        <div className="chat-detailsTitle">Location:-</div>
-                        <div className="">
-                          {visitorDetails?.location ?? "Location"}
-                        </div>
-                      </div>
-                    </li> */}
                     {Object.entries(visitorDetails || {}).map(
-                      ([fieldName, value]:any) => (
+                      ([fieldName, value]: any) => (
                         <li key={fieldName}>
                           <div className="d-flex">
-                            <div className="chat-detailsTitle">{`${
-                              fieldName.charAt(0).toUpperCase() +
+                            <div className="chat-detailsTitle">{`${fieldName.charAt(0).toUpperCase() +
                               fieldName.slice(1)
-                            }:-`}</div>
+                              }:-`}</div>
                             <div className="">
                               {value}
                             </div>

@@ -28,10 +28,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const socketInstance = initializeSocket({
         token,
-        embedType: "openai",
-        // widgetId: localStorage.getItem("widgetId"),
-        // widgetAuthToken: localStorage.getItem("widgetAuthToken"), 
-        // visitorId: localStorage.getItem("openaiVisitorId"),
       });
 
       setSocket(socketInstance);

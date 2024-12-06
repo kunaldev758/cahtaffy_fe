@@ -27,7 +27,6 @@ export default function Home(Props: any) {
       path: `${process.env.NEXT_PUBLIC_SOCKET_PATH}/socket.io`,
       query: {
         token: Props.token,
-        embedType: 'openai'
       },
     });
     return () => {
@@ -41,11 +40,6 @@ export default function Home(Props: any) {
   
   const openConversation = async (_id: any) => {
     try {
-      // Make API call using the _id
-      // const response = await fetch(`your-api-endpoint/${_id}`);
-      // const data = await response.json();
-      // const data = ["hello","hi"]
-
       getConversationMessages(_id).then((data:any)=>{
         // Update the state with the result
         setConversationMessages({data, loading: false, conversationId: _id});
@@ -67,7 +61,6 @@ export default function Home(Props: any) {
     })
 
     socket.on('get-conversations-list-response', function ({ data }: any) {
-      // console.log(data)
       setConversationsList({ data: data, loading: false })
     })
 
