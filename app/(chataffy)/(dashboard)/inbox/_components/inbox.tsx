@@ -10,7 +10,7 @@ import { useState, useRef, useEffect } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import Message from "./message";
-import {io,Socket } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { format } from "date-fns";
 
 import {
@@ -51,7 +51,7 @@ export default function Inbox(Props: any) {
   const [addTag, setAddTag] = useState<boolean>(false);
   const [inputAddTag, setInputAddTag] = useState<string>("");
   const [tags, setTags] = useState<any>([]);
-  const [openConversationStatus, setOpenConversationStatus] =useState<any>("close");
+  const [openConversationStatus, setOpenConversationStatus] = useState<any>("close");
   const [isAIChat, setIsAIChat] = useState(true);
 
   const socketRef = useRef<Socket | null>(null);
@@ -63,7 +63,6 @@ export default function Inbox(Props: any) {
     const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
       query: {
         token: localStorage.getItem('token'),
-        conversationId:openConversationId
       },
       transports: ["websocket", "polling"], // Ensure compatibility
     });
@@ -78,9 +77,11 @@ export default function Inbox(Props: any) {
   }, [openConversationId]);
 
   // Open conversation and fetch messages
-  const openConversation = async (visitorId: any, visitorName: string,index:any) => {
+  const openConversation = async (visitorId: any, visitorName: string, index: any) => {
     try {
-      console.log(index,"the index")
+      const socket = socketRef.current;
+      if (!socket) return;
+
       setOpenVisitorId(visitorId);
       setOpenVisitorName(visitorName);
 
@@ -95,8 +96,11 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
+
+        socket.emit("set-conversation-id", { conversationId: data.chatMessages[0]?.conversation_id });
+
         // setConversationLength(data.chatMessages.length);   
-        setIsAIChat(conversationsList.data[index].conversation.aiChat);    
+        setIsAIChat(conversationsList.data[index].conversation.aiChat);
       }
     } catch (error) {
       console.error("Error fetching conversation messages:", error);
@@ -109,7 +113,9 @@ export default function Inbox(Props: any) {
     visitorName: string
   ) => {
     try {
+      console.log(conversationId, visitorName, "kunalll")
       const data = await getOldConversationMessages({ conversationId });
+      console.log("old conv", data);
       if (data) {
         setConversationMessages({
           data: data.chatMessages,
@@ -176,42 +182,10 @@ export default function Inbox(Props: any) {
     setInputMessage("");
   };
 
-  // Socket event listeners
+  //new messages and visitor close chat
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
-    // Emit "get-conversations-list" event to fetch conversations
-    const userId = localStorage.getItem("userId");
-    // socket.on("visitor-connect-list-update",{socket.emit("get-conversations-list", { userId })})
-    socket.emit("get-conversations-list", { userId });
-
-    // Handle the "visitor-connect-list-update" event
-  socket.on("visitor-connect-list-update", () => {
-    console.log("list Update")
-    socket.emit("get-conversations-list", { userId });
-  });
-
-
-    const handleConversationsListResponse = (data: any) => {
-      console.log("conv list", data.conversations);
-      setConversationsList({ data: data.conversations, loading: false });
-      openConversation(data.conversations[0]._id, data.conversations[0].name,0);
-      // Transform the visitorDetails array to an object
-      setIsAIChat(data.conversations[0].conversation.aiChat);
-      const transformedVisitorDetails =
-        data?.conversations[0]?.visitorDetails?.reduce(
-          (acc: any, { field, value }: { field: string; value: string }) => {
-            acc[field.toLowerCase()] = value; // Use lowercase keys for consistency
-            return acc;
-          },
-          {
-            location: data?.conversations[0]?.location,
-            ip: data?.conversations[0]?.ip,
-          }
-        );
-
-      setVisitorDetails(transformedVisitorDetails);
-    };
 
     const handleAppendMessage = (data: any) => {
       console.log(data, "socket conv data");
@@ -221,23 +195,96 @@ export default function Inbox(Props: any) {
       }));
     };
 
+    socket.on("conversation-append-message", handleAppendMessage);
+
+    socket.on("visitor-close-chat", handleCloseConversationVisitor);
+    return () => {
+      socket.off("conversation-append-message", handleAppendMessage);
+      socket.off("visitor-close-chat");
+    };
+
+  }, [socketRef.current])
+
+  // Socket get conversation List
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const userId = localStorage.getItem("userId");
+
+    socket.emit("get-conversations-list", { userId });
+
     socket.on(
       "get-conversations-list-response",
       handleConversationsListResponse
     );
-    socket.on("conversation-append-message", handleAppendMessage);
 
-    socket.on("visitor-close-chat",handleCloseConversation);
     return () => {
       socket.off(
         "get-conversations-list-response",
         handleConversationsListResponse
       );
-      socket.off("conversation-append-message", handleAppendMessage);
-      socket.off("visitor-close-chat");
     };
-  }, [socketRef.current]);
+  }, []);
 
+  const handleConversationsListResponse = async (data: any) => {
+    console.log("conv list", data.conversations);
+    setConversationsList({ data: data.conversations, loading: false });
+
+
+    let index = data.conversations.findIndex(
+      (conv: any) => conv?.conversation?.conversationOpenStatus === "open"
+    ) || 0;
+
+
+    await openConversation(data.conversations[index]._id, data.conversations[index].name, 2);
+    // Transform the visitorDetails array to an object
+    const transformedVisitorDetails =
+      data?.conversations[index]?.visitorDetails?.reduce(
+        (acc: any, { field, value }: { field: string; value: string }) => {
+          acc[field.toLowerCase()] = value; // Use lowercase keys for consistency
+          return acc;
+        },
+        {
+          location: data?.conversations[index]?.location,
+          ip: data?.conversations[index]?.ip,
+        }
+      );
+
+    setVisitorDetails(transformedVisitorDetails);
+  };
+
+  const handleConversationsListUpdateResponse = async (data: any) => {
+    console.log("conv list", data.conversations);
+    setConversationsList({ data: data.conversations, loading: false });
+  };
+
+  // conv list update
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    const userId = localStorage.getItem("userId");
+    // Handle the "visitor-connect-list-update" event
+    socket.on("visitor-connect-list-update", () => {
+      console.log("list Update")
+      socket.emit("get-conversations-list", { userId });
+    });
+
+    socket.on(
+      "get-conversations-list-response",
+      handleConversationsListUpdateResponse
+    );
+
+    return () => {
+      socket.off(
+        "get-conversations-list-response",
+        handleConversationsListUpdateResponse
+      );
+    };
+
+  }, [socketRef.current])
+
+  //old conv and notes
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -305,6 +352,7 @@ export default function Inbox(Props: any) {
     }
   };
 
+  //tags socket
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket || !openConversationId) return;
@@ -346,8 +394,9 @@ export default function Inbox(Props: any) {
     }
   };
 
-  const handleCloseConversation = async (event: any) => {
+  const handleCloseConversation = async () => {
     try {
+      console.log("button clicked")
       const socket = socketRef.current;
       // Emit event to close the conversation
       socket?.emit(
@@ -357,11 +406,6 @@ export default function Inbox(Props: any) {
           if (response.success) {
             console.log("Conversation closed successfully.");
             setOpenConversationStatus("close");
-
-            // Update UI
-            event.target.style.backgroundColor = "black";
-            event.target.style.color = "white";
-            event.target.innerText = "Closed";
           } else {
             console.error("Failed to close conversation:", response.error);
           }
@@ -372,7 +416,11 @@ export default function Inbox(Props: any) {
     }
   };
 
-  const handleBlockVisitor = async (event: any) => {
+  const handleCloseConversationVisitor = () => {
+    setOpenConversationStatus("close");
+  };
+
+  const handleBlockVisitor = async () => {
     try {
       const socket = socketRef.current;
       // Emit event to block a visitor
@@ -382,10 +430,6 @@ export default function Inbox(Props: any) {
         (response: any) => {
           if (response.success) {
             console.log("Visitor blocked successfully.");
-            // Update UI
-            event.target.style.backgroundColor = "black";
-            event.target.style.color = "white";
-            event.target.innerText = "Blocked";
           } else {
             console.error("Failed to block visitor:", response.error);
           }
@@ -452,7 +496,6 @@ export default function Inbox(Props: any) {
   };
 
   const handleSearchInputClick = () => {
-    // console.log()
     if (searchText.trim().length > 0) {
       handleSearchConversations(searchText);
     } else {
@@ -536,7 +579,7 @@ export default function Inbox(Props: any) {
                     placeholder="Search Conversations"
                     className="search-input"
                   />
-    
+
                   <button
                     type="button"
                     className="plain-btn"
@@ -598,12 +641,12 @@ export default function Inbox(Props: any) {
                         .map((item: any, index: any) => (
                           <div
                             className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
-                                ? " active"
-                                : ""
+                              ? " active"
+                              : ""
                               }`}
                             key={index}
-                            onClick={() =>
-                              openConversation(item._id, item.name,index)
+                            onClick={async () =>
+                              await openConversation(item._id, item.name, index)
                             }
                           >
                             <div className="chatlist-userLetter">
@@ -703,10 +746,25 @@ export default function Inbox(Props: any) {
                     </span>
                   </div>
                 </div>
-                <button onClick={handleCloseConversation}>
-                  Close Conversation
-                </button>
-                <button onClick={handleBlockVisitor}>Block Visitor</button>
+                {openConversationStatus === "open" ?
+                  <button onClick={handleCloseConversation}>
+                    Close Conversation
+                  </button> :
+                  <button>
+                    Conversation Closed
+                  </button>
+                }
+
+                {openConversationStatus === "open" ?
+                  <button onClick={handleBlockVisitor}>
+                    Block Visitor
+                    </button>
+                  :
+                  <button>
+                    Visitor Blocked
+                  </button>
+                }
+
                 <div className="chat-tagArea d-flex gap-16">
                   <div className="chat-taglist">
                     {tags.map((tag: any) => (
@@ -837,7 +895,7 @@ export default function Inbox(Props: any) {
                       </li>
                     </ul>
                     <div className="tab-content" id="myTabContent">
-                      {isNoteActive ? (
+                      {isNoteActive || openConversationStatus == "close" ? (
                         <>
                           <input
                             type="text"
@@ -958,8 +1016,8 @@ export default function Inbox(Props: any) {
                       {oldConversationList.data.map((list: any) => (
                         <div
                           className="note-listBox"
-                          onClick={() =>
-                            openOldConversation(
+                          onClick={async () =>
+                            await openOldConversation(
                               list.conversation_id,
                               openVisitorName
                             )

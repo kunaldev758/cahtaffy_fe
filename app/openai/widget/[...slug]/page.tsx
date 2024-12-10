@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-// import { useSocket } from "@/app/socketContext";
 import './_components/widgetcss.css';
 import { format } from "date-fns";
 import {io,Socket } from 'socket.io-client'
@@ -12,7 +11,6 @@ import { basePath } from "@/next.config"
 const axios = require('axios');
 
 export default function ChatWidget({ params }: { params: { slug: any } }) {
-  // const { socket } = useSocket();
 
   const [inputMessage, setInputMessage] = useState('');
   const [conversation, setConversation] = useState<any>([]);
@@ -45,7 +43,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
         widgetId,
         widgetAuthToken: widgetToken,
         visitorId: localStorage.getItem('visitorId'),
-        conversationId:conversationId,
+        // conversationId:conversationId,
       },
       transports: ["websocket", "polling"], // Ensure compatibility
     });
@@ -58,6 +56,27 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       socketRef.current = null;
     };
   }, [widgetId, widgetToken]);
+
+  useEffect(()=>{
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.on("conversation-append-message", (data: any) => {
+      console.log("append msg res",data);
+      if(!conversation.length){
+        setConversationId(data.chatMessage[0]?.conversationId);
+      }
+      setConversation((prev:any) => [...prev, data.chatMessage]);
+    });
+    socket.on("visitor-blocked",handleCloseConversationClient);
+    socket.on("visitor-conversation-close",handleCloseConversationClient);
+
+    return () => {
+      socket.off("conversation-append-message");
+      socket.off("visitor-blocked");
+      socket.off("visitor-conversation-close");
+    }
+  },[socketRef.current])
 
   // Scroll to the bottom of the chat
   useEffect(() => {
@@ -76,34 +95,20 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     });
 
     socket.on("visitor-connect-response", (data: any) => {
-      console.log(data,"conn res")
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
       setFields(data.themeSettings?.fields || []);
-      // localStorage.setItem('openaiVisitorId', data.visitorId);
-    
-      
-      if(data?.chatMessages?.length >0){
+
+      if(data?.chatMessages?.length >1){
         setVisitorExists(true);
         setConversationId(data.chatMessages[0]?.conversationId);
       }
     });
 
-    socket.on("conversation-append-message", (data: any) => {
-      console.log("append msg res",data);
-      setConversation((prev:any) => [...prev, data.chatMessage]);
-      if(!conversation.length){
-        setConversationId(data.chatMessage[0]?.conversationId);
-      }
-    });
-    socket.on("visitor-blocked",handleCloseConversation);
-
     return () => {
       socket.off("visitor-connect-response");
-      socket.off("conversation-append-message");
-      socket.off("visitor-blocked");
     };
-  }, [ widgetId, widgetToken]);
+  }, []);
 
   // Fetch visitor IP and location
   useEffect(() => {
@@ -148,7 +153,12 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const handleCloseConversation = () => {
     const socket = socketRef.current;
     if (!socket) return; // Guard against uninitialized socket
-    socket?.emit('close-conversation', { conversationId:conversation[0].conversation_id, status: 'close' });
+    socket?.emit('close-conversation-visitor', { conversationId:conversation[0].conversation_id, status: 'close' });
+    setConversationStatus('close');
+  };
+
+  const handleCloseConversationClient = () => {
+    console.log("event clicked")
     setConversationStatus('close');
   };
 
