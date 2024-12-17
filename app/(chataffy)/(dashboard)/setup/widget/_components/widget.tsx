@@ -17,7 +17,7 @@ import clientLogoImage from '@/images/client-logo.png'
 import closeBtnImage from '@/images/close-btn.svg'
 import sendIconWidgetImage from '@/images/send-icon-widget.svg'
 import Image from 'next/image';
-import { updateThemeSettings ,getThemeSettings } from '@/app/_api/dashboard/action';
+import { updateThemeSettings ,getThemeSettings ,uploadLogo } from '@/app/_api/dashboard/action';
 
 
 
@@ -163,14 +163,17 @@ export default function Widget() {
   const [error, setError] = useState<string | null>(null); // For validation errors
   const [themeData,setThemeData] = useState(null);
 
-  const handleLogoChange = (e: any) => {
-    const file = e.target.files?.[0];
+  const handleLogoChange = async (e: any) => {
+    const logo = e.target.files?.[0];
     dispatch({ type: "SET_LOGO", payload: e.target.files[0] });
+    const formData = new FormData();
+    formData.append("logo", logo);
+    await uploadLogo(formData);
     const reader = new FileReader();
     reader.onload = () => {
       setSelectedLogo(reader.result as any); // Set image preview
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(logo);
   };
 
   const handleImageClick = () => {
@@ -274,6 +277,12 @@ export default function Widget() {
     fetchData()
   },[])
 
+  useEffect(()=>{
+    if(state.logo){
+    setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${state.logo}` as any)
+    }
+  },[state.logo])
+
 
   return (
     <><div className="main-content-area">
@@ -302,8 +311,13 @@ export default function Widget() {
                   <Accordion.Body className="accordion-body">
                     <div className="setting-accordionArea">
                       <div className="setting-field widget-logoUpload mb-20">
-                        <Image src={logoUploadImage} alt="" onClick={handleImageClick}
-                          style={{ cursor: 'pointer' }} />
+                        {state.logo ?
+                          <Image src={`${process.env.NEXT_PUBLIC_FILE_HOST}${state.logo}`} alt="Logo" onClick={handleImageClick} width={100} height={100}
+                            style={{ cursor: 'pointer' }} />
+                          :
+                          <Image src={logoUploadImage} alt="" onClick={handleImageClick}
+                            style={{ cursor: 'pointer' }} />
+                        }
                         <input
                           type="file"
                           id="logoUploadInput"

@@ -17,14 +17,12 @@ import 'rsuite/dist/rsuite.min.css';
 import { useEffect, useState } from 'react';
 import { Chart } from "react-google-charts";
 import { getTrainingStatus } from '@/app/_api/dashboard/action'
-// import io from 'socket.io-client';
 import { useSocket } from "@/app/socketContext";
 
-// const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL as string);
 
 export default function Home() {
   const { socket } = useSocket();
-  const [dateRange, setDateRange] = useState<any>([new Date(), new Date()])
+  const [dateRange, setDateRange] = useState<any>([ new Date(new Date().setDate(new Date().getDate() - 7)), new Date()])
   const [totalChat, setTotalChat] = useState(0)
   const [totalMessage, setTotalMessage] = useState(0)
   const [art, setArt] = useState(0)
@@ -32,6 +30,7 @@ export default function Home() {
   const [fallbackMessage, setFallbackMessage] = useState(0)
   const [uptime, setUptime] = useState(0)
   const [aiChat, setAiChat] = useState(0)
+  const [data,setData] = useState<any>()
   const [showGetStartedBox, setShowGetStartedBox] = useState(true)
 
   const [webpageStatus, setWebpageStatus] = useState(false)
@@ -48,11 +47,11 @@ export default function Home() {
     })
   }, [])
 
-  const data = [
-    ["Country", "Chat Cont"],
-    ["INDIA", 200],
-    ["PAKISTAN", 700],
-  ];
+  // const data = [
+  //   ["Country", "Chat Cont"],
+  //   ["INDIA", 200],
+  //   ["PAKISTAN", 700],
+  // ];
 
   // Emit a request for initial data
   useEffect(() => {
@@ -60,7 +59,7 @@ export default function Home() {
     // Emit event to fetch dashboard data
     socket.emit('fetch-dashboard-data', { dateRange }, (response: any) => {
       if (response.success) {
-        const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists } = response.data;
+        const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists,locationData } = response.data;
         setTotalChat(totalChat);
         setTotalMessage(totalMessage);
         setArt(art);
@@ -68,6 +67,7 @@ export default function Home() {
         setFallbackMessage(fallbackMessage);
         setUptime(uptime);
         setAiChat(aiAssists);
+        setData(locationData);
         // setWebpageStatus(trainingStatus.webpageStatus);
         // setFaqStatus(trainingStatus.faqStatus);
         // setDocSnippetStatus(trainingStatus.docSnippetStatus);
@@ -77,7 +77,7 @@ export default function Home() {
     // Listen for real-time updates
     socket.on('update-dashboard-data', (data: any) => {
       console.log('Real-time Update:', data);
-      const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists } = data;
+      const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists ,locationData} = data;
       setTotalChat(totalChat);
       setTotalMessage(totalMessage);
       setArt(art);
@@ -85,6 +85,7 @@ export default function Home() {
       setFallbackMessage(fallbackMessage);
       setUptime(uptime);
       setAiChat(aiAssists);
+      setData(locationData);
       // setWebpageStatus(trainingStatus.webpageStatus);
       // setFaqStatus(trainingStatus.faqStatus);
       // setDocSnippetStatus(trainingStatus.docSnippetStatus);

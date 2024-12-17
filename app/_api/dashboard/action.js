@@ -21,6 +21,23 @@ async function fetchData(endpoint, requestData = {}) {
   return data
 }
 
+async function uploadData(endpoint,formData ) {
+  const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      Authorization: cookies().get('token').value
+    },
+  });
+  const data = await response.json();
+  console.log(response,"status code")
+  if(data.status_code==401){
+    cookies().delete('token')
+    return 'error'
+  }
+  return data
+}
+
 async function getFetchData(endpoint,params=null) {
   let response =null;
   if(params){
@@ -145,6 +162,10 @@ export async function setBasicInfoApi(basicInfo) {
 
 export async function getThemeSettings(id) {
   return await getFetchData('getThemeSettings',{id});
+}
+
+export async function uploadLogo(formData) {
+  return await uploadData('uploadLogo',formData);
 }
 
 export async function getIsVisitorExists(id) {

@@ -1,10 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { basePath } from '@/next.config'
 import AddcontentModal from './addContentModal'
 import { useEffect } from 'react'
-import { io } from "socket.io-client"
 import { useState } from 'react'
 import TrainingList from './trainingList'
 
@@ -16,15 +14,16 @@ import docSnippetsIconPic from '@/images/doc-snippets-icon.svg'
 import faqIconPic from '@/images/faq-icon.svg'
 import searchIconPic from '@/images/search-icon.svg'
 
-
 import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 
-import { useSocket } from "@/app/socketContext";
+import { useSocket } from '@/app/socketContext'
+
 
 export default function Home(Props: any) {
   const router = useRouter()
   const { socket } = useSocket();
+
 
   const [showModal, setShowModal] = useState(false)
   const [webPageCount, setWebPageCount] = useState({ crawled: 0, total: 0, loading: true })
@@ -35,20 +34,34 @@ export default function Home(Props: any) {
   const [search, setSearch] = useState('')
   const [trainingListCheckbox, setTrainingListCheckbox] = useState({})
   const [selectAllCheckbox, setSelectAllCheckbox] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Adjust items per page as needed
+  const [paginatedData, setPaginatedData] = useState<any>({ data: [], loading: true })
+  const [sourceTypeFilter,setSourceTypeFilter] = useState<any>("Show All Sources");
+  const [actionTypeFilter,setActionTypeFilter] = useState<any>("Action 1");
+
+  
+  const totalPages = Math.ceil(webPageCount.crawled + docCount.crawled + faqCount.crawled / itemsPerPage);
+
+
+  const handleSourceTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSourceTypeFilter(event.target.value);
+  };
+
+  const handleActionTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setActionTypeFilter(event.target.value);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
 
   const getData = () => {
     if (!socket) return;
-    console.log("hello connected");
-
-    // socket.on('client-connect-response', function () {
-    //   socket.emit('get-credit-count')
-    //   socket.emit('get-conversations-list')
-    // })
-
-    socket.on('client-connect-response',async function () {
-      await socket.emit('get-credit-count')
-      await socket.emit('get-training-list-count')
-      await socket.emit('get-training-list')
+    socket.on('client-connect-response', function () {
+      socket.emit('get-credit-count')
+      socket.emit('get-training-list-count')
+      socket.emit('get-training-list', { skip: (currentPage - 1) * itemsPerPage, limit: itemsPerPage , sourcetype:sourceTypeFilter ,actionType :actionTypeFilter })
     })
 
     socket.on('get-credit-count-response', function ({ data }: any) {
@@ -62,6 +75,7 @@ export default function Home(Props: any) {
     })
 
     socket.on('get-training-list-response', function ({ data }: any) {
+      console.log(data,"training list data");
       setTrainingList({ data: data, loading: false })
     })
 
@@ -76,7 +90,7 @@ export default function Home(Props: any) {
 
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
-      socket.emit('get-training-list')
+      socket.emit('get-training-list', { skip: (currentPage - 1) * itemsPerPage, limit: itemsPerPage, sourcetype:sourceTypeFilter ,actionType :actionTypeFilter })
     })
 
     socket.on('web-pages-crawled', function (data: any) {
@@ -87,65 +101,66 @@ export default function Home(Props: any) {
         acc[item._id] = item;
         return acc;
       }, {});
-      
+
       // Update the trainingList state with the modified array
       setTrainingList((prevTrainingList: any) => ({
         data: prevTrainingList.data.map((item1: any) => ({
           ...item1,
-          trainingStatus: indexedData[item1._id] && item1.trainingStatus<2 ? 2 : item1.trainingStatus,
+          trainingStatus: indexedData[item1._id] && item1.trainingStatus < 2 ? 2 : item1.trainingStatus,
         })),
         loading: false,
       }));
-      
+
       // Update the webPageCount state with the updatedCrawledCount
-      setWebPageCount((webPageCount) => ({ ...webPageCount, crawled: data.updatedCrawledCount }));      
+      setWebPageCount((webPageCount) => ({ ...webPageCount, crawled: data.updatedCrawledCount }));
 
     })
 
     socket.on('web-pages-minified', function (data: any) {
       console.log("minfied", data)
-       // Create an object to index data.list items based on _id
-       const indexedData = data.list.reduce((acc: any, item: any) => {
+      // Create an object to index data.list items based on _id
+      const indexedData = data.list.reduce((acc: any, item: any) => {
         acc[item._id] = item;
         return acc;
       }, {});
-      
+
       // Update the trainingList state with the modified array
-      setTrainingList((prevTrainingList:any) => ({
+      setTrainingList((prevTrainingList: any) => ({
         data: prevTrainingList.data.map((item1: any) => ({
           ...item1,
-          trainingStatus: indexedData[item1._id] && item1.trainingStatus<3 ? 3 : item1.trainingStatus,
+          trainingStatus: indexedData[item1._id] && item1.trainingStatus < 3 ? 3 : item1.trainingStatus,
         })),
         loading: false,
       }));
-      
+
     })
 
     socket.on('web-pages-mapped', function (data: any) {
       console.log("mapped", data)
-       // Create an object to index data.list items based on _id
-       const indexedData = data.list.reduce((acc: any, item: any) => {
+      // Create an object to index data.list items based on _id
+      const indexedData = data.list.reduce((acc: any, item: any) => {
         acc[item._id] = item;
         return acc;
       }, {});
-      
+
       // Update the trainingList state with the modified array
-      setTrainingList((prevTrainingList:any) => ({
+      setTrainingList((prevTrainingList: any) => ({
         data: prevTrainingList.data.map((item1: any) => ({
           ...item1,
-          trainingStatus: indexedData[item1._id] && item1.trainingStatus<4 ? 4 : item1.trainingStatus,
+          trainingStatus: indexedData[item1._id] && item1.trainingStatus < 4 ? 4 : item1.trainingStatus,
         })),
         loading: false,
       }));
-      
+
     })
 
-    socket.emit('client-connect');
+    socket.emit('client-connect')
   }
 
   useEffect(() => {
     getData()
-  }, [socket])
+  }, [currentPage,sourceTypeFilter,actionTypeFilter])
+
 
   return (
     <>
@@ -248,7 +263,11 @@ export default function Home(Props: any) {
           <div className="training-table-head flex justify-content-space-between align-item-center">
             <div className="training-tableHead-left flex gap20">
               <div className="custom-dropi">
-                <select className="form-select">
+                <select 
+                className="form-select"
+                  value={sourceTypeFilter}
+                  onChange={handleSourceTypeChange}
+                >
                   <option>Show All Sources</option>
                   <option>Web Pages</option>
                   <option>Doc/Snippets</option>
@@ -257,7 +276,11 @@ export default function Home(Props: any) {
               </div>
 
               <div className="custom-dropi">
-                <select className="form-select">
+                <select 
+                className="form-select"
+                value={actionTypeFilter}
+                onChange={handleActionTypeChange}
+                >
                   <option>Action</option>
                   <option>Action 1</option>
                   <option>Action 2</option>
@@ -296,7 +319,7 @@ export default function Home(Props: any) {
               </thead>
 
               <tbody>
-                {trainingList.loading ?
+                {trainingList.data.loading ?
                   <>
                     {[...Array(10)].map((_, index) => (
                       <tr key={index}>
@@ -318,17 +341,104 @@ export default function Home(Props: any) {
                         componentKey={key}
                         selectAllCheckbox={selectAllCheckbox}
                         handleOnchangeCheckbox={(componentKey: any, checkboxValue: any) => {
-                          setTrainingListCheckbox((trainingListCheckbox: any) => ({ ...trainingListCheckbox, [componentKey]: checkboxValue })
-                          )
+                          setTrainingListCheckbox((trainingListCheckbox: any) => ({
+                            ...trainingListCheckbox,
+                            [componentKey]: checkboxValue,
+                          }));
                         }}
                       />
                     ))}
                   </>
-
                 }
               </tbody>
             </table>
           </div>
+
+          <div className="pagination-controls">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+            >
+              Previous
+            </button>
+
+            {totalPages <= 10 ? (
+              // Show all pages if totalPages <= 10
+              Array.from({ length: totalPages }, (_, index) => (
+                <button
+                  key={index}
+                  className={currentPage === index + 1 ? 'active' : ''}
+                  onClick={() => handlePageChange(index + 1)}
+                  style={{ backgroundClip: "red" }}
+                >
+                  {index + 1}
+                </button>
+              ))
+            ) : (
+              // Handle ellipsis for more than 10 pages
+              <>
+                <button
+                  className={currentPage === 1 ? 'active' : ''}
+                  onClick={() => handlePageChange(1)}
+                >
+                  1
+                </button>
+
+                {currentPage > 4 && <span>...</span>}
+
+                {Array.from({ length: 5 }, (_, index) => {
+                  const page = currentPage - 2 + index;
+                  if (page > 1 && page < totalPages) {
+                    return (
+                      <button
+                        key={page}
+                        className={currentPage === page ? 'active' : ''}
+                        onClick={() => handlePageChange(page)}
+                      >
+                        {page}
+                      </button>
+                    );
+                  }
+                  return null;
+                })}
+
+                {currentPage < totalPages - 3 && <span>...</span>}
+
+                <button
+                  className={currentPage === totalPages ? 'active' : ''}
+                  onClick={() => handlePageChange(totalPages)}
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
+
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+            >
+              Next
+            </button>
+
+            {/* Page Search */}
+            <div className="page-search">
+              <input
+                type="number"
+                min="1"
+                max={totalPages}
+                value={currentPage}
+                onChange={(e) => {
+                  const page = Math.min(
+                    Math.max(Number(e.target.value), 1),
+                    totalPages
+                  );
+                  handlePageChange(page);
+                }}
+              />
+              <button onClick={() => handlePageChange(currentPage)}>Go</button>
+            </div>
+          </div>
+
         </div>
       </div>
       <AddcontentModal

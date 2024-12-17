@@ -14,7 +14,7 @@ import { format } from "date-fns"
 
 export default function Message(props: any) {
   console.log(props,"the props")
-    const { messageData, messageIndex, expandedSources, setExpandedSources } = props;
+    const { messageData, messageIndex, expandedSources, setExpandedSources,visitorName } = props;
     const [isExpanded, setIsExpanded] = useState(false);
 
     useEffect(() => {
@@ -89,7 +89,10 @@ export default function Message(props: any) {
           <div className="message-box">
             <div className="d-flex  align-items-end gap-16">
               <div className="chatMessage-logo">
-                <Image src={trainingIconImage} alt="" />
+                {/* <Image src={trainingIconImage} alt="" /> */}
+                <div className="chatlist-userLetter" >
+                              {visitorName[0]}
+                            </div>
               </div>
 
               <div className="chat-messageArea d-flex flex-column align-items-start">

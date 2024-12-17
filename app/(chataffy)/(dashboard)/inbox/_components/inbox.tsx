@@ -11,7 +11,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import Message from "./message";
 import { io, Socket } from 'socket.io-client';
-import { format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 
 import {
   getConversationMessages,
@@ -26,6 +26,10 @@ export default function Inbox(Props: any) {
   const [credit, setCredit] = useState({ used: 0, total: 0 });
   const [isConversationAvailable, setIsConversationAvailable] = useState(true);
   const [conversationsList, setConversationsList] = useState<any>({
+    data: [],
+    loading: true,
+  });
+  const [searchConversationsList, setSearchConversationsList] = useState<any>({
     data: [],
     loading: true,
   });
@@ -77,10 +81,12 @@ export default function Inbox(Props: any) {
   }, [openConversationId]);
 
   // Open conversation and fetch messages
-  const openConversation = async (visitorId: any, visitorName: string, index: any) => {
+  const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
     try {
       const socket = socketRef.current;
       if (!socket) return;
+
+      const visitorId = ConversationData._id;
 
       setOpenVisitorId(visitorId);
       setOpenVisitorName(visitorName);
@@ -98,6 +104,21 @@ export default function Inbox(Props: any) {
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
 
         socket.emit("set-conversation-id", { conversationId: data.chatMessages[0]?.conversation_id });
+
+        // Transform the visitorDetails array to an object
+        const transformedVisitorDetails =
+          ConversationData?.visitorDetails?.reduce(
+            (acc: any, { field, value }: { field: string; value: string }) => {
+              acc[field.toLowerCase()] = value; // Use lowercase keys for consistency
+              return acc;
+            },
+            {
+              location: ConversationData?.location,
+              ip: ConversationData?.ip,
+            }
+          );
+
+        setVisitorDetails(transformedVisitorDetails);
 
         // setConversationLength(data.chatMessages.length);   
         setIsAIChat(conversationsList.data[index].conversation.aiChat);
@@ -229,6 +250,9 @@ export default function Inbox(Props: any) {
 
   const handleConversationsListResponse = async (data: any) => {
     console.log("conv list", data.conversations);
+    if(data.conversations.length <=0){
+      setIsConversationAvailable(false);
+    }
     setConversationsList({ data: data.conversations, loading: false });
 
 
@@ -236,28 +260,14 @@ export default function Inbox(Props: any) {
       (conv: any) => conv?.conversation?.conversationOpenStatus === "open"
     ) || 0;
 
-
-    await openConversation(data.conversations[index]._id, data.conversations[index].name, 2);
-    // Transform the visitorDetails array to an object
-    const transformedVisitorDetails =
-      data?.conversations[index]?.visitorDetails?.reduce(
-        (acc: any, { field, value }: { field: string; value: string }) => {
-          acc[field.toLowerCase()] = value; // Use lowercase keys for consistency
-          return acc;
-        },
-        {
-          location: data?.conversations[index]?.location,
-          ip: data?.conversations[index]?.ip,
-        }
-      );
-
-    setVisitorDetails(transformedVisitorDetails);
-  };
+    await openConversation(data.conversations[index], data.conversations[index].name, index);
+  }
 
   const handleConversationsListUpdateResponse = async (data: any) => {
     console.log("conv list", data.conversations);
     setConversationsList({ data: data.conversations, loading: false });
   };
+
 
   // conv list update
   useEffect(() => {
@@ -443,8 +453,6 @@ export default function Inbox(Props: any) {
   const handleSearchConversations = (searchText: string) => {
     try {
       const socket = socketRef.current;
-      // setSearchConversationsList({ data: [], loading: true });
-      console.log(searchText, "Search Query");
 
       // Emit a search event to the server
       socket?.emit(
@@ -453,16 +461,14 @@ export default function Inbox(Props: any) {
         (response: any) => {
           if (response.success) {
             console.log("Search Results:", response.data);
-            setConversationsList({ data: response.data, loading: false });
+            setSearchConversationsList({ data: response.data, loading: false });
           } else {
             console.error("Search Error:", response.error);
-            // setSearchConversationsList({ data: [], loading: false });
           }
         }
       );
     } catch (err) {
       console.error("Error in search:", err);
-      // setSearchConversationsList({ data: [], loading: false });
     }
   };
 
@@ -492,14 +498,15 @@ export default function Inbox(Props: any) {
   const handleSearchInputChange = (e: any) => {
     const searchValue = e.target.value;
     setSearchText(searchValue);
+    if(searchValue.trim().length <=0){
+      setSearchConversationsList({ data: [], loading: false });
+    }
     console.log(searchValue, "this is searchValue");
   };
 
   const handleSearchInputClick = () => {
     if (searchText.trim().length > 0) {
       handleSearchConversations(searchText);
-    } else {
-      // setSearchConversationsList({ data: [], loading: false });
     }
   };
 
@@ -578,6 +585,7 @@ export default function Inbox(Props: any) {
                     onChange={handleSearchInputChange}
                     placeholder="Search Conversations"
                     className="search-input"
+                    onKeyDown={handleSearchInputClick}
                   />
 
                   <button
@@ -632,7 +640,9 @@ export default function Inbox(Props: any) {
                     </>
                   ) : (
                     <>
-                      {conversationsList.data
+                    {searchConversationsList.data.length ? 
+                    <>
+                    {searchConversationsList.data
                         .filter(
                           (conversation: any) =>
                             conversation?.conversation
@@ -646,7 +656,7 @@ export default function Inbox(Props: any) {
                               }`}
                             key={index}
                             onClick={async () =>
-                              await openConversation(item._id, item.name, index)
+                              await openConversation(item, item.name, index)
                             }
                           >
                             <div className="chatlist-userLetter">
@@ -665,6 +675,45 @@ export default function Inbox(Props: any) {
                             </div>
                           </div>
                         ))}
+                    </>
+                    :
+                    <>
+                    {conversationsList.data
+                        .filter(
+                          (conversation: any) =>
+                            conversation?.conversation
+                              ?.conversationOpenStatus === status
+                        )
+                        .map((item: any, index: any) => (
+                          <div
+                            className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item.conversation._id
+                              ? " active"
+                              : ""
+                              }`}
+                            key={index}
+                            onClick={async () =>
+                              await openConversation(item, item.name, index)
+                            }
+                          >
+                            <div className="chatlist-userLetter">
+                              {item.name[0]}
+                            </div>
+                            <div className="chatlist-listInfo">
+                              <div className="chatlist-userName">
+                                {item.name}
+                              </div>
+                              <div
+                                className="chatlist-userMessage"
+                                dangerouslySetInnerHTML={{
+                                  __html: item.lastMessage,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                    </>
+                    }
+                      
                     </>
                   )}
                 </div>
@@ -844,6 +893,7 @@ export default function Inbox(Props: any) {
                               messageIndex={index}
                               expandedSources={expandedSources}
                               setExpandedSources={setExpandedSources}
+                              visitorName={conversationMessages.visitorName}
                             />
                           </div>
                         )
@@ -992,14 +1042,10 @@ export default function Inbox(Props: any) {
                     <div className="note-listArea custom-scrollbar">
                       {notesList.map((note: any, index: any) => (
                         <div className="note-listBox">
-                          <button
-                            key={index}
-                            onClick={() => scrollToMessage(note._id)}
-                          ></button>
-                          <h6>@riyaz</h6>
-                          <div className="note-listDescribe-area d-flex justify-content-between">
+                          <div className="note-listDescribe-area d-flex justify-content-between" key={index}
+                          onClick={() => scrollToMessage(note._id)}>
                             <p>{note.message}</p>
-                            <span>{note.createdAt} ago</span>
+                            <span>{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}</span>
                           </div>
                         </div>
                       ))}
@@ -1026,7 +1072,7 @@ export default function Inbox(Props: any) {
                           <h6>@{openVisitorName}</h6>
                           <div className="note-listDescribe-area d-flex justify-content-between">
                             <p>{list.message}</p>
-                            <span>{list.createdAt} ago</span>
+                            <span>{formatDistanceToNow(new Date(list.createdAt), { addSuffix: true })}</span>
                           </div>
                         </div>
                       ))}

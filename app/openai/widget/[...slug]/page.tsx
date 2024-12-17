@@ -7,6 +7,10 @@ import { format } from "date-fns";
 import {io,Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid"; 
 import { basePath } from "@/next.config"
+import closeBtnImage from '@/images/close-btn.svg'
+import sendButtonImage from '@/images/send-icon.svg'
+import widgetIconImage from '@/images/widget-icon.png'
+import clientIconImage from '@/images/client-logo.png'
 
 const axios = require('axios');
 
@@ -24,6 +28,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [visitorLocation, setVisitorLocation] = useState('');
   const [showWidget, setShowWidget] = useState(true);
   const [feedback, setFeedback] = useState(null);
+  const [clientLogo,setClientLogo] =useState<any>(clientIconImage)
 
   const chatBottomRef = useRef<any>(null);
 
@@ -98,10 +103,19 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
       setFields(data.themeSettings?.fields || []);
+      if(data.themeSettings.logo){
+        setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}` as any);
+      }
+      
 
+
+
+      if(data?.chatMessages){
+        console.log(data.chatMessages,"conv id")
+        setConversationId(data.chatMessages[0]?.conversation_id);
+      }
       if(data?.chatMessages?.length >1){
         setVisitorExists(true);
-        setConversationId(data.chatMessages[0]?.conversationId);
       }
     });
 
@@ -158,20 +172,19 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   };
 
   const handleCloseConversationClient = () => {
-    console.log("event clicked")
     setConversationStatus('close');
   };
 
-  const handleFeedback = (type: any, messageId: any) => {
+  const handleFeedback = (type: any, conversationId: any) => {
 		// Emit the feedback to the server
     const socket = socketRef.current;
     if (!socket) return;
 		socket.emit(
-			"message-feedback",
-			{ messageId: messageId, feedback: type }, // Send message ID and feedback type
+			"conversation-feedback",
+			{ conversationId: conversationId, feedback: type }, // Send message ID and feedback type
 			(response: any) => {
 				if (response.success) {
-					console.log("Feedback updated successfully:", response.updatedMessage);
+					console.log("Feedback updated successfully:", response);
 					setFeedback(type); // Update local state
 				} else {
 					console.error("Error updating feedback:", response.error);
@@ -186,7 +199,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       <div className="chataffy-widget-area">
         <div className="chataffy-widgetBtn-box" onClick={() => setShowWidget((prev) => !prev)}>
           <div className="chataffy-widget-btn">
-            <Image src="/images/widget/widget-icon.png" width={37} height={37} alt="Widget Icon" />
+            <Image src={widgetIconImage} width={37} height={37} alt="Widget Icon" />
           </div>
         </div>
 
@@ -194,7 +207,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
           <div className="chataffy-messageFrame">
             <div className="chataffy-widget-head" style={{ background: themeSettings?.colorFields?.[0]?.value }}>
               <div className="chataffy-widget-headLeft">
-                <Image src="/images/widget/client-logo.png" width={40} height={40} alt="Client Logo" />
+                <Image src={clientLogo} width={40} height={40} alt="Client Logo" />
                 <div className="chataffy-head-infoArea">
                   <div className="chataffy-headName" style={{ color: themeSettings?.colorFields?.[1]?.value }}>
                     {themeSettings?.titleBar || "Chataffy"}
@@ -204,8 +217,22 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                   </div>
                 </div>
               </div>
+              <div>
+                <span>
+                  <button
+                    onClick={() => handleFeedback(true, conversationId)}
+                    style={{ border: 'none', backgroundColor: "transparent", cursor: "pointer" }}
+                    disabled={feedback === true}>👍</button>
+                </span>
+                <span>
+                  <button
+                    onClick={() => handleFeedback(false, conversationId)}
+                    style={{ border: 'none', backgroundColor: "transparent", cursor: "pointer" }}
+                    disabled={feedback === false}>👎</button>
+                </span>
+              </div>
               <button className="chataffy-widget-closeBtn" onClick={() => setShowWidget(false)}>
-                <Image src="/images/widget/close-btn.svg" width={20} height={20} alt="Close" />
+                <Image src={closeBtnImage} width={20} height={20} alt="Close" />
               </button>
             </div>
 
@@ -217,24 +244,12 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                     {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent' && item.is_note == "false") &&
                       <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
                         <div className="chataffy-widget-messageImage">
-                          <Image src={`${basePath}/images/widget/client-logo.png`} width={40} height={40} alt="" />
+                          <Image src={clientLogo} width={40} height={40} alt="" />
                         </div>
 
                         <div className="chataffy-widget-messageBox">
                           <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[2]?.value, "color": themeSettings?.colorFields[3]?.value }}>
                             <div dangerouslySetInnerHTML={{ __html: item.message }} />
-                          </div>
-                          <div>
-                            <span>
-                              <button
-                                onClick={() => handleFeedback("like", item._id)}
-                                disabled={feedback === "like"}>👍</button>
-                            </span>
-                            <span>
-                              <button
-                                onClick={() => handleFeedback("dislike", item._id)}
-                                disabled={feedback === "dislike"}>👎</button>
-                            </span>
                           </div>
                           <div style={{ display: 'none' }}>
                             {(item.infoSources) &&
@@ -301,8 +316,8 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                     onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
                   />
                   <button onClick={handleCloseConversation}>Close Conversation</button>
-                  <button onClick={handleMessageSend}>
-                    <Image src="/images/widget/send-icon.svg" width={18} height={18} alt="Send" />
+                  <button onClick={handleMessageSend} style={{marginLeft:10}}>
+                    <Image src={sendButtonImage} width={18} height={16} alt="Send" />
                   </button>
                 </div>
               )}
