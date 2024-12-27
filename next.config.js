@@ -12,7 +12,10 @@ const nextConfig = {
     serverActions: {
         allowedOrigins: ["shopify.favseo.com","localhost:9001","127.0.0.1:9001"],
     },
-  }
+  },
+  images: {
+    domains: ['localhost'], // Add 'localhost' to allowed domains
+  },
 }
 
 module.exports = nextConfig

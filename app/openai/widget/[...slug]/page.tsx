@@ -30,6 +30,8 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [feedback, setFeedback] = useState(null);
   const [clientLogo,setClientLogo] =useState<any>(clientIconImage)
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const chatBottomRef = useRef<any>(null);
 
   const widgetId = params.slug[0];
@@ -126,6 +128,8 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
 
   // Fetch visitor IP and location
   useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return; 
     const fetchVisitorDetails = async () => {
       try {
         const response = await axios.get('https://ipinfo.io/?token=def346c1243a80');
@@ -136,6 +140,14 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       }
     };
     fetchVisitorDetails();
+
+    socket.on("visitor-is-blocked",()=>{
+      setConversationStatus('close');
+    })
+    if(visitorLocation){
+    socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp, visitorDetails: formData });
+    }
+
   }, []);
 
   const handleMessageSend = () => {
@@ -155,7 +167,6 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     e.preventDefault();
     const socket = socketRef.current;
     if (!socket) return; // Guard against uninitialized socket
-    console.log(formData,visitorLocation,visitorIp,"visitor det")
     socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp, visitorDetails: formData });
     setVisitorExists(true);
   };
@@ -222,13 +233,13 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                   <button
                     onClick={() => handleFeedback(true, conversationId)}
                     style={{ border: 'none', backgroundColor: "transparent", cursor: "pointer" }}
-                    disabled={feedback === true}>👍</button>
+                    disabled={feedback === false}>👍</button>
                 </span>
                 <span>
                   <button
                     onClick={() => handleFeedback(false, conversationId)}
                     style={{ border: 'none', backgroundColor: "transparent", cursor: "pointer" }}
-                    disabled={feedback === false}>👎</button>
+                    disabled={feedback === true}>👎</button>
                 </span>
               </div>
               <button className="chataffy-widget-closeBtn" onClick={() => setShowWidget(false)}>
@@ -237,7 +248,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
             </div>
 
             <div className="chataffy-widget-body">
-              {visitorExists ? (
+              {visitorExists || themeSettings?.isPreChatFormEnabled == false ? (
                 <div>
                 {conversation.map((item: any, key: any) => (
                   <div key={key}>
@@ -288,13 +299,13 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                 <form onSubmit={handleSubmitVisitorDetails}>
                 {fields.map((field: any) => (
                   <div key={field._id} style={{ marginBottom: "15px" }}>
-                    <label htmlFor={field._id}>{field.name}:</label>
+                    <label htmlFor={field._id}>{field.value}:</label>
                     <input
-                      type={field.name.toLowerCase() === "email" ? "email" : "text"}
+                      type={field.value.toLowerCase() === "email" ? "email" : "text"}
                       id={field._id}
                       required={field.required}
-                      value={formData[field.name] || ""}
-                      onChange={(e) => handleInputChange(field.name, e.target.value)}
+                      value={formData[field.value] || ""}
+                      onChange={(e) => handleInputChange(field.value, e.target.value)}
                     />
                   </div>
                 ))}

@@ -165,15 +165,17 @@ export default function Widget() {
 
   const handleLogoChange = async (e: any) => {
     const logo = e.target.files?.[0];
-    dispatch({ type: "SET_LOGO", payload: e.target.files[0] });
+    if (!logo) return;
     const formData = new FormData();
     formData.append("logo", logo);
-    await uploadLogo(formData);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setSelectedLogo(reader.result as any); // Set image preview
-    };
-    reader.readAsDataURL(logo);
+    try {
+      await uploadLogo(formData); // Upload the logo to the backend
+      const previewUrl = URL.createObjectURL(logo); // Generate a preview URL
+      setSelectedLogo(previewUrl as any); // Update the state for preview
+      dispatch({ type: "SET_LOGO", payload: previewUrl });
+    } catch (error) {
+      setError("Failed to upload logo. Please try again.");
+    }
   };
 
   const handleImageClick = () => {
@@ -312,7 +314,7 @@ export default function Widget() {
                     <div className="setting-accordionArea">
                       <div className="setting-field widget-logoUpload mb-20">
                         {state.logo ?
-                          <Image src={`${process.env.NEXT_PUBLIC_FILE_HOST}${state.logo}`} alt="Logo" onClick={handleImageClick} width={100} height={100}
+                          <Image src={selectedLogo} alt="Logo" onClick={handleImageClick} width={100} height={100}
                             style={{ cursor: 'pointer' }} />
                           :
                           <Image src={logoUploadImage} alt="" onClick={handleImageClick}

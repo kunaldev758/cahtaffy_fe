@@ -27,6 +27,7 @@ export default function Inbox(Props: any) {
   const [isConversationAvailable, setIsConversationAvailable] = useState(true);
   const [conversationsList, setConversationsList] = useState<any>({
     data: [],
+    newMessages: 0,
     loading: true,
   });
   const [searchConversationsList, setSearchConversationsList] = useState<any>({
@@ -83,6 +84,7 @@ export default function Inbox(Props: any) {
   // Open conversation and fetch messages
   const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
     try {
+      console.log(ConversationData,visitorName,index,"Open Conv")
       const socket = socketRef.current;
       if (!socket) return;
 
@@ -205,10 +207,13 @@ export default function Inbox(Props: any) {
 
   //new messages and visitor close chat
   useEffect(() => {
+    console.log("Hello useEffect")
     const socket = socketRef.current;
     if (!socket) return;
 
     const handleAppendMessage = (data: any) => {
+      // if(data.conversation != openConversationId)
+      // setConversationsList(())
       console.log(data, "socket conv data");
       setConversationMessages((prev: any) => ({
         ...prev,
@@ -260,7 +265,7 @@ export default function Inbox(Props: any) {
       (conv: any) => conv?.conversation?.conversationOpenStatus === "open"
     ) || 0;
 
-    await openConversation(data.conversations[index], data.conversations[index].name, index);
+    // await openConversation(data.conversations[index], data.conversations[index].name, index);
   }
 
   const handleConversationsListUpdateResponse = async (data: any) => {
@@ -382,9 +387,9 @@ export default function Inbox(Props: any) {
     );
   }, [socketRef.current, openConversationId]);
 
-  const handleTagDelete = async (id: any) => {
+
+  const handleTagDelete = (id: any) => {
     try {
-      console.log(id, "id to delete");
       const socket = socketRef.current;
       // Emit event to delete a tag from the conversation
       socket?.emit(
@@ -392,8 +397,7 @@ export default function Inbox(Props: any) {
         { id, conversationId: openConversationId },
         (response: any) => {
           if (response.success) {
-            console.log("Tag deleted successfully:", response.tags);
-            setTags(response.tags); // Update tags with the response
+            setTags(tags.filter((tag: any) => tag._id !== id));
           } else {
             console.error("Failed to delete tag:", response.error);
           }
@@ -436,10 +440,11 @@ export default function Inbox(Props: any) {
       // Emit event to block a visitor
       socket?.emit(
         "block-visitor",
-        { visitorId: openVisitorId },
+        { visitorId: openVisitorId,conversationId:openConversationId },
         (response: any) => {
           if (response.success) {
             console.log("Visitor blocked successfully.");
+            setOpenConversationStatus("close");
           } else {
             console.error("Failed to block visitor:", response.error);
           }
@@ -585,7 +590,11 @@ export default function Inbox(Props: any) {
                     onChange={handleSearchInputChange}
                     placeholder="Search Conversations"
                     className="search-input"
-                    onKeyDown={handleSearchInputClick}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSearchInputClick();
+                      }
+                    }}
                   />
 
                   <button
@@ -643,11 +652,11 @@ export default function Inbox(Props: any) {
                     {searchConversationsList.data.length ? 
                     <>
                     {searchConversationsList.data
-                        .filter(
-                          (conversation: any) =>
-                            conversation?.conversation
-                              ?.conversationOpenStatus === status
-                        )
+                        // .filter(
+                        //   (conversation: any) =>
+                        //     conversation?.conversation
+                        //       ?.conversationOpenStatus === status
+                        // )
                         .map((item: any, index: any) => (
                           <div
                             className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
@@ -681,12 +690,17 @@ export default function Inbox(Props: any) {
                     {conversationsList.data
                         .filter(
                           (conversation: any) =>
-                            conversation?.conversation
-                              ?.conversationOpenStatus === status
+                            conversation?.conversation.some(
+                              (conv: any) => conv.conversationOpenStatus === status && !conv.is_blocked
+                            )
                         )
-                        .map((item: any, index: any) => (
-                          <div
-                            className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item.conversation._id
+                        .map((item: any, index: any) => {
+                          const openConv = item.conversation.find(
+                            (conv: any) => conv.conversationOpenStatus === status && !conv.is_blocked
+                          );
+                          return(
+                            <div
+                            className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == openConv._id
                               ? " active"
                               : ""
                               }`}
@@ -710,7 +724,10 @@ export default function Inbox(Props: any) {
                               />
                             </div>
                           </div>
-                        ))}
+                          );
+                        }
+                      )
+                        }
                     </>
                     }
                       

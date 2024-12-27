@@ -13,7 +13,6 @@ import InformationSources from './informationSources';
 import { format } from "date-fns"
 
 export default function Message(props: any) {
-  console.log(props,"the props")
     const { messageData, messageIndex, expandedSources, setExpandedSources,visitorName } = props;
     const [isExpanded, setIsExpanded] = useState(false);
 

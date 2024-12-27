@@ -17,7 +17,7 @@ export default function Home() {
       setButtonStatus({ loading: true, disabled: true })
       const response = await loginApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
-      if (response.status_code == 200) {
+      if (response?.status_code == 200) {
         router.replace(appUrl+'dashboard')
         localStorage.setItem('token', response.token);
         localStorage.setItem('userId', response.userId);
