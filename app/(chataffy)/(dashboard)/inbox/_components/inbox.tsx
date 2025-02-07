@@ -17,6 +17,7 @@ import {
   getConversationMessages,
   getOldConversationMessages,
 } from "@/app/_api/dashboard/action";
+// import { Prev } from "react-bootstrap/esm/PageItem";
 
 
 export default function Inbox(Props: any) {
@@ -27,7 +28,6 @@ export default function Inbox(Props: any) {
   const [isConversationAvailable, setIsConversationAvailable] = useState(true);
   const [conversationsList, setConversationsList] = useState<any>({
     data: [],
-    newMessages: 0,
     loading: true,
   });
   const [searchConversationsList, setSearchConversationsList] = useState<any>({
@@ -84,17 +84,15 @@ export default function Inbox(Props: any) {
   // Open conversation and fetch messages
   const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
     try {
-      console.log(ConversationData,visitorName,index,"Open Conv")
       const socket = socketRef.current;
       if (!socket) return;
 
-      const visitorId = ConversationData._id;
+      const visitorId = ConversationData?.visitor?._id;
 
       setOpenVisitorId(visitorId);
       setOpenVisitorName(visitorName);
 
       const data = await getConversationMessages(visitorId);
-      console.log(data, "conv data");
       if (data) {
         setConversationMessages({
           data: data.chatMessages,
@@ -106,24 +104,31 @@ export default function Inbox(Props: any) {
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
 
         socket.emit("set-conversation-id", { conversationId: data.chatMessages[0]?.conversation_id });
-
+        socket.emit("message-seen", { conversationId: data.chatMessages[0]?.conversation_id });
+        //setConversationsList((prev: any) => ({ ...prev, data: data.map((d: any) => { d.conversatio_id == data.chatMessages[0]?.conversation_id ? d.newMessage = 0 : d }) }))
+        setConversationsList((prev: any) => ({
+          ...prev,
+          data: prev.data?.map((d: any) =>
+            d._id === data?.chatMessages[0]?.conversation_id
+              ? { ...d, newMessage: 0 }
+              : d
+          ),
+        }));
         // Transform the visitorDetails array to an object
         const transformedVisitorDetails =
-          ConversationData?.visitorDetails?.reduce(
+          ConversationData?.visitor?.visitorDetails?.reduce(
             (acc: any, { field, value }: { field: string; value: string }) => {
               acc[field.toLowerCase()] = value; // Use lowercase keys for consistency
               return acc;
             },
             {
-              location: ConversationData?.location,
-              ip: ConversationData?.ip,
+              location: ConversationData?.visitor?.location,
+              ip: ConversationData?.visitor?.ip,
             }
           );
 
-        setVisitorDetails(transformedVisitorDetails);
-
-        // setConversationLength(data.chatMessages.length);   
-        setIsAIChat(conversationsList.data[index].conversation.aiChat);
+        setVisitorDetails(transformedVisitorDetails); 
+        setIsAIChat(ConversationData.aiChat);
       }
     } catch (error) {
       console.error("Error fetching conversation messages:", error);
@@ -136,9 +141,9 @@ export default function Inbox(Props: any) {
     visitorName: string
   ) => {
     try {
-      console.log(conversationId, visitorName, "kunalll")
+      // console.log(conversationId, visitorName, "kunalll")
       const data = await getOldConversationMessages({ conversationId });
-      console.log("old conv", data);
+      // console.log("old conv", data);
       if (data) {
         setConversationMessages({
           data: data.chatMessages,
@@ -171,6 +176,141 @@ export default function Inbox(Props: any) {
       }
     });
   };
+
+  //new messages and visitor close chat
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const handleAppendMessage = (data: any) => {
+      setConversationMessages((prev: any) => ({
+        ...prev,
+        data: [...prev.data, data.chatMessage],
+      }));
+    };
+
+    const handleNewMessageCount = (data: any) => {
+      const userId = localStorage.getItem("userId");
+
+      socket.emit("get-open-conversations-list", { userId })
+      socket.on(
+        "get-open-conversations-list-response",
+        handleOpenConversationsListUpdateResponse
+      );
+
+      return () => {
+        socket.off(
+          "get-open-conversations-list-response",
+          handleOpenConversationsListUpdateResponse
+        );
+      };
+    }
+
+    socket.on("new-message-count", handleNewMessageCount);
+
+    socket.on("conversation-append-message", handleAppendMessage);
+
+    socket.on("visitor-close-chat", handleCloseConversationVisitor);
+    return () => {
+      socket.off("conversation-append-message", handleAppendMessage);
+      socket.off("visitor-close-chat");
+    };
+
+  }, [socketRef.current])
+
+  // useEffect(() => {
+  //   setConversationsList((prevState: any) => (
+  //     {...prevState, data:conversationsList?.data?.sort((c1: any, c2: any)=> { c1.newMessages - c2.newMessages })
+  // }))
+
+  // }, [socketRef.current])
+  // console.log(conversationsList,"this is conv list");
+
+  // Socket get conversation List
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const userId = localStorage.getItem("userId");
+
+    if (status == "open") {
+      socket.emit("get-open-conversations-list", { userId })
+      socket.on(
+        "get-open-conversations-list-response",
+        handleOpenConversationsListResponse
+      );
+
+      return () => {
+        socket.off(
+          "get-open-conversations-list-response",
+          handleOpenConversationsListResponse
+        );
+      };
+    } else {
+      socket.emit("get-close-conversations-list", { userId });
+      socket.on(
+        "get-close-conversations-list-response",
+        handleCloseConversationsListResponse
+      );
+
+      return () => {
+        socket.off(
+          "get-close-conversations-list-response",
+          handleCloseConversationsListResponse
+        );
+      };
+    }
+  }, [status]);
+
+  const handleOpenConversationsListResponse = async (data: any) => {
+    // console.log("conv list response", data.conversations);
+    console.log("open conv list data",data);
+    if (data.conversations.length <= 0) {
+      setIsConversationAvailable(false);
+    }
+    setConversationsList({ data: data.conversations, loading: false });
+    // await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
+  }
+
+  const handleOpenConversationsListUpdateResponse = async (data: any) => {
+    status == 'open' && setConversationsList({ data: data.conversations, loading: false });
+  };
+
+
+  // conv list update
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    const userId = localStorage.getItem("userId");
+
+    socket.on("visitor-connect-list-update", () => {
+      socket.emit("get-open-conversations-list", { userId });
+    });
+
+    socket.on(
+      "get-open-conversations-list-response",
+      handleOpenConversationsListUpdateResponse
+    );
+
+    return () => {
+      socket.off(
+        "get-open-conversations-list-response",
+        handleOpenConversationsListUpdateResponse
+      );
+    };
+
+  }, [socketRef.current])
+
+  //handle close conv list
+  const handleCloseConversationsListResponse = async (data :any) => {
+    console.log("close conv list data",data);
+    if (data.conversations.length <= 0) {
+      setIsConversationAvailable(false);
+    }
+    setConversationsList({ data: data.conversations, loading: false });
+    // await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
+  }
+
 
   // Handle adding a note
   const handleAddNote = () => {
@@ -205,112 +345,19 @@ export default function Inbox(Props: any) {
     setInputMessage("");
   };
 
-  //new messages and visitor close chat
-  useEffect(() => {
-    console.log("Hello useEffect")
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handleAppendMessage = (data: any) => {
-      // if(data.conversation != openConversationId)
-      // setConversationsList(())
-      console.log(data, "socket conv data");
-      setConversationMessages((prev: any) => ({
-        ...prev,
-        data: [...prev.data, data.chatMessage],
-      }));
-    };
-
-    socket.on("conversation-append-message", handleAppendMessage);
-
-    socket.on("visitor-close-chat", handleCloseConversationVisitor);
-    return () => {
-      socket.off("conversation-append-message", handleAppendMessage);
-      socket.off("visitor-close-chat");
-    };
-
-  }, [socketRef.current])
-
-  // Socket get conversation List
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const userId = localStorage.getItem("userId");
-
-    socket.emit("get-conversations-list", { userId });
-
-    socket.on(
-      "get-conversations-list-response",
-      handleConversationsListResponse
-    );
-
-    return () => {
-      socket.off(
-        "get-conversations-list-response",
-        handleConversationsListResponse
-      );
-    };
-  }, []);
-
-  const handleConversationsListResponse = async (data: any) => {
-    console.log("conv list", data.conversations);
-    if(data.conversations.length <=0){
-      setIsConversationAvailable(false);
-    }
-    setConversationsList({ data: data.conversations, loading: false });
-
-
-    let index = data.conversations.findIndex(
-      (conv: any) => conv?.conversation?.conversationOpenStatus === "open"
-    ) || 0;
-
-    // await openConversation(data.conversations[index], data.conversations[index].name, index);
-  }
-
-  const handleConversationsListUpdateResponse = async (data: any) => {
-    console.log("conv list", data.conversations);
-    setConversationsList({ data: data.conversations, loading: false });
-  };
-
-
-  // conv list update
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-    const userId = localStorage.getItem("userId");
-    // Handle the "visitor-connect-list-update" event
-    socket.on("visitor-connect-list-update", () => {
-      console.log("list Update")
-      socket.emit("get-conversations-list", { userId });
-    });
-
-    socket.on(
-      "get-conversations-list-response",
-      handleConversationsListUpdateResponse
-    );
-
-    return () => {
-      socket.off(
-        "get-conversations-list-response",
-        handleConversationsListUpdateResponse
-      );
-    };
-
-  }, [socketRef.current])
 
   //old conv and notes
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
     if (openConversationId) {
-      console.log(openConversationId, "notes openConversationId");
+      // console.log(openConversationId, "notes openConversationId");
       socket.emit(
         "get-all-note-messages",
         { conversationId: openConversationId },
         (response: any) => {
           if (response.success) {
-            console.log("conv notes", response);
+            // console.log("conv notes", response);
             setNotesList(response.notes);
           } else {
             console.error("Error fetching notes:", response.error);
@@ -324,7 +371,7 @@ export default function Inbox(Props: any) {
         { visitorId: openVisitorId },
         (response: any) => {
           if (response.success) {
-            console.log("old Conversations", response);
+            // console.log("old Conversations", response);
             setOldConversationList({
               data: response.conversations,
               loading: false,
@@ -341,12 +388,12 @@ export default function Inbox(Props: any) {
     try {
       const socket = socketRef.current;
       setAddTag(false);
-      console.log(
-        inputAddTag,
-        "inputAddTag",
-        openConversationId,
-        "openConversatinId"
-      );
+      // console.log(
+      //   inputAddTag,
+      //   "inputAddTag",
+      //   openConversationId,
+      //   "openConversatinId"
+      // );
 
       // Emit event to add a tag to the conversation
       socket?.emit(
@@ -354,7 +401,7 @@ export default function Inbox(Props: any) {
         { name: inputAddTag, conversationId: openConversationId },
         (response: any) => {
           if (response.success) {
-            console.log("Tag added successfully:", response.tags);
+            // console.log("Tag added successfully:", response.tags);
             setTags(response.tags); // Update tags with the response
             setInputAddTag("");
           } else {
@@ -378,7 +425,7 @@ export default function Inbox(Props: any) {
       { conversationId: openConversationId },
       (response: any) => {
         if (response.success) {
-          console.log("Fetched tags:", response.tags);
+          // console.log("Fetched tags:", response.tags);
           setTags(response.tags);
         } else {
           console.error("Failed to fetch tags:", response.error);
@@ -399,7 +446,7 @@ export default function Inbox(Props: any) {
           if (response.success) {
             setTags(tags.filter((tag: any) => tag._id !== id));
           } else {
-            console.error("Failed to delete tag:", response.error);
+            // console.error("Failed to delete tag:", response.error);
           }
         }
       );
@@ -410,7 +457,7 @@ export default function Inbox(Props: any) {
 
   const handleCloseConversation = async () => {
     try {
-      console.log("button clicked")
+      // console.log("button clicked")
       const socket = socketRef.current;
       // Emit event to close the conversation
       socket?.emit(
@@ -418,7 +465,7 @@ export default function Inbox(Props: any) {
         { conversationId: openConversationId, status: "close" },
         (response: any) => {
           if (response.success) {
-            console.log("Conversation closed successfully.");
+            // console.log("Conversation closed successfully.");
             setOpenConversationStatus("close");
           } else {
             console.error("Failed to close conversation:", response.error);
@@ -440,10 +487,10 @@ export default function Inbox(Props: any) {
       // Emit event to block a visitor
       socket?.emit(
         "block-visitor",
-        { visitorId: openVisitorId,conversationId:openConversationId },
+        { visitorId: openVisitorId, conversationId: openConversationId },
         (response: any) => {
           if (response.success) {
-            console.log("Visitor blocked successfully.");
+            // console.log("Visitor blocked successfully.");
             setOpenConversationStatus("close");
           } else {
             console.error("Failed to block visitor:", response.error);
@@ -462,10 +509,10 @@ export default function Inbox(Props: any) {
       // Emit a search event to the server
       socket?.emit(
         "search-conversations",
-        { query: searchText },
+        { query: searchText ,status:status},
         (response: any) => {
           if (response.success) {
-            console.log("Search Results:", response.data);
+            // console.log("Search Results:", response.data);
             setSearchConversationsList({ data: response.data, loading: false });
           } else {
             console.error("Search Error:", response.error);
@@ -503,10 +550,10 @@ export default function Inbox(Props: any) {
   const handleSearchInputChange = (e: any) => {
     const searchValue = e.target.value;
     setSearchText(searchValue);
-    if(searchValue.trim().length <=0){
+    if (searchValue.trim().length <= 0) {
       setSearchConversationsList({ data: [], loading: false });
     }
-    console.log(searchValue, "this is searchValue");
+    // console.log(searchValue, "this is searchValue");
   };
 
   const handleSearchInputClick = () => {
@@ -517,7 +564,7 @@ export default function Inbox(Props: any) {
 
   // Function to handle the change event
   const handleChange = (event: any) => {
-    console.log(event.target.value, "this is val");
+    // console.log(event.target.value, "this is val");
     setStatus(event.target.value);
   };
 
@@ -539,7 +586,7 @@ export default function Inbox(Props: any) {
 
   // Scroll to a specific message
   const scrollToMessage = (index: any) => {
-    console.log(index, "msg index");
+    // console.log(index, "msg index");
     const messageIndex = conversationMessages.data.findIndex(
       (msg: any) => msg._id === index
     );
@@ -563,7 +610,7 @@ export default function Inbox(Props: any) {
           { conversationId: openConversationId },
           (response: any) => {
             if (response.success) {
-              console.log("Visitor blocked successfully.");
+              // console.log("Visitor blocked successfully.");
               setIsAIChat(false);
             } else {
               console.error("Failed to block visitor:", response.error);
@@ -649,88 +696,80 @@ export default function Inbox(Props: any) {
                     </>
                   ) : (
                     <>
-                    {searchConversationsList.data.length ? 
-                    <>
-                    {searchConversationsList.data
-                        // .filter(
-                        //   (conversation: any) =>
-                        //     conversation?.conversation
-                        //       ?.conversationOpenStatus === status
-                        // )
-                        .map((item: any, index: any) => (
-                          <div
-                            className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
-                              ? " active"
-                              : ""
-                              }`}
-                            key={index}
-                            onClick={async () =>
-                              await openConversation(item, item.name, index)
-                            }
-                          >
-                            <div className="chatlist-userLetter">
-                              {item.name[0]}
-                            </div>
-                            <div className="chatlist-listInfo">
-                              <div className="chatlist-userName">
-                                {item.name}
-                              </div>
+                      {searchConversationsList.data.length ?
+                        <>
+                          {searchConversationsList.data
+                            // .filter(
+                            //   (conversation: any) =>
+                            //     conversation?.conversation
+                            //       ?.conversationOpenStatus === status
+                            // )
+                            .map((item: any, index: any) => (
                               <div
-                                className="chatlist-userMessage"
-                                dangerouslySetInnerHTML={{
-                                  __html: item.lastMessage,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                    </>
-                    :
-                    <>
-                    {conversationsList.data
-                        .filter(
-                          (conversation: any) =>
-                            conversation?.conversation.some(
-                              (conv: any) => conv.conversationOpenStatus === status && !conv.is_blocked
+                                className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
+                                  ? " active"
+                                  : ""
+                                  }`}
+                                key={index}
+                                onClick={async () =>
+                                  await openConversation(item, item.name, index)
+                                }
+                              >
+                                <div className="chatlist-userLetter">
+                                  {item.name[0]}
+                                </div>
+                                <div className="chatlist-listInfo">
+                                  <div className="chatlist-userName">
+                                    {item.name}
+                                  </div>
+                                  <div
+                                    className="chatlist-userMessage"
+                                    dangerouslySetInnerHTML={{
+                                      __html: item.lastMessage,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                        </>
+                        :
+                        <>
+                          {conversationsList.data
+                            .map((item: any, index: any) => {
+                              return (
+                                <div
+                                  className={`chat-listBox gap-10 d-flex${item.conversationId == openConversationId
+                                    ? " active"
+                                    : ""
+                                    }`}
+                                  key={index}
+                                  onClick={async () =>
+                                    await openConversation(item, item.visitor.name, index)
+                                  }
+                                >
+                                  <div className="chatlist-userLetter">
+                                    {item.visitor.name[0]}
+                                  </div>
+                                  <div className="chatlist-listInfo">
+                                    <div className="chatlist-userName">
+                                      {item.visitor.name}
+                                    </div>
+                                    <div
+                                      className="chatlist-userMessage"
+                                      dangerouslySetInnerHTML={{
+                                        __html: item.visitor.lastMessage,
+                                      }}
+                                    />
+                                    <div>{item?.newMessage}</div>
+                                  </div>
+                                </div>
+                              );
+                            }
                             )
-                        )
-                        .map((item: any, index: any) => {
-                          const openConv = item.conversation.find(
-                            (conv: any) => conv.conversationOpenStatus === status && !conv.is_blocked
-                          );
-                          return(
-                            <div
-                            className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == openConv._id
-                              ? " active"
-                              : ""
-                              }`}
-                            key={index}
-                            onClick={async () =>
-                              await openConversation(item, item.name, index)
-                            }
-                          >
-                            <div className="chatlist-userLetter">
-                              {item.name[0]}
-                            </div>
-                            <div className="chatlist-listInfo">
-                              <div className="chatlist-userName">
-                                {item.name}
-                              </div>
-                              <div
-                                className="chatlist-userMessage"
-                                dangerouslySetInnerHTML={{
-                                  __html: item.lastMessage,
-                                }}
-                              />
-                            </div>
-                          </div>
-                          );
-                        }
-                      )
-                        }
-                    </>
-                    }
-                      
+                          }
+                        </>
+                      }
+
                     </>
                   )}
                 </div>
@@ -824,7 +863,7 @@ export default function Inbox(Props: any) {
                 {openConversationStatus === "open" ?
                   <button onClick={handleBlockVisitor}>
                     Block Visitor
-                    </button>
+                  </button>
                   :
                   <button>
                     Visitor Blocked
@@ -1060,7 +1099,7 @@ export default function Inbox(Props: any) {
                       {notesList.map((note: any, index: any) => (
                         <div className="note-listBox">
                           <div className="note-listDescribe-area d-flex justify-content-between" key={index}
-                          onClick={() => scrollToMessage(note._id)}>
+                            onClick={() => scrollToMessage(note._id)}>
                             <p>{note.message}</p>
                             <span>{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}</span>
                           </div>
