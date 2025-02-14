@@ -17,7 +17,6 @@ import {
   getConversationMessages,
   getOldConversationMessages,
 } from "@/app/_api/dashboard/action";
-// import { Prev } from "react-bootstrap/esm/PageItem";
 
 
 export default function Inbox(Props: any) {
@@ -105,7 +104,6 @@ export default function Inbox(Props: any) {
 
         socket.emit("set-conversation-id", { conversationId: data.chatMessages[0]?.conversation_id });
         socket.emit("message-seen", { conversationId: data.chatMessages[0]?.conversation_id });
-        //setConversationsList((prev: any) => ({ ...prev, data: data.map((d: any) => { d.conversatio_id == data.chatMessages[0]?.conversation_id ? d.newMessage = 0 : d }) }))
         setConversationsList((prev: any) => ({
           ...prev,
           data: prev.data?.map((d: any) =>
@@ -141,9 +139,7 @@ export default function Inbox(Props: any) {
     visitorName: string
   ) => {
     try {
-      // console.log(conversationId, visitorName, "kunalll")
       const data = await getOldConversationMessages({ conversationId });
-      // console.log("old conv", data);
       if (data) {
         setConversationMessages({
           data: data.chatMessages,
@@ -153,7 +149,6 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
-        // setConversationLength(data.chatMessages.length);
       }
     } catch (error) {
       console.error("Error fetching old conversation messages:", error);
@@ -388,20 +383,12 @@ export default function Inbox(Props: any) {
     try {
       const socket = socketRef.current;
       setAddTag(false);
-      // console.log(
-      //   inputAddTag,
-      //   "inputAddTag",
-      //   openConversationId,
-      //   "openConversatinId"
-      // );
-
       // Emit event to add a tag to the conversation
       socket?.emit(
         "add-conversation-tag",
         { name: inputAddTag, conversationId: openConversationId },
         (response: any) => {
           if (response.success) {
-            // console.log("Tag added successfully:", response.tags);
             setTags(response.tags); // Update tags with the response
             setInputAddTag("");
           } else {
@@ -446,7 +433,7 @@ export default function Inbox(Props: any) {
           if (response.success) {
             setTags(tags.filter((tag: any) => tag._id !== id));
           } else {
-            // console.error("Failed to delete tag:", response.error);
+            console.error("Failed to delete tag:", response.error);
           }
         }
       );
@@ -457,7 +444,6 @@ export default function Inbox(Props: any) {
 
   const handleCloseConversation = async () => {
     try {
-      // console.log("button clicked")
       const socket = socketRef.current;
       // Emit event to close the conversation
       socket?.emit(
@@ -465,7 +451,6 @@ export default function Inbox(Props: any) {
         { conversationId: openConversationId, status: "close" },
         (response: any) => {
           if (response.success) {
-            // console.log("Conversation closed successfully.");
             setOpenConversationStatus("close");
           } else {
             console.error("Failed to close conversation:", response.error);
@@ -490,7 +475,6 @@ export default function Inbox(Props: any) {
         { visitorId: openVisitorId, conversationId: openConversationId },
         (response: any) => {
           if (response.success) {
-            // console.log("Visitor blocked successfully.");
             setOpenConversationStatus("close");
           } else {
             console.error("Failed to block visitor:", response.error);
@@ -512,7 +496,6 @@ export default function Inbox(Props: any) {
         { query: searchText ,status:status},
         (response: any) => {
           if (response.success) {
-            // console.log("Search Results:", response.data);
             setSearchConversationsList({ data: response.data, loading: false });
           } else {
             console.error("Search Error:", response.error);
@@ -553,7 +536,6 @@ export default function Inbox(Props: any) {
     if (searchValue.trim().length <= 0) {
       setSearchConversationsList({ data: [], loading: false });
     }
-    // console.log(searchValue, "this is searchValue");
   };
 
   const handleSearchInputClick = () => {
@@ -943,13 +925,29 @@ export default function Inbox(Props: any) {
                               messageRefs.current[index] = el; // Assign ref to each message
                             }}
                           >
-                            <Message
+                            {/* <Message
                               key={index}
                               messageData={item}
                               messageIndex={index}
                               expandedSources={expandedSources}
                               setExpandedSources={setExpandedSources}
                               visitorName={conversationMessages.visitorName}
+                            /> */}
+
+                            <Message
+                              messageData={item}
+                              messageIndex={index}
+                              expandedSources={expandedSources}
+                              setExpandedSources={setExpandedSources}
+                              visitorName={conversationMessages.visitorName}
+                              onEditMessage={(message) => {
+                                // Handle edit message logic
+                                console.log('Edit message:', message);
+                              }}
+                              onDeleteMessage={(message) => {
+                                // Handle delete message logic
+                                console.log('Delete message:', message);
+                              }}
                             />
                           </div>
                         )
@@ -1001,7 +999,7 @@ export default function Inbox(Props: any) {
                       </li>
                     </ul>
                     <div className="tab-content" id="myTabContent">
-                      {isNoteActive || openConversationStatus == "close" ? (
+                      {isNoteActive || openConversationStatus == "close" || isAIChat ? (
                         <>
                           <input
                             type="text"

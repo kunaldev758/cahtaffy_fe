@@ -145,7 +145,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       setConversationStatus('close');
     })
     if(visitorLocation){
-    socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp, visitorDetails: formData });
+    socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp });
     }
 
   }, []);
@@ -252,7 +252,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                 <div>
                 {conversation.map((item: any, key: any) => (
                   <div key={key}>
-                    {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent' && item.is_note == "false") &&
+                    {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent' || item.sender_type == 'assistant' && item.is_note == "false") &&
                       <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
                         <div className="chataffy-widget-messageImage">
                           <Image src={clientLogo} width={40} height={40} alt="" />

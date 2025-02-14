@@ -1,6 +1,5 @@
 'use client';
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import { ToastContainer, toast } from 'react-toastify';
 import { FileUpload } from './fileUpload';
@@ -38,20 +37,6 @@ export default function AddContentModal({ showModal, onHide }: any) {
     setButtonLoading(false)
     onHide()
     toast.success(response.message)
-
-    // try {
-    //   const response = await fetch('/api/upload', {
-    //     method: 'POST',
-    //     body: formData,
-    //   });
-    //   const result = await response.json();
-    //   setButtonLoading(false);
-    //   onHide();
-    //   toast.success(result.message);
-    // } catch (error) {
-    //   setButtonLoading(false);
-    //   toast.error("Failed to upload");
-    // }
   };
 
   return (
