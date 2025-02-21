@@ -171,7 +171,7 @@ const Message = ({
     <div className="relative">
       <button
         type="button"
-        className="p-1 hover:bg-gray-100 rounded-full"
+        className="p-1 hover:bg-gray-100 rounded-full border-none"
         onClick={() => setShowMenu(!showMenu)}
       >
         <MoreVertical className="w-4 h-4 text-gray-500" />
@@ -216,10 +216,13 @@ const Message = ({
               <div className="chat-messageBox relative" 
                 style={messageData.is_note === 'true' ? { backgroundColor: 'yellow' } : {}}
               >
-                <div dangerouslySetInnerHTML={{ __html: messageData.message }} />
-                <div className="absolute top-2 right-2">
+                <span className="relative flex items-center">
                   {renderMessageMenu()}
-                </div>
+                  <div className="ml-2" dangerouslySetInnerHTML={{ __html: messageData.message }} />
+                </span>
+                {/* <div className="absolute top-2 right-2">
+                  {renderMessageMenu()}
+                </div> */}
               </div>
             </div>
             <div className="chatMessage-logo">
@@ -256,9 +259,9 @@ const Message = ({
             <div className="chat-messageArea d-flex flex-column align-items-start">
               <div className="chat-messageBox relative">
                 <div dangerouslySetInnerHTML={{ __html: messageData.message }} />
-                <div className="absolute top-2 right-2">
+                {/* <div className="absolute top-2 right-2">
                   {renderMessageMenu()}
-                </div>
+                </div> */}
               </div>
             </div>
           </div>

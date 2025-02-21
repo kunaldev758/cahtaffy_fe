@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import './_components/widgetcss.css';
 import { format } from "date-fns";
-import {io,Socket } from 'socket.io-client'
-import { v4 as uuidv4 } from "uuid"; 
+import { io, Socket } from 'socket.io-client'
+import { v4 as uuidv4 } from "uuid";
 import { basePath } from "@/next.config"
 import closeBtnImage from '@/images/close-btn.svg'
 import sendButtonImage from '@/images/send-icon.svg'
@@ -18,7 +18,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
 
   const [inputMessage, setInputMessage] = useState('');
   const [conversation, setConversation] = useState<any>([]);
-  const [conversationId,setConversationId] =useState<any>(null);
+  const [conversationId, setConversationId] = useState<any>(null);
   const [themeSettings, setThemeSettings] = useState<any>(null);
   const [visitorExists, setVisitorExists] = useState(false);
   const [formData, setFormData] = useState<any>({});
@@ -28,7 +28,8 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [visitorLocation, setVisitorLocation] = useState('');
   const [showWidget, setShowWidget] = useState(true);
   const [feedback, setFeedback] = useState(null);
-  const [clientLogo,setClientLogo] =useState<any>(clientIconImage)
+  const [clientLogo, setClientLogo] = useState<any>(clientIconImage)
+  const [isTyping, setIsTyping] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +40,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    let storedVisitorId:any = localStorage.getItem('visitorId');
+    let storedVisitorId: any = localStorage.getItem('visitorId');
     if (!storedVisitorId) {
       // Generate and store new ID
       storedVisitorId = uuidv4();
@@ -64,26 +65,26 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     };
   }, [widgetId, widgetToken]);
 
-  useEffect(()=>{
+  useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
 
     socket.on("conversation-append-message", (data: any) => {
-      console.log("append msg res",data);
-      if(!conversation.length){
+      console.log("append msg res", data);
+      if (!conversation.length) {
         setConversationId(data.chatMessage[0]?.conversationId);
       }
-      setConversation((prev:any) => [...prev, data.chatMessage]);
+      setConversation((prev: any) => [...prev, data.chatMessage]);
     });
-    socket.on("visitor-blocked",handleCloseConversationClient);
-    socket.on("visitor-conversation-close",handleCloseConversationClient);
+    socket.on("visitor-blocked", handleCloseConversationClient);
+    socket.on("visitor-conversation-close", handleCloseConversationClient);
 
     return () => {
       socket.off("conversation-append-message");
       socket.off("visitor-blocked");
       socket.off("visitor-conversation-close");
     }
-  },[socketRef.current])
+  }, [socketRef.current])
 
   // Scroll to the bottom of the chat
   useEffect(() => {
@@ -105,18 +106,18 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
       setFields(data.themeSettings?.fields || []);
-      if(data.themeSettings.logo){
+      if (data.themeSettings.logo) {
         setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}` as any);
       }
-      
 
 
 
-      if(data?.chatMessages){
-        console.log(data.chatMessages,"conv id")
+
+      if (data?.chatMessages) {
+        console.log(data.chatMessages, "conv id")
         setConversationId(data.chatMessages[0]?.conversation_id);
       }
-      if(data?.chatMessages?.length >1){
+      if (data?.chatMessages?.length > 1) {
         setVisitorExists(true);
       }
     });
@@ -129,7 +130,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   // Fetch visitor IP and location
   useEffect(() => {
     const socket = socketRef.current;
-    if (!socket) return; 
+    if (!socket) return;
     const fetchVisitorDetails = async () => {
       try {
         const response = await axios.get('https://ipinfo.io/?token=def346c1243a80');
@@ -141,11 +142,11 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     };
     fetchVisitorDetails();
 
-    socket.on("visitor-is-blocked",()=>{
+    socket.on("visitor-is-blocked", () => {
       setConversationStatus('close');
     })
-    if(visitorLocation){
-    socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp });
+    if (visitorLocation) {
+      socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp });
     }
 
   }, []);
@@ -154,13 +155,15 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     if (!inputMessage.trim()) return;
     const socket = socketRef.current;
     const messageData = { message: inputMessage, id: Date.now().toString() };
-    console.log(messageData,"messageData")
-    socket?.emit("visitor-send-message", messageData, (response: any) => {
-      if (response?.chatMessage) {
-        setConversation((prev:any) => [...prev, response.chatMessage]);
-      }
-      setInputMessage('');
-    });
+    setIsTyping(true);
+    console.log(messageData, "messageData")
+    // socket?.emit("visitor-send-message", messageData, (response: any) => {
+    //   if (response?.chatMessage) {
+    //     setConversation((prev:any) => [...prev, response.chatMessage]);
+    //   }
+    //   setInputMessage('');
+    //   setIsTyping(false);
+    // });
   };
 
   const handleSubmitVisitorDetails = (e: React.FormEvent) => {
@@ -172,13 +175,13 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   };
 
   const handleInputChange = (fieldName: string, value: string) => {
-    setFormData((prev:any) => ({ ...prev, [fieldName]: value }));
+    setFormData((prev: any) => ({ ...prev, [fieldName]: value }));
   };
 
   const handleCloseConversation = () => {
     const socket = socketRef.current;
     if (!socket) return; // Guard against uninitialized socket
-    socket?.emit('close-conversation-visitor', { conversationId:conversation[0].conversation_id, status: 'close' });
+    socket?.emit('close-conversation-visitor', { conversationId: conversation[0].conversation_id, status: 'close' });
     setConversationStatus('close');
   };
 
@@ -187,22 +190,22 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   };
 
   const handleFeedback = (type: any, conversationId: any) => {
-		// Emit the feedback to the server
+    // Emit the feedback to the server
     const socket = socketRef.current;
     if (!socket) return;
-		socket.emit(
-			"conversation-feedback",
-			{ conversationId: conversationId, feedback: type }, // Send message ID and feedback type
-			(response: any) => {
-				if (response.success) {
-					console.log("Feedback updated successfully:", response);
-					setFeedback(type); // Update local state
-				} else {
-					console.error("Error updating feedback:", response.error);
-				}
-			}
-		);
-	};
+    socket.emit(
+      "conversation-feedback",
+      { conversationId: conversationId, feedback: type }, // Send message ID and feedback type
+      (response: any) => {
+        if (response.success) {
+          console.log("Feedback updated successfully:", response);
+          setFeedback(type); // Update local state
+        } else {
+          console.error("Error updating feedback:", response.error);
+        }
+      }
+    );
+  };
 
 
   return (
@@ -246,77 +249,88 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                 <Image src={closeBtnImage} width={20} height={20} alt="Close" />
               </button>
             </div>
-
             <div className="chataffy-widget-body">
               {visitorExists || themeSettings?.isPreChatFormEnabled == false ? (
                 <div>
-                {conversation.map((item: any, key: any) => (
-                  <div key={key}>
-                    {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent' || item.sender_type == 'assistant' && item.is_note == "false") &&
-                      <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
-                        <div className="chataffy-widget-messageImage">
-                          <Image src={clientLogo} width={40} height={40} alt="" />
-                        </div>
-
-                        <div className="chataffy-widget-messageBox">
-                          <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[2]?.value, "color": themeSettings?.colorFields[3]?.value }}>
-                            <div dangerouslySetInnerHTML={{ __html: item.message }} />
+                  {conversation.map((item: any, key: any) => (
+                    <div key={key}>
+                      {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent' || (item.sender_type == 'assistant' && item.is_note == "false")) && (
+                        <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
+                          <div className="chataffy-widget-messageImage">
+                            <Image src={clientLogo} width={40} height={40} alt="" />
                           </div>
-                          <div style={{ display: 'none' }}>
-                            {(item.infoSources) &&
-                              item.infoSources.map((source: any, sourceKey: any) => (
+                          <div className="chataffy-widget-messageBox">
+                            <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[2]?.value, "color": themeSettings?.colorFields[3]?.value }}>
+                              {item?.message}
+                            </div>
+                            <div style={{ display: 'none' }}>
+                              {item.infoSources && item.infoSources.map((source: any, sourceKey: any) => (
                                 <>{source}<br /></>
-                              ))
-                            }
-                          </div>
-                          <div className="chataffy-widget-messageInfo">
-                            {format(item.createdAt, 'hh:mm:ss a')}
-                          </div>
-                        </div>
-                      </div>}
-
-                    {item.sender_type == 'visitor' &&
-                      <div className="chataffy-widget-messageClient" ref={chatBottomRef}>
-                        <div className="chataffy-widget-messageBox">
-                          <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[4]?.value, "color": themeSettings?.colorFields[5]?.value }}>
-                            <div dangerouslySetInnerHTML={{ __html: item.message }} />
-                          </div>
-                          {item.createdAt ?
+                              ))}
+                            </div>
                             <div className="chataffy-widget-messageInfo">
                               {format(item.createdAt, 'hh:mm:ss a')}
                             </div>
-                            :
-                            <div className="chataffy-widget-messageInfo">
-                              Sending...
-                            </div>
-                          }
+                          </div>
                         </div>
-                      </div>}
+                      )}
+                      {item.sender_type == 'visitor' && (
+                        <div className="chataffy-widget-messageClient" ref={chatBottomRef}>
+                          <div className="chataffy-widget-messageBox">
+                            <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[4]?.value, "color": themeSettings?.colorFields[5]?.value }}>
+                              <div dangerouslySetInnerHTML={{ __html: item.message }} />
+                            </div>
+                            {item.createdAt ? (
+                              <div className="chataffy-widget-messageInfo">
+                                {format(item.createdAt, 'hh:mm:ss a')}
+                              </div>
+                            ) : (
+                              <div className="chataffy-widget-messageInfo">
+                                Sending...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {isTyping && <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
+                    <div className="chataffy-widget-messageImage">
+                      <Image src={clientLogo} width={40} height={40} alt="" />
+                    </div>
+                    <div className="chataffy-widget-messageBox">
+                      <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[2]?.value, "color": themeSettings?.colorFields[3]?.value }}>
+                        Typing....
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  }
+                </div>
               ) : (
                 <form onSubmit={handleSubmitVisitorDetails}>
-                {fields.map((field: any) => (
-                  <div key={field._id} style={{ marginBottom: "15px" }}>
-                    <label htmlFor={field._id}>{field.value}:</label>
-                    <input
-                      type={field.value.toLowerCase() === "email" ? "email" : "text"}
-                      id={field._id}
-                      required={field.required}
-                      value={formData[field.value] || ""}
-                      onChange={(e) => handleInputChange(field.value, e.target.value)}
-                    />
-                  </div>
-                ))}
-                <button type="submit">Save</button>
-              </form>
+                  {fields.map((field: any) => (
+                    <div key={field._id} style={{ marginBottom: "15px" }}>
+                      <label htmlFor={field._id}>{field.value}:</label>
+                      <input
+                        type={field.value.toLowerCase() === "email" ? "email" : "text"}
+                        id={field._id}
+                        required={field.required}
+                        value={formData[field.value] || ""}
+                        onChange={(e) => handleInputChange(field.value, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                  <button type="submit">Save</button>
+                </form>
               )}
             </div>
 
             <div className="chataffy-widget-textarea">
               {conversationStatus === 'close' ? (
                 <div>Conversation Closed</div>
+              ) : isTyping ? (
+                <div>Typing...</div>
               ) : (
                 <div>
                   <input
@@ -327,7 +341,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                     onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
                   />
                   <button onClick={handleCloseConversation}>Close Conversation</button>
-                  <button onClick={handleMessageSend} style={{marginLeft:10}}>
+                  <button onClick={handleMessageSend} style={{ marginLeft: 10 }}>
                     <Image src={sendButtonImage} width={18} height={16} alt="Send" />
                   </button>
                 </div>

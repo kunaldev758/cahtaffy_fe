@@ -604,6 +604,44 @@ export default function Inbox(Props: any) {
       console.error("Error blocking visitor:", err);
     }
   };
+  function handelEditMessage(message: any) {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    // socket.emit("edit-message", { messageId: message._id, newMessage: message.newMessage }, (response: any) => {
+    //   if (response.success) {
+        setConversationMessages((prev: any) => ({
+          ...prev,
+          data: prev.data.map((msg: any) =>
+            msg._id === message._id ? { ...msg, message: message.newMessage } : msg
+          ),
+        }));
+    //   } else {
+    //     console.error("Failed to edit message:", response.error);
+    //   }
+    // });
+  }
+
+
+  async function handelDeleteMessage(message: any) {
+    // console.log('Delete message:', message);
+    console.log('Conversation messages:', conversationMessages.data);
+    const socket = socketRef.current;
+    if (!socket) return;
+  
+    // socket.emit("delete-message", { messageId: message._id }, (response: any) => {
+    //   if (response.success) {
+        setConversationMessages((prev: any) => ({
+          ...prev,
+          data: prev.data.filter((msg: any) => msg._id !== message._id),
+        }));
+      // } else {
+      //   console.error("Failed to delete message:", response.error);
+      // }
+    // }
+  // );
+  }
+
   return (
     <>
       <div className="main-content-area">
@@ -942,11 +980,14 @@ export default function Inbox(Props: any) {
                               visitorName={conversationMessages.visitorName}
                               onEditMessage={(message) => {
                                 // Handle edit message logic
+                                handelEditMessage(message);
                                 console.log('Edit message:', message);
                               }}
-                              onDeleteMessage={(message) => {
+                              onDeleteMessage={async(message) => {
                                 // Handle delete message logic
-                                console.log('Delete message:', message);
+                                console.log('Kunal');
+                                await handelDeleteMessage(message);
+                                // console.log('Delete message:', message);
                               }}
                             />
                           </div>

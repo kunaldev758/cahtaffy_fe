@@ -58,6 +58,7 @@ export default function Home(Props: any) {
 
   const getData = () => {
     if (!socket) return;
+     setTrainingList({ data: [], loading: true }); //set loading here
     socket.on('client-connect-response', function () {
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
@@ -91,30 +92,47 @@ export default function Home(Props: any) {
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
       socket.emit('get-training-list', { skip: (currentPage - 1) * itemsPerPage, limit: itemsPerPage, sourcetype:sourceTypeFilter ,actionType :actionTypeFilter })
-    })
+    }) 
 
     socket.on('web-pages-crawled', function (data: any) {
       console.log("crawled", data);
+    })
 
-      // Create an object to index data.list items based on _id
-      const indexedData = data.list.reduce((acc: any, item: any) => {
-        acc[item._id] = item;
-        return acc;
-      }, {});
-
-      // Update the trainingList state with the modified array
+    socket.on('web-page-crawled', ({ trainingListId }) => {
       setTrainingList((prevTrainingList: any) => ({
-        data: prevTrainingList.data.map((item1: any) => ({
-          ...item1,
-          trainingStatus: indexedData[item1._id] && item1.trainingStatus < 2 ? 2 : item1.trainingStatus,
-        })),
+        data: prevTrainingList.data.map((item: any) =>
+          item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
+        ),
         loading: false,
       }));
+    });
 
-      // Update the webPageCount state with the updatedCrawledCount
-      setWebPageCount((webPageCount) => ({ ...webPageCount, crawled: data.updatedCrawledCount }));
+    socket.on('web-page-crawling-started', ({ trainingListId }) => {
+      setTrainingList((prevTrainingList: any) => ({
+        data: prevTrainingList.data.map((item: any) =>
+          item._id === trainingListId ? { ...item, trainingStatus: 1 } : item
+        ),
+        loading: false,
+      }));
+    });
 
-    })
+    socket.on('web-page-minifying-started', ({ trainingListId }) => {
+      setTrainingList((prevTrainingList: any) => ({
+        data: prevTrainingList.data.map((item: any) =>
+          item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
+        ),
+        loading: false,
+      }));
+    });
+
+    socket.on('web-page-minified', ({ trainingListId }) => {
+      setTrainingList((prevTrainingList: any) => ({
+        data: prevTrainingList.data.map((item: any) =>
+          item._id === trainingListId ? { ...item, trainingStatus: 4 } : item
+        ),
+        loading: false,
+      }));
+    });
 
     socket.on('web-pages-minified', function (data: any) {
       console.log("minfied", data)
@@ -153,6 +171,23 @@ export default function Home(Props: any) {
       }));
 
     })
+
+     socket.on('faq-added', ( { trainingList }) => {
+      setTrainingList((prevTrainingList: any) => ({
+           data: [trainingList,...prevTrainingList.data],
+           loading: false,
+         }));
+       socket.emit('get-training-list-count')
+     });
+
+      socket.on('doc-snippet-added', ({ trainingList }) => {
+       setTrainingList((prevTrainingList: any) => ({
+            data: [trainingList,...prevTrainingList.data],
+            loading: false,
+          }));
+        socket.emit('get-training-list-count')
+      });
+
 
     socket.emit('client-connect')
   }
@@ -319,18 +354,15 @@ export default function Home(Props: any) {
               </thead>
 
               <tbody>
-                {trainingList.data.loading ?
-                  <>
-                    {[...Array(10)].map((_, index) => (
-                      <tr key={index}>
-                        {[...Array(6)].map((_, index) => (
-                          <td key={index}>
-                            <Skeleton />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </>
+                {trainingList.loading ?
+                  (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center' }}>
+                        <p>Loading training list...</p>
+                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                      </td>
+                    </tr>
+                  )
 
                   :
                   <>
