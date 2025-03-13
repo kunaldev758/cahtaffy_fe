@@ -38,6 +38,18 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const widgetId = params.slug[0];
   const widgetToken = params.slug[1];
   const socketRef = useRef<Socket | null>(null);
+console.log(clientLogo,"clientLogo")
+
+// useEffect(() => {
+//   if (clientLogo) {
+//     //if clientLogo has 'blob' in it, it means it is a local file
+//     if (clientLogo?.includes('blob')) {
+//       setClientLogo(clientLogo)
+//     } else {
+//       setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${clientLogo}` as any)
+//     }
+//   }
+// }, [clientLogo])
 
   useEffect(() => {
     let storedVisitorId: any = localStorage.getItem('visitorId');
@@ -136,6 +148,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
         const response = await axios.get('https://ipinfo.io/?token=def346c1243a80');
         setVisitorLocation(response.data.country);
         setVisitorIp(response.data.ip);
+        socket?.emit('save-visitor-details', { location: response.data.country, ip: response.data.ip });
       } catch (error: any) {
         console.error('Error fetching IP info:', error.message);
       }
@@ -157,13 +170,13 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     const messageData = { message: inputMessage, id: Date.now().toString() };
     setIsTyping(true);
     console.log(messageData, "messageData")
-    // socket?.emit("visitor-send-message", messageData, (response: any) => {
-    //   if (response?.chatMessage) {
-    //     setConversation((prev:any) => [...prev, response.chatMessage]);
-    //   }
-    //   setInputMessage('');
-    //   setIsTyping(false);
-    // });
+    socket?.emit("visitor-send-message", messageData, (response: any) => {
+      if (response?.chatMessage) {
+        setConversation((prev:any) => [...prev, response.chatMessage]);
+      }
+      setInputMessage('');
+      setIsTyping(false);
+    });
   };
 
   const handleSubmitVisitorDetails = (e: React.FormEvent) => {
@@ -254,14 +267,15 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                 <div>
                   {conversation.map((item: any, key: any) => (
                     <div key={key}>
-                      {(item.sender_type == 'system' || item.sender_type == 'bot' || item.sender_type == 'agent' || (item.sender_type == 'assistant' && item.is_note == "false")) && (
+                      {(item.sender_type == 'system' || item.sender_type == 'bot' || (item.sender_type == 'agent' && item.is_note == "false") || (item.sender_type == 'assistant' && item.is_note == "false")) && (
                         <div className="chataffy-widget-messageArea" ref={chatBottomRef}>
                           <div className="chataffy-widget-messageImage">
                             <Image src={clientLogo} width={40} height={40} alt="" />
                           </div>
                           <div className="chataffy-widget-messageBox">
                             <div className="chataffy-widget-message" style={{ "background": themeSettings?.colorFields[2]?.value, "color": themeSettings?.colorFields[3]?.value }}>
-                              {item?.message}
+                              {/* {item?.message} */}
+                              <div dangerouslySetInnerHTML={{ __html: item.message }} />
                             </div>
                             <div style={{ display: 'none' }}>
                               {item.infoSources && item.infoSources.map((source: any, sourceKey: any) => (

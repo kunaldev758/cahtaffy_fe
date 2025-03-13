@@ -279,11 +279,16 @@ export default function Widget() {
     fetchData()
   },[])
 
-  useEffect(()=>{
-    if(state.logo){
-    setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${state.logo}` as any)
+  useEffect(() => {
+    if (state.logo) {
+      //if state.logo has 'blob' in it, it means it is a local file
+      if (state.logo.includes('blob')) {
+        setSelectedLogo(state.logo)
+      } else {
+        setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${state.logo}` as any)
+      }
     }
-  },[state.logo])
+  }, [state.logo])
 
 
   return (

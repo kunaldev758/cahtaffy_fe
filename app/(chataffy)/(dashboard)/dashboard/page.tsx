@@ -47,12 +47,6 @@ export default function Home() {
     })
   }, [])
 
-  // const data = [
-  //   ["Country", "Chat Cont"],
-  //   ["INDIA", 200],
-  //   ["PAKISTAN", 700],
-  // ];
-
   // Emit a request for initial data
   useEffect(() => {
     if (!socket) return;

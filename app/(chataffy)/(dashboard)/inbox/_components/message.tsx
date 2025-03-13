@@ -133,16 +133,16 @@ const Message = ({
   expandedSources, 
   setExpandedSources, 
   visitorName, 
-  onEditMessage, 
-  onDeleteMessage 
+  // onEditMessage, 
+  // onDeleteMessage 
 }: { 
   messageData: MessageData; 
   messageIndex: number; 
   expandedSources: number | null; 
   setExpandedSources: (index: number | null) => void; 
   visitorName: string; 
-  onEditMessage: (data: MessageData) => void; 
-  onDeleteMessage: (data: MessageData) => void; 
+  // onEditMessage: (data: MessageData) => void; 
+  // onDeleteMessage: (data: MessageData) => void; 
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -157,15 +157,15 @@ const Message = ({
     );
   };
 
-  const handleEditMessage = () => {
-    onEditMessage(messageData);
-    setShowMenu(false);
-  };
+  // const handleEditMessage = () => {
+  //   onEditMessage(messageData);
+  //   setShowMenu(false);
+  // };
 
-  const handleDeleteMessage = () => {
-    onDeleteMessage(messageData);
-    setShowMenu(false);
-  };
+  // const handleDeleteMessage = () => {
+  //   onDeleteMessage(messageData);
+  //   setShowMenu(false);
+  // };
 
   const renderMessageMenu = () => (
     <div className="relative">
@@ -177,7 +177,7 @@ const Message = ({
         <MoreVertical className="w-4 h-4 text-gray-500" />
       </button>
       
-      {showMenu && (
+      {/* {showMenu && (
         <div className="absolute right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 z-10">
           <div className="py-1">
             <button
@@ -196,7 +196,7 @@ const Message = ({
             </button>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 
@@ -217,7 +217,7 @@ const Message = ({
                 style={messageData.is_note === 'true' ? { backgroundColor: 'yellow' } : {}}
               >
                 <span className="relative flex items-center">
-                  {renderMessageMenu()}
+                  {/* {renderMessageMenu()} */}
                   <div className="ml-2" dangerouslySetInnerHTML={{ __html: messageData.message }} />
                 </span>
                 {/* <div className="absolute top-2 right-2">
@@ -253,7 +253,7 @@ const Message = ({
           <div className="d-flex align-items-end gap-16">
             <div className="chatMessage-logo">
               <div className="chatlist-userLetter">
-                {visitorName[0]}
+                {visitorName ? visitorName[0] : 'U'}
               </div>
             </div>
             <div className="chat-messageArea d-flex flex-column align-items-start">

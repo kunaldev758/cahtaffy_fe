@@ -213,14 +213,6 @@ export default function Inbox(Props: any) {
 
   }, [socketRef.current])
 
-  // useEffect(() => {
-  //   setConversationsList((prevState: any) => (
-  //     {...prevState, data:conversationsList?.data?.sort((c1: any, c2: any)=> { c1.newMessages - c2.newMessages })
-  // }))
-
-  // }, [socketRef.current])
-  // console.log(conversationsList,"this is conv list");
-
   // Socket get conversation List
   useEffect(() => {
     const socket = socketRef.current;
@@ -258,13 +250,11 @@ export default function Inbox(Props: any) {
   }, [status]);
 
   const handleOpenConversationsListResponse = async (data: any) => {
-    // console.log("conv list response", data.conversations);
-    console.log("open conv list data",data);
     if (data.conversations.length <= 0) {
       setIsConversationAvailable(false);
     }
     setConversationsList({ data: data.conversations, loading: false });
-    // await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
+    await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
   }
 
   const handleOpenConversationsListUpdateResponse = async (data: any) => {
@@ -298,12 +288,11 @@ export default function Inbox(Props: any) {
 
   //handle close conv list
   const handleCloseConversationsListResponse = async (data :any) => {
-    console.log("close conv list data",data);
     if (data.conversations.length <= 0) {
       setIsConversationAvailable(false);
     }
     setConversationsList({ data: data.conversations, loading: false });
-    // await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
+    await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
   }
 
 
@@ -346,13 +335,11 @@ export default function Inbox(Props: any) {
     const socket = socketRef.current;
     if (!socket) return;
     if (openConversationId) {
-      // console.log(openConversationId, "notes openConversationId");
       socket.emit(
         "get-all-note-messages",
         { conversationId: openConversationId },
         (response: any) => {
           if (response.success) {
-            // console.log("conv notes", response);
             setNotesList(response.notes);
           } else {
             console.error("Error fetching notes:", response.error);
@@ -366,7 +353,6 @@ export default function Inbox(Props: any) {
         { visitorId: openVisitorId },
         (response: any) => {
           if (response.success) {
-            // console.log("old Conversations", response);
             setOldConversationList({
               data: response.conversations,
               loading: false,
@@ -568,7 +554,6 @@ export default function Inbox(Props: any) {
 
   // Scroll to a specific message
   const scrollToMessage = (index: any) => {
-    // console.log(index, "msg index");
     const messageIndex = conversationMessages.data.findIndex(
       (msg: any) => msg._id === index
     );
@@ -624,8 +609,6 @@ export default function Inbox(Props: any) {
 
 
   async function handelDeleteMessage(message: any) {
-    // console.log('Delete message:', message);
-    console.log('Conversation messages:', conversationMessages.data);
     const socket = socketRef.current;
     if (!socket) return;
   
@@ -719,11 +702,6 @@ export default function Inbox(Props: any) {
                       {searchConversationsList.data.length ?
                         <>
                           {searchConversationsList.data
-                            // .filter(
-                            //   (conversation: any) =>
-                            //     conversation?.conversation
-                            //       ?.conversationOpenStatus === status
-                            // )
                             .map((item: any, index: any) => (
                               <div
                                 className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
@@ -732,20 +710,20 @@ export default function Inbox(Props: any) {
                                   }`}
                                 key={index}
                                 onClick={async () =>
-                                  await openConversation(item, item.name, index)
+                                  await openConversation(item, item?.visitor?.name, index)
                                 }
                               >
                                 <div className="chatlist-userLetter">
-                                  {item.name[0]}
+                                  {item?.visitor?.name[0]}
                                 </div>
                                 <div className="chatlist-listInfo">
                                   <div className="chatlist-userName">
-                                    {item.name}
+                                    {item?.visitor?.name}
                                   </div>
                                   <div
                                     className="chatlist-userMessage"
                                     dangerouslySetInnerHTML={{
-                                      __html: item.lastMessage,
+                                      __html: item?.lastMessage,
                                     }}
                                   />
                                 </div>
@@ -758,26 +736,26 @@ export default function Inbox(Props: any) {
                             .map((item: any, index: any) => {
                               return (
                                 <div
-                                  className={`chat-listBox gap-10 d-flex${item.conversationId == openConversationId
+                                  className={`chat-listBox gap-10 d-flex${item._id == openConversationId
                                     ? " active"
                                     : ""
                                     }`}
                                   key={index}
                                   onClick={async () =>
-                                    await openConversation(item, item.visitor.name, index)
+                                    await openConversation(item, item?.visitor?.name, index)
                                   }
                                 >
                                   <div className="chatlist-userLetter">
-                                    {item.visitor.name[0]}
+                                    {item?.visitor?.name[0]}
                                   </div>
                                   <div className="chatlist-listInfo">
                                     <div className="chatlist-userName">
-                                      {item.visitor.name}
+                                      {item?.visitor?.name}
                                     </div>
                                     <div
                                       className="chatlist-userMessage"
                                       dangerouslySetInnerHTML={{
-                                        __html: item.visitor.lastMessage,
+                                        __html: item?.visitor?.lastMessage,
                                       }}
                                     />
                                     <div>{item?.newMessage}</div>
@@ -977,18 +955,17 @@ export default function Inbox(Props: any) {
                               messageIndex={index}
                               expandedSources={expandedSources}
                               setExpandedSources={setExpandedSources}
-                              visitorName={conversationMessages.visitorName}
-                              onEditMessage={(message) => {
+                              visitorName={conversationMessages?.visitorName}
+                              // onEditMessage={(message) => {
                                 // Handle edit message logic
-                                handelEditMessage(message);
-                                console.log('Edit message:', message);
-                              }}
-                              onDeleteMessage={async(message) => {
+                                // handelEditMessage(message);
+                                // console.log('Edit message:', message);
+                              // }}
+                              // onDeleteMessage={async(message) => {
                                 // Handle delete message logic
-                                console.log('Kunal');
-                                await handelDeleteMessage(message);
+                                // await handelDeleteMessage(message);
                                 // console.log('Delete message:', message);
-                              }}
+                              // }}
                             />
                           </div>
                         )
