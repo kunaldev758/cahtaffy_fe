@@ -15,19 +15,23 @@ const SocketContext = createContext<SocketContextProps>({
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // Ensure localStorage is accessed on the client side only
     const storedToken = localStorage.getItem("token");
+    const storedUserId = localStorage.getItem("userId");
     setToken(storedToken);
+    setUserId(storedUserId);
   }, []); // Runs only once when the component mounts
 
   useEffect(() => {
-    if (token) {
-      console.log(token, "This is token");
+    if (token && userId) {
+      console.log(token, `This is token  userId: ${userId}`);
 
       const socketInstance = initializeSocket({
         token,
+        userId,
       });
 
       setSocket(socketInstance);
@@ -36,7 +40,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         socketInstance.disconnect();
       };
     }
-  }, [token]); // Runs when the token is set
+  }, [token,userId]); // Runs when the token is set
 
   return (
     <SocketContext.Provider value={{ socket }}>

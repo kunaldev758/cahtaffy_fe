@@ -5,6 +5,7 @@ interface SocketOptions {
   visitorId?:string,
   widgetAuthToken?:string,
   widgetId?:string,
+  userId?: string,
 }
 
 const initializeSocket = (options: SocketOptions): Socket => {
@@ -25,6 +26,12 @@ const initializeSocket = (options: SocketOptions): Socket => {
   socket.on("connect", () => {
     console.log("Socket connected:", socket.id);
   });
+
+    // Join the user's room after successful connection
+    if (options.userId) {
+      socket.emit('join', options.userId);
+      console.log(`Attempting to join room for user: ${options.userId}`);
+    }
 
   socket.on("disconnect", () => {
     console.log("Socket disconnected.");

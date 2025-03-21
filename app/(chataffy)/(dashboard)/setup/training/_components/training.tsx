@@ -2,9 +2,9 @@
 
 import Image from 'next/image'
 import AddcontentModal from './addContentModal'
-import { useEffect } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import TrainingList from './trainingList'
+import ScrapeProgressTracker from './scrapeProgressTracker'  // Import the new component
 
 import { logoutApi } from '@/app/_api/dashboard/action'
 import { useRouter } from 'next/navigation'
@@ -17,13 +17,13 @@ import searchIconPic from '@/images/search-icon.svg'
 import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 
-import { useSocket } from '@/app/socketContext'
+// import { useSocket } from '@/app/socketContext'
+import { useSocket } from "../../../../../socketContext";
 
 
 export default function Home(Props: any) {
   const router = useRouter()
   const { socket } = useSocket();
-
 
   const [showModal, setShowModal] = useState(false)
   const [webPageCount, setWebPageCount] = useState({ crawled: 0, total: 0, loading: true })
@@ -37,12 +37,25 @@ export default function Home(Props: any) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Adjust items per page as needed
   const [paginatedData, setPaginatedData] = useState<any>({ data: [], loading: true })
-  const [sourceTypeFilter,setSourceTypeFilter] = useState<any>("Show All Sources");
-  const [actionTypeFilter,setActionTypeFilter] = useState<any>("Action 1");
-
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<any>("Show All Sources");
+  const [actionTypeFilter, setActionTypeFilter] = useState<any>("Action 1");
+  
+  // New state for tracking scraping progress
+  const [scrapeProgress, setScrapeProgress] = useState({
+    status: 'waiting',
+    stage: '',
+    total: 0,
+    scrapingCompleted: 0,
+    minifyingCompleted: 0,
+    trainingCompleted: 0,
+    failed: 0,
+    overallProgress: 0
+  });
+  const [isScrapingComplete, setIsScrapingComplete] = useState(false);
+  const [completionStats, setCompletionStats] = useState(null);
+  const [showProgressTracker, setShowProgressTracker] = useState(false);
   
   const totalPages = Math.ceil(webPageCount.crawled + docCount.crawled + faqCount.crawled / itemsPerPage);
-
 
   const handleSourceTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSourceTypeFilter(event.target.value);
@@ -58,11 +71,17 @@ export default function Home(Props: any) {
 
   const getData = () => {
     if (!socket) return;
-     setTrainingList({ data: [], loading: true }); //set loading here
+    setTrainingList({ data: [], loading: true }); //set loading here
+    
     socket.on('client-connect-response', function () {
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
-      socket.emit('get-training-list', { skip: (currentPage - 1) * itemsPerPage, limit: itemsPerPage , sourcetype:sourceTypeFilter ,actionType :actionTypeFilter })
+      socket.emit('get-training-list', { 
+        skip: (currentPage - 1) * itemsPerPage, 
+        limit: itemsPerPage, 
+        sourcetype: sourceTypeFilter,
+        actionType: actionTypeFilter 
+      })
     })
 
     socket.on('get-credit-count-response', function ({ data }: any) {
@@ -76,7 +95,7 @@ export default function Home(Props: any) {
     })
 
     socket.on('get-training-list-response', function ({ data }: any) {
-      console.log(data,"training list data");
+      console.log(data, "training list data");
       setTrainingList({ data: data, loading: false })
     })
 
@@ -85,13 +104,47 @@ export default function Home(Props: any) {
       router.replace('/login')
     })
 
+    // Progress tracking socket events
+    socket.on('scraping-progress', (data) => {
+      setScrapeProgress(data);
+      setShowProgressTracker(true);
+      if (data.status === 'complete') {
+        setIsScrapingComplete(true);
+      }
+    });
+
+    socket.on('scraping-complete', (data) => {
+      setCompletionStats(data);
+      setIsScrapingComplete(true);
+      
+      // Refresh data after scraping completes
+      socket.emit('get-credit-count');
+      socket.emit('get-training-list-count');
+      socket.emit('get-training-list', { 
+        skip: (currentPage - 1) * itemsPerPage, 
+        limit: itemsPerPage, 
+        sourcetype: sourceTypeFilter,
+        actionType: actionTypeFilter 
+      });
+      
+      // Hide the progress tracker after a delay
+      setTimeout(() => {
+        setShowProgressTracker(false);
+      }, 5000);
+    });
 
     socket.on('web-pages-added', function (data: any) {
       console.log("added", data);
-
+      setShowProgressTracker(true);
+      
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
-      socket.emit('get-training-list', { skip: (currentPage - 1) * itemsPerPage, limit: itemsPerPage, sourcetype:sourceTypeFilter ,actionType :actionTypeFilter })
+      socket.emit('get-training-list', { 
+        skip: (currentPage - 1) * itemsPerPage, 
+        limit: itemsPerPage, 
+        sourcetype: sourceTypeFilter,
+        actionType: actionTypeFilter 
+      })
     }) 
 
     socket.on('web-pages-crawled', function (data: any) {
@@ -150,7 +203,6 @@ export default function Home(Props: any) {
         })),
         loading: false,
       }));
-
     })
 
     socket.on('web-pages-mapped', function (data: any) {
@@ -169,10 +221,9 @@ export default function Home(Props: any) {
         })),
         loading: false,
       }));
-
     })
 
-     socket.on('faq-added', ( { trainingList }) => {
+     socket.on('faq-added', ({ trainingList }) => {
       setTrainingList((prevTrainingList: any) => ({
            data: [trainingList,...prevTrainingList.data],
            loading: false,
@@ -188,18 +239,15 @@ export default function Home(Props: any) {
         socket.emit('get-training-list-count')
       });
 
-
     socket.emit('client-connect')
   }
 
   useEffect(() => {
     getData()
-  }, [currentPage,sourceTypeFilter,actionTypeFilter])
-
+  }, [currentPage, sourceTypeFilter, actionTypeFilter])
 
   return (
     <>
-
       <div className="top-headbar">
         <div className="top-headbar-heading">Training</div>
         <div className="top-headbar-right flex gap20">
@@ -211,13 +259,22 @@ export default function Home(Props: any) {
             <div className="headbar-credit-progress">
               <div className="credit-progressInner" style={{ "width": `${(Number(credit.used) / Number(credit.total)) * 100}%` }}></div>
             </div>
-
           </div>
           <button className="custom-btn" onClick={() => {
             setShowModal(true)
           }}>Add Content</button>
         </div>
       </div>
+
+      {/* Progress Tracker Component */}
+      {showProgressTracker && (
+        <ScrapeProgressTracker 
+          progress={scrapeProgress}
+          isComplete={isScrapingComplete}
+          completionStats={completionStats}
+          onClose={() => setShowProgressTracker(false)}
+        />
+      )}
 
       <div className="main-content-area">
         <div className="training-highlight-area">
@@ -363,7 +420,6 @@ export default function Home(Props: any) {
                       </td>
                     </tr>
                   )
-
                   :
                   <>
                     {trainingList.data.map((item: any, key: any) => (
@@ -470,7 +526,6 @@ export default function Home(Props: any) {
               <button onClick={() => handlePageChange(currentPage)}>Go</button>
             </div>
           </div>
-
         </div>
       </div>
       <AddcontentModal
