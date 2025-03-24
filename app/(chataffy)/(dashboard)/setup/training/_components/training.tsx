@@ -106,6 +106,7 @@ export default function Home(Props: any) {
 
     // Progress tracking socket events
     socket.on('scraping-progress', (data) => {
+      console.log("scraping-progress data",data)
       setScrapeProgress(data);
       setShowProgressTracker(true);
       if (data.status === 'complete') {
