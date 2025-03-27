@@ -11,7 +11,6 @@ interface Progress {
   total: number;
   status: string;
   stage?: string;
-  overallProgress: number;
   failed: number;
 }
 
@@ -60,10 +59,6 @@ const ScrapeProgressTracker: React.FC<ScrapeProgressTrackerProps> = ({ progress,
           {isComplete ? 'Scraping Complete' : `${progress.status}: ${progress.stage}`}
         </div>
         <div className="progress-bar">
-          <div 
-            className="progress-bar-inner" 
-            style={{ width: `${progress.overallProgress}%` }}
-          ></div>
         </div>
       </div>
     );
@@ -100,10 +95,6 @@ const ScrapeProgressTracker: React.FC<ScrapeProgressTrackerProps> = ({ progress,
         <div className="progress-stat">
           <span>Failed</span>
           <strong>{progress.failed}</strong>
-        </div>
-        <div className="progress-stat">
-          <span>Overall</span>
-          <strong>{progress.overallProgress}%</strong>
         </div>
       </div>
       

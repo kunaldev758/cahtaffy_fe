@@ -1,3 +1,4 @@
+import { SocketProvider } from '@/app/socketContext'
 import Navigation from './_components/navigation'
 
 
@@ -10,7 +11,7 @@ export default function DashboardLayout({
     <>
       <section className="main-area">
         <Navigation />
-        {children}
+        <SocketProvider>{children}</SocketProvider>
         
       </section>
     </>

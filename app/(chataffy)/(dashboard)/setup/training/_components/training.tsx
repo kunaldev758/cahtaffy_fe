@@ -19,6 +19,7 @@ import 'react-loading-skeleton/dist/skeleton.css'
 
 // import { useSocket } from '@/app/socketContext'
 import { useSocket } from "../../../../../socketContext";
+import { toast } from 'react-toastify';
 
 
 export default function Home(Props: any) {
@@ -52,7 +53,7 @@ export default function Home(Props: any) {
     overallProgress: 0
   });
   const [isScrapingComplete, setIsScrapingComplete] = useState(false);
-  const [completionStats, setCompletionStats] = useState(null);
+  const [completionStats, setCompletionStats] = useState({} as any);
   const [showProgressTracker, setShowProgressTracker] = useState(false);
   
   const totalPages = Math.ceil(webPageCount.crawled + docCount.crawled + faqCount.crawled / itemsPerPage);
@@ -104,6 +105,18 @@ export default function Home(Props: any) {
       router.replace('/login')
     })
 
+    socket.on('web-page-error-insufficient-credits', async function (data: any) {
+      // await logoutApi()
+      // router.replace('/login')
+      toast.error("Insufficient credits")
+    })
+
+    socket.on('web-page-error', async function (data: any) {
+      // await logoutApi()
+      // router.replace('/login')
+      toast.error("Something went wrong Training Stopped")
+    })
+
     // Progress tracking socket events
     socket.on('scraping-progress', (data) => {
       console.log("scraping-progress data",data)
@@ -148,81 +161,81 @@ export default function Home(Props: any) {
       })
     }) 
 
-    socket.on('web-pages-crawled', function (data: any) {
-      console.log("crawled", data);
-    })
+    // socket.on('web-pages-crawled', function (data: any) {
+    //   console.log("crawled", data);
+    // })
 
-    socket.on('web-page-crawled', ({ trainingListId }) => {
-      setTrainingList((prevTrainingList: any) => ({
-        data: prevTrainingList.data.map((item: any) =>
-          item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
-        ),
-        loading: false,
-      }));
-    });
+    // socket.on('web-page-crawled', ({ trainingListId }) => {
+    //   setTrainingList((prevTrainingList: any) => ({
+    //     data: prevTrainingList.data.map((item: any) =>
+    //       item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
+    //     ),
+    //     loading: false,
+    //   }));
+    // });
 
-    socket.on('web-page-crawling-started', ({ trainingListId }) => {
-      setTrainingList((prevTrainingList: any) => ({
-        data: prevTrainingList.data.map((item: any) =>
-          item._id === trainingListId ? { ...item, trainingStatus: 1 } : item
-        ),
-        loading: false,
-      }));
-    });
+    // socket.on('web-page-crawling-started', ({ trainingListId }) => {
+    //   setTrainingList((prevTrainingList: any) => ({
+    //     data: prevTrainingList.data.map((item: any) =>
+    //       item._id === trainingListId ? { ...item, trainingStatus: 1 } : item
+    //     ),
+    //     loading: false,
+    //   }));
+    // });
 
-    socket.on('web-page-minifying-started', ({ trainingListId }) => {
-      setTrainingList((prevTrainingList: any) => ({
-        data: prevTrainingList.data.map((item: any) =>
-          item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
-        ),
-        loading: false,
-      }));
-    });
+    // socket.on('web-page-minifying-started', ({ trainingListId }) => {
+    //   setTrainingList((prevTrainingList: any) => ({
+    //     data: prevTrainingList.data.map((item: any) =>
+    //       item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
+    //     ),
+    //     loading: false,
+    //   }));
+    // });
 
-    socket.on('web-page-minified', ({ trainingListId }) => {
-      setTrainingList((prevTrainingList: any) => ({
-        data: prevTrainingList.data.map((item: any) =>
-          item._id === trainingListId ? { ...item, trainingStatus: 4 } : item
-        ),
-        loading: false,
-      }));
-    });
+    // socket.on('web-page-minified', ({ trainingListId }) => {
+    //   setTrainingList((prevTrainingList: any) => ({
+    //     data: prevTrainingList.data.map((item: any) =>
+    //       item._id === trainingListId ? { ...item, trainingStatus: 4 } : item
+    //     ),
+    //     loading: false,
+    //   }));
+    // });
 
-    socket.on('web-pages-minified', function (data: any) {
-      console.log("minfied", data)
-      // Create an object to index data.list items based on _id
-      const indexedData = data.list.reduce((acc: any, item: any) => {
-        acc[item._id] = item;
-        return acc;
-      }, {});
+    // socket.on('web-pages-minified', function (data: any) {
+    //   console.log("minfied", data)
+    //   // Create an object to index data.list items based on _id
+    //   const indexedData = data.list.reduce((acc: any, item: any) => {
+    //     acc[item._id] = item;
+    //     return acc;
+    //   }, {});
 
-      // Update the trainingList state with the modified array
-      setTrainingList((prevTrainingList: any) => ({
-        data: prevTrainingList.data.map((item1: any) => ({
-          ...item1,
-          trainingStatus: indexedData[item1._id] && item1.trainingStatus < 3 ? 3 : item1.trainingStatus,
-        })),
-        loading: false,
-      }));
-    })
+    //   // Update the trainingList state with the modified array
+    //   setTrainingList((prevTrainingList: any) => ({
+    //     data: prevTrainingList.data.map((item1: any) => ({
+    //       ...item1,
+    //       trainingStatus: indexedData[item1._id] && item1.trainingStatus < 3 ? 3 : item1.trainingStatus,
+    //     })),
+    //     loading: false,
+    //   }));
+    // })
 
-    socket.on('web-pages-mapped', function (data: any) {
-      console.log("mapped", data)
-      // Create an object to index data.list items based on _id
-      const indexedData = data.list.reduce((acc: any, item: any) => {
-        acc[item._id] = item;
-        return acc;
-      }, {});
+    // socket.on('web-pages-mapped', function (data: any) {
+    //   console.log("mapped", data)
+    //   // Create an object to index data.list items based on _id
+    //   const indexedData = data.list.reduce((acc: any, item: any) => {
+    //     acc[item._id] = item;
+    //     return acc;
+    //   }, {});
 
-      // Update the trainingList state with the modified array
-      setTrainingList((prevTrainingList: any) => ({
-        data: prevTrainingList.data.map((item1: any) => ({
-          ...item1,
-          trainingStatus: indexedData[item1._id] && item1.trainingStatus < 4 ? 4 : item1.trainingStatus,
-        })),
-        loading: false,
-      }));
-    })
+    //   // Update the trainingList state with the modified array
+    //   setTrainingList((prevTrainingList: any) => ({
+    //     data: prevTrainingList.data.map((item1: any) => ({
+    //       ...item1,
+    //       trainingStatus: indexedData[item1._id] && item1.trainingStatus < 4 ? 4 : item1.trainingStatus,
+    //     })),
+    //     loading: false,
+    //   }));
+    // })
 
      socket.on('faq-added', ({ trainingList }) => {
       setTrainingList((prevTrainingList: any) => ({

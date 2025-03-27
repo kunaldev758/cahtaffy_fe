@@ -5,7 +5,7 @@ const isDevelopment = process.env.APP_ENV === 'development';
 // const assetPrefix = isDevelopment ? 'https://shopify.favseo.com/chataffy/frontend' : undefined;
 const basePath = isDevelopment ? '/chataffy/frontend' : '';
 const nextConfig = {
-  // reactStrictMode: false,
+  reactStrictMode: false,
   // assetPrefix,
   basePath,
   experimental: {

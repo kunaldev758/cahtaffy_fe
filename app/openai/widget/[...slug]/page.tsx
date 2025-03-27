@@ -31,25 +31,23 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [clientLogo, setClientLogo] = useState<any>(clientIconImage)
   const [isTyping, setIsTyping] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-
   const chatBottomRef = useRef<any>(null);
 
   const widgetId = params.slug[0];
   const widgetToken = params.slug[1];
   const socketRef = useRef<Socket | null>(null);
-console.log(clientLogo,"clientLogo")
 
-// useEffect(() => {
-//   if (clientLogo) {
-//     //if clientLogo has 'blob' in it, it means it is a local file
-//     if (clientLogo?.includes('blob')) {
-//       setClientLogo(clientLogo)
-//     } else {
-//       setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${clientLogo}` as any)
-//     }
-//   }
-// }, [clientLogo])
+
+  // useEffect(() => {
+  //   if (clientLogo) {
+  //     //if clientLogo has 'blob' in it, it means it is a local file
+  //     if (clientLogo?.includes('blob')) {
+  //       setClientLogo(clientLogo)
+  //     } else {
+  //       setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${clientLogo}` as any)
+  //     }
+  //   }
+  // }, [clientLogo])
 
   useEffect(() => {
     let storedVisitorId: any = localStorage.getItem('visitorId');
@@ -63,7 +61,6 @@ console.log(clientLogo,"clientLogo")
         widgetId,
         widgetAuthToken: widgetToken,
         visitorId: localStorage.getItem('visitorId'),
-        // conversationId:conversationId,
       },
       transports: ["websocket", "polling"], // Ensure compatibility
     });
@@ -82,7 +79,7 @@ console.log(clientLogo,"clientLogo")
     if (!socket) return;
 
     socket.on("conversation-append-message", (data: any) => {
-      console.log("append msg res", data);
+      setIsTyping(false);
       if (!conversation.length) {
         setConversationId(data.chatMessage[0]?.conversationId);
       }
@@ -122,11 +119,7 @@ console.log(clientLogo,"clientLogo")
         setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}` as any);
       }
 
-
-
-
       if (data?.chatMessages) {
-        console.log(data.chatMessages, "conv id")
         setConversationId(data.chatMessages[0]?.conversation_id);
       }
       if (data?.chatMessages?.length > 1) {
@@ -145,7 +138,7 @@ console.log(clientLogo,"clientLogo")
     if (!socket) return;
     const fetchVisitorDetails = async () => {
       try {
-        const response = await axios.get('https://ipinfo.io/?token=def346c1243a80');
+        const response = await axios.get(process.env.IPINFO_URL);
         setVisitorLocation(response.data.country);
         setVisitorIp(response.data.ip);
         socket?.emit('save-visitor-details', { location: response.data.country, ip: response.data.ip });
@@ -172,10 +165,9 @@ console.log(clientLogo,"clientLogo")
     console.log(messageData, "messageData")
     socket?.emit("visitor-send-message", messageData, (response: any) => {
       if (response?.chatMessage) {
-        setConversation((prev:any) => [...prev, response.chatMessage]);
+        setConversation((prev: any) => [...prev, response.chatMessage]);
       }
       setInputMessage('');
-      setIsTyping(false);
     });
   };
 

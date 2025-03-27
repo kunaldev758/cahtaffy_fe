@@ -125,7 +125,7 @@ export default function Inbox(Props: any) {
             }
           );
 
-        setVisitorDetails(transformedVisitorDetails); 
+        setVisitorDetails(transformedVisitorDetails);
         setIsAIChat(ConversationData.aiChat);
       }
     } catch (error) {
@@ -287,7 +287,7 @@ export default function Inbox(Props: any) {
   }, [socketRef.current])
 
   //handle close conv list
-  const handleCloseConversationsListResponse = async (data :any) => {
+  const handleCloseConversationsListResponse = async (data: any) => {
     if (data.conversations.length <= 0) {
       setIsConversationAvailable(false);
     }
@@ -479,7 +479,7 @@ export default function Inbox(Props: any) {
       // Emit a search event to the server
       socket?.emit(
         "search-conversations",
-        { query: searchText ,status:status},
+        { query: searchText, status: status },
         (response: any) => {
           if (response.success) {
             setSearchConversationsList({ data: response.data, loading: false });
@@ -595,12 +595,12 @@ export default function Inbox(Props: any) {
 
     // socket.emit("edit-message", { messageId: message._id, newMessage: message.newMessage }, (response: any) => {
     //   if (response.success) {
-        setConversationMessages((prev: any) => ({
-          ...prev,
-          data: prev.data.map((msg: any) =>
-            msg._id === message._id ? { ...msg, message: message.newMessage } : msg
-          ),
-        }));
+    setConversationMessages((prev: any) => ({
+      ...prev,
+      data: prev.data.map((msg: any) =>
+        msg._id === message._id ? { ...msg, message: message.newMessage } : msg
+      ),
+    }));
     //   } else {
     //     console.error("Failed to edit message:", response.error);
     //   }
@@ -611,18 +611,18 @@ export default function Inbox(Props: any) {
   async function handelDeleteMessage(message: any) {
     const socket = socketRef.current;
     if (!socket) return;
-  
+
     // socket.emit("delete-message", { messageId: message._id }, (response: any) => {
     //   if (response.success) {
-        setConversationMessages((prev: any) => ({
-          ...prev,
-          data: prev.data.filter((msg: any) => msg._id !== message._id),
-        }));
-      // } else {
-      //   console.error("Failed to delete message:", response.error);
-      // }
+    setConversationMessages((prev: any) => ({
+      ...prev,
+      data: prev.data.filter((msg: any) => msg._id !== message._id),
+    }));
+    // } else {
+    //   console.error("Failed to delete message:", response.error);
     // }
-  // );
+    // }
+    // );
   }
 
   return (
@@ -956,16 +956,16 @@ export default function Inbox(Props: any) {
                               expandedSources={expandedSources}
                               setExpandedSources={setExpandedSources}
                               visitorName={conversationMessages?.visitorName}
-                              // onEditMessage={(message) => {
-                                // Handle edit message logic
-                                // handelEditMessage(message);
-                                // console.log('Edit message:', message);
-                              // }}
-                              // onDeleteMessage={async(message) => {
-                                // Handle delete message logic
-                                // await handelDeleteMessage(message);
-                                // console.log('Delete message:', message);
-                              // }}
+                            // onEditMessage={(message) => {
+                            // Handle edit message logic
+                            // handelEditMessage(message);
+                            // console.log('Edit message:', message);
+                            // }}
+                            // onDeleteMessage={async(message) => {
+                            // Handle delete message logic
+                            // await handelDeleteMessage(message);
+                            // console.log('Delete message:', message);
+                            // }}
                             />
                           </div>
                         )
