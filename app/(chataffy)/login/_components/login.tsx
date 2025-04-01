@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react'
 import { loginApi } from '../../../_api/login/action'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
+import { useSocket } from "../../../socketContext";
 
 export default function Home() {
+  const { socket } = useSocket();
   const [email, setEmail] = useState<any>('')
   const [password, setPassword] = useState<any>('')
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
@@ -17,13 +19,24 @@ export default function Home() {
       setButtonStatus({ loading: true, disabled: true })
       const response = await loginApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
-      if (response.status_code == 200) {
+      if (response?.status_code == 200) {
         router.replace(appUrl+'dashboard')
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('userId', response.userId);
+        handleSocketEvent(response.userId)
       } else {
         toast.error(response.message)
       }
     }
+  }
 
+  const handleSocketEvent = (userId: string) => {
+    if (socket) {
+      socket.on('user-logged-in', () => {
+        // This is an alternative approach if you're using multiple tabs/windows
+        socket.emit('join', userId);
+      });
+    }
   }
 
   const handleEmailOnChange = (event: any) => {

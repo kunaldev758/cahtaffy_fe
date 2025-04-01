@@ -10,7 +10,7 @@ export default function Home() {
       <div className="submenu-sidebar">
         <ul>
           <li className={segment == 'inbox' ? 'active' : ''}><Link href={`/inbox`} replace>Your Inbox</Link></li>
-          <li className={segment == 'archive' ? 'active' : ''}><Link href={`/inbox/archive`} replace>Archive</Link></li>
+          {/* <li className={segment == 'archive' ? 'active' : ''}><Link href={`/inbox/archive`} replace>Archive</Link></li> */}
         </ul>
       </div>
     </>)

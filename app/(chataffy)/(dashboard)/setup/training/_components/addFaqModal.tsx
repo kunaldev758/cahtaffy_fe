@@ -9,8 +9,6 @@ import { basePath } from '@/next.config'
 
 export default function Home(Props: any) {
   const [toggle, setToggle] = useState(true)
-  // const [url, setUrl] = useState('')
-  // const [urls, setUrls] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [buttonLoading, setButtonLoading] = useState(false)
