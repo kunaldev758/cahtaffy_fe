@@ -3,7 +3,7 @@ const isProduction = process.env.APP_ENV === 'production';
 const isDevelopment = process.env.APP_ENV === 'development';
 
 // const assetPrefix = isDevelopment ? 'https://shopify.favseo.com/chataffy/frontend' : undefined;
-const basePath = isDevelopment ? '/chataffy/frontend' : '';
+const basePath = isDevelopment ? '/chataffy/frontend' : '/chataffy/cahtaffy_fe';
 const nextConfig = {
   reactStrictMode: false,
   // assetPrefix,
