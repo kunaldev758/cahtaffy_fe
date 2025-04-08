@@ -258,7 +258,25 @@ export default function Home(Props: any) {
 
   useEffect(() => {
     getData()
-  }, [currentPage, sourceTypeFilter, actionTypeFilter])
+  }, [currentPage])
+
+  useEffect(() => {
+    if (socket) {
+      socket.emit('get-training-list', { 
+        skip: (currentPage - 1) * itemsPerPage, 
+        limit: itemsPerPage, 
+        sourcetype: sourceTypeFilter,
+        actionType: actionTypeFilter 
+      })
+
+      socket.on('get-training-list-response', function ({ data }: any) {
+        console.log(data, "training list data");
+        setTrainingList({ data: data, loading: false })
+      })
+    }
+  }
+  , [sourceTypeFilter, actionTypeFilter])
+
 
   return (
     <>
@@ -395,12 +413,12 @@ export default function Home(Props: any) {
             </div>
 
             <div className="training-tableHead-right">
-              <div className="input-box input-iconBox">
+              {/* <div className="input-box input-iconBox">
                 <span className="input-icon"><Image src={searchIconPic} alt="" width={21} height={20} /></span>
                 <input type="text" placeholder="Search" className="form-control" value={search} onChange={(event: any) => {
                   setSearch(event.target.value)
                 }} />
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -418,7 +436,7 @@ export default function Home(Props: any) {
                   </th>
                   <th>Type</th>
                   <th>Last Edit</th>
-                  <th>Time Used</th>
+                  {/* <th>Time Used</th> */}
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>

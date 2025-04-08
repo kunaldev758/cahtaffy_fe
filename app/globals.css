@@ -1990,3 +1990,8 @@ right: 40px;
 .scrape-progress-minimized:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+.new-message {
+  color: red;
+  font-weight: 200;
+}

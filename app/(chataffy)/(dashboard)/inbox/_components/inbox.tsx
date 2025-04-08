@@ -758,7 +758,7 @@ export default function Inbox(Props: any) {
                                         __html: item?.visitor?.lastMessage,
                                       }}
                                     />
-                                    <div>{item?.newMessage}</div>
+                                    <div className="new-message">{item?.newMessage}</div>
                                   </div>
                                 </div>
                               );

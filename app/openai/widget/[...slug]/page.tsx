@@ -138,7 +138,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     if (!socket) return;
     const fetchVisitorDetails = async () => {
       try {
-        const response = await axios.get(process.env.IPINFO_URL);
+        const response = await axios.get("https://ipinfo.io/?token=def346c1243a80");
         setVisitorLocation(response.data.country);
         setVisitorIp(response.data.ip);
         socket?.emit('save-visitor-details', { location: response.data.country, ip: response.data.ip });

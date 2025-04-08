@@ -30,7 +30,7 @@ export default function Home({ item, handleOnchangeCheckbox, componentKey, selec
         </td>
         <td>{contentType[item.type]}</td>
         <td>{item.lastEdit}</td>
-        <td>{item.timeUsed}</td>
+        {/* <td>{item.timeUsed}</td> */}
         <td>
           {/* <span className={`badge rounded-pill text-bg-warning`}>{item.crawlingStatus==0 ? 'NotStarted' : item.crawlingStatus==1 ? 'Progress' : item.crawlingStatus==2 ? 'Success' : 'Failed'}</span>
           <span className={`badge rounded-pill text-bg-warning`}>{item.mappingStatus==0 ? 'NotStarted' : item.mappingStatus==1 ? 'Progress' : item.mappingStatus==2 ? 'Success' : 'Failed'}</span> */}
