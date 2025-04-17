@@ -6,18 +6,18 @@ const isDevelopment = process.env.APP_ENV === 'development';
 console.log('isProduction', isProduction);
 console.log('isDevelopment', isDevelopment);
 console.log('APP_ENV', process.env.APP_ENV);
-const basePath = isDevelopment ? '/chataffy/frontend' : '';
+const basePath = isDevelopment ? '/chataffy/frontend' : '/chataffy/cahtaffy_fe';
 const nextConfig = {
   reactStrictMode: false,
   // assetPrefix,
   basePath,
   experimental: {
     serverActions: {
-        allowedOrigins: ["shopify.favseo.com","localhost:9001","127.0.0.1:9001"],
+        allowedOrigins: ["shopify.favseo.com","localhost:9001","127.0.0.1:9001","34.213.132.47"],
     },
   },
   images: {
-    domains: ['localhost'], // Add 'localhost' to allowed domains
+    domains: ['localhost','34.213.132.47'], // Add 'localhost' to allowed domains
   },
 }
 
