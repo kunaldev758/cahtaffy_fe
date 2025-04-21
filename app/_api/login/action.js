@@ -15,7 +15,7 @@ export async function loginApi(email, password) {
 
   const result = await response.json()
   if (result.status_code==200) {
-    cookies().set({ name: 'token', value: result.token, httpOnly: true, secure: true })
+    cookies().set({ name: 'token', value: result.token, httpOnly: true})
   }
   return result
 }
