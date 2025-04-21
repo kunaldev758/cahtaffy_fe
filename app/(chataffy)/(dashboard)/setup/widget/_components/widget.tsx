@@ -285,7 +285,7 @@ export default function Widget() {
       if (state.logo.includes('blob')) {
         setSelectedLogo(state.logo)
       } else {
-        setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${state.logo}` as any)
+        setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}/${state.logo}` as any)
       }
     }
   }, [state.logo])

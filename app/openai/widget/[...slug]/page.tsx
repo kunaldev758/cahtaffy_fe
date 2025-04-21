@@ -116,7 +116,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
       setThemeSettings(data.themeSettings || {});
       setFields(data.themeSettings?.fields || []);
       if (data.themeSettings.logo) {
-        setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}` as any);
+        setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}/${data.themeSettings.logo}` as any);
       }
 
       if (data?.chatMessages) {

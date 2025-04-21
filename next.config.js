@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const isProduction = process.env.APP_ENV === 'production';
-const isDevelopment = process.env.APP_ENV === 'development';
+// const isDevelopment = process.env.APP_ENV === 'development';
 
 // const assetPrefix = isDevelopment ? 'https://shopify.favseo.com/chataffy/frontend' : undefined;
 
