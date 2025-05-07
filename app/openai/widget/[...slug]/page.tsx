@@ -30,6 +30,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
   const [feedback, setFeedback] = useState(null);
   const [clientLogo, setClientLogo] = useState<any>(clientIconImage)
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState('');
 
   const chatBottomRef = useRef<any>(null);
 
@@ -157,12 +158,41 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
 
   }, []);
 
+  const sanitizeInput = (text: string) => {
+    // Remove HTML tags
+    const sanitized = text.replace(/<[^>]*>/g, '');
+    // Remove special characters except basic punctuation and common characters
+    return sanitized.replace(/[^\w\s.,!?'"-]/g, '');
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const text = e.target.value;
+    const wordCount = text.trim().split(/\s+/).length;
+    
+    if (wordCount > 100) {
+      setError('Message cannot exceed 100 words');
+      // Truncate to 100 words
+      const truncatedText = text.split(/\s+/).slice(0, 100).join(' ');
+      setInputMessage(truncatedText);
+    } else {
+      setError('');
+      setInputMessage(text);
+    }
+  };
+
+
+  const handleInputChangeFields = (fieldName: string, value: string) => {
+    setFormData((prev: any) => ({ ...prev, [fieldName]: value }));
+  };
+
+
   const handleMessageSend = () => {
-    if (!inputMessage.trim()) return;
+    if (inputMessage.trim() === '') return;
+    if (error) return;
     const socket = socketRef.current;
-    const messageData = { message: inputMessage, id: Date.now().toString() };
+    const sanitizedMessage = sanitizeInput(inputMessage);
+    const messageData = { message: sanitizedMessage, id: Date.now().toString() };
     setIsTyping(true);
-    console.log(messageData, "messageData")
     socket?.emit("visitor-send-message", messageData, (response: any) => {
       if (response?.chatMessage) {
         setConversation((prev: any) => [...prev, response.chatMessage]);
@@ -177,10 +207,6 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
     if (!socket) return; // Guard against uninitialized socket
     socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp, visitorDetails: formData });
     setVisitorExists(true);
-  };
-
-  const handleInputChange = (fieldName: string, value: string) => {
-    setFormData((prev: any) => ({ ...prev, [fieldName]: value }));
   };
 
   const handleCloseConversation = () => {
@@ -323,7 +349,7 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
                         id={field._id}
                         required={field.required}
                         value={formData[field.value] || ""}
-                        onChange={(e) => handleInputChange(field.value, e.target.value)}
+                        onChange={(e) => handleInputChangeFields(field.value, e.target.value)}
                       />
                     </div>
                   ))}
@@ -338,14 +364,30 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
               ) : isTyping ? (
                 <div>Typing...</div>
               ) : (
-                <div>
+                <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
                   <input
                     type="text"
                     placeholder="Type a message..."
                     value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
+                    onChange={handleInputChange}
                     onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
                   />
+                  {error && (
+                    <div
+                      className="error-message"
+                      style={{
+                        color: 'red',
+                        fontSize: '12px',
+                        marginTop: '5px',
+                        marginBottom: '5px',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'normal',
+                      }}
+                    >
+                      {error}
+                    </div>
+                  )}
                   <button onClick={handleCloseConversation}>Close Conversation</button>
                   <button onClick={handleMessageSend} style={{ marginLeft: 10 }}>
                     <Image src={sendButtonImage} width={18} height={16} alt="Send" />

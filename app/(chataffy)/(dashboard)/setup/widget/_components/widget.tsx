@@ -1,4 +1,3 @@
-
 'use client'
 
 import Accordion from 'react-bootstrap/Accordion';
@@ -18,6 +17,7 @@ import closeBtnImage from '@/images/close-btn.svg'
 import sendIconWidgetImage from '@/images/send-icon-widget.svg'
 import Image from 'next/image';
 import { updateThemeSettings ,getThemeSettings ,uploadLogo } from '@/app/_api/dashboard/action';
+import { toast } from 'react-toastify';
 
 
 
@@ -253,9 +253,9 @@ export default function Widget() {
   
     try {
       await updateThemeSettings({themeSettings,userId});
-      // You could add more code here to handle a successful update if needed
+      toast.success('Widget settings saved successfully!');
     } catch (error) {
-      setError("Failed to update theme settings.");
+      toast.error('Failed to save widget settings. Please try again.');
     }
   };
 
@@ -582,7 +582,7 @@ export default function Widget() {
 
                     <div className="chataffy-widget-messageBox">
                       <div className="chataffy-widget-message" style={{ background: state?.colorFields[4]?.value, color: state?.colorFields[5]?.value }}>
-                        <p>Yes, you can change the date of your reservation for up to seven days in advance. To do this, first go to “Your Reservations” and click the relevant one. Then, go to “Change Details” and enter a new date. Finally, click “Confirm”. That’s it!</p>
+                        <p>Yes, you can change the date of your reservation for up to seven days in advance. To do this, first go to "Your Reservations" and click the relevant one. Then, go to "Change Details" and enter a new date. Finally, click "Confirm". That's it!</p>
                       </div>
                       <div className="chataffy-widget-messageInfo">
                         03:10 PM
