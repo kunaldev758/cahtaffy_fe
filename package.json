@@ -22,6 +22,7 @@
     "react-bootstrap": "^2.9.1",
     "react-dom": "^18",
     "react-google-charts": "^5.2.1",
+    "react-hot-toast": "^2.5.2",
     "react-loading-skeleton": "^3.3.1",
     "react-paginate": "^8.2.0",
     "react-toastify": "^9.1.3",

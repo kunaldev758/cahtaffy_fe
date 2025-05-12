@@ -364,35 +364,54 @@ export default function ChatWidget({ params }: { params: { slug: any } }) {
               ) : isTyping ? (
                 <div>Typing...</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                  <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={inputMessage}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                  />
-                  {error && (
-                    <div
-                      className="error-message"
-                      style={{
-                        color: 'red',
-                        fontSize: '12px',
-                        marginTop: '5px',
-                        marginBottom: '5px',
-                        wordBreak: 'break-word',
-                        whiteSpace: 'normal',
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Type a message..."
+                      value={inputMessage}
+                      onChange={handleInputChange}
+                      onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
+                      style={{ 
+                        flex: 1,
+                        padding: '8px',
+                        borderRadius: '4px',
+                        border: '1px solid #ccc'
+                      }}
+                    />
+                    <button 
+                      onClick={handleMessageSend}
+                      style={{ 
+                        padding: '8px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer'
                       }}
                     >
+                      <Image src={sendButtonImage} width={18} height={16} alt="Send" />
+                    </button>
+                  </div>
+                  {error && (
+                    <div style={{ color: 'red', fontSize: '12px', marginBottom: '8px' }}>
                       {error}
                     </div>
                   )}
-                  <button onClick={handleCloseConversation}>Close Conversation</button>
-                  <button onClick={handleMessageSend} style={{ marginLeft: 10 }}>
-                    <Image src={sendButtonImage} width={18} height={16} alt="Send" />
-                  </button>
-                </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button 
+                      onClick={handleCloseConversation}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#f44336',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Close Conversation
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>

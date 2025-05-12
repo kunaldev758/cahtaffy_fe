@@ -153,3 +153,31 @@ export async function logoutApi() {
   cookies().delete('token')
   return await fetchData('logout');
 }
+
+// Agent API functions
+export async function getAllAgents() {
+  const data = await getFetchData('agents');
+  console.log('getAllAgents response:', data);
+  return data;
+}
+
+export async function createAgent(agentData) {
+  return await fetchData('agents', agentData);
+}
+
+export async function updateAgent(id, agentData) {
+  return await fetchData(`agents/${id}`, agentData);
+}
+
+export async function deleteAgent(id) {
+  if (!id) {
+    console.error('Delete agent called without an ID');
+    throw new Error('Agent ID is required');
+  }
+  return await fetchData(`agents/delete/${id}`);
+}
+
+
+export async function updateAgentStatus(id, isActive) {
+  return await fetchData(`agents/${id}/status`, { isActive });
+}
