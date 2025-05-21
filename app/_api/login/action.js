@@ -2,6 +2,27 @@
 
 import { cookies } from 'next/headers'
 
+export async function loginAgentApi(email, password) {
+  const response = await fetch(`${process.env.API_HOST}agents/login`, {
+    method: 'POST',
+    cache:'no-cache',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email,
+      password: password,
+    })
+  })
+
+  const result = await response.json()
+  if (result.message=="Login successful") {
+    console.log(result.token,"this is token")
+    cookies().set({ name: 'token', value: result.token, httpOnly: true})
+  }
+  console.log(result,"the result")
+  return result
+}
+
+
 export async function loginApi(email, password) {
   const response = await fetch(`${process.env.API_HOST}login`, {
     method: 'POST',

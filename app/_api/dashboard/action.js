@@ -15,7 +15,7 @@ async function fetchData(endpoint, requestData = {}) {
   const data = await response.json();
   console.log(response,"status code")
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
     return 'error'
   }
   return data
@@ -32,7 +32,7 @@ async function uploadData(endpoint,formData ) {
   const data = await response.json();
   console.log(response,"status code")
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
     return 'error'
   }
   return data
@@ -61,7 +61,7 @@ async function getFetchData(endpoint,params=null) {
 }
   const data = await response.json();
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
     return 'error'
   }
   return data
@@ -86,7 +86,7 @@ export async function openaiCreateSnippet(formData) {
   });
   const data = await response.json();
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
     return 'error'
   }
   return data

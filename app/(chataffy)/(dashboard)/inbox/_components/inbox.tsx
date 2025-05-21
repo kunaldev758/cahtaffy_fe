@@ -85,6 +85,7 @@ export default function Inbox(Props: any) {
     try {
       const socket = socketRef.current;
       if (!socket) return;
+      console.log(ConversationData,"ConversationData")
 
       const visitorId = ConversationData?.visitor?._id;
 
@@ -158,18 +159,28 @@ export default function Inbox(Props: any) {
   // Handle message send
   const handleMessageSend = () => {
     const socket = socketRef.current;
+    console.log(socket,"the socket data")
     if (!inputMessage.trim() || !socket) return;
 
     const messageData = { message: inputMessage, visitorId: openVisitorId };
     socket.emit("client-send-message", messageData, (response: any) => {
       if (response?.chatMessage) {
-        setConversationMessages((prev: any) => ({
-          ...prev,
-          data: [...prev.data, response.chatMessage],
-        }));
+        // setConversationMessages((prev: any) => ({
+        //   ...prev,
+        //   data: [...prev.data, response.chatMessage],
+        // }));
         setInputMessage("");
       }
     });
+    // socket.emit("agent-send-message", messageData, (response: any) => {
+    //   if (response?.chatMessage) {
+    //     // setConversationMessages((prev: any) => ({
+    //     //   ...prev,
+    //     //   data: [...prev.data, response.chatMessage],
+    //     // }));
+    //     setInputMessage("");
+    //   }
+    // });
   };
 
   //new messages and visitor close chat
@@ -295,6 +306,63 @@ export default function Inbox(Props: any) {
     await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
   }
 
+  useEffect(()=>{
+     const socket = socketRef.current;
+    if (!socket) return;
+
+    const handleNoteAppendMessage = (data: any) => {
+      setConversationMessages((prev: any) => ({
+        ...prev,
+        data: [...prev.data, data],
+      }));
+
+      console.log(conversationMessages,"conversationMessages data")
+    };
+
+    socket.on("note-append-message", ({note}) => {
+      console.log(note,"noew note data")
+    setNotesList((prev: any) => [
+      ...prev,
+      { message: note.message, createdAt: Date.now() },
+      console.log(notesList,"notesList data")
+    ]);
+    handleNoteAppendMessage(note)
+
+    // setNotesList((prev: any) => [
+    //   ...prev,
+    //   { message: inputMessage, createdAt: Date.now() },
+    // ]);
+
+    // setConversationMessages((prevState: any) => ({
+    //   ...prevState,
+    //   data: [
+    //     ...prevState.data,
+    //     {
+    //       infoSources: [],
+    //       is_note: 'true',
+    //       message: inputMessage,
+    //       sender_type: "agent",
+    //       createdAt: Date.now(),
+    //     },
+    //   ],
+    // }));
+
+    // setConversationMessages((prevState: any) => ({
+    //   ...prevState,
+    //   data: [
+    //     ...prevState.data,
+    //     {
+    //       infoSources: [],
+    //       is_note: 'true',
+    //       message: inputMessage,
+    //       sender_type: "agent",
+    //       createdAt: Date.now(),
+    //     },
+    //   ],
+    // }));
+    
+  })
+  },[socketRef.current])
 
   // Handle adding a note
   const handleAddNote = () => {
@@ -307,26 +375,29 @@ export default function Inbox(Props: any) {
       conversationId: openConversationId,
     };
     socket.emit("client-send-add-note", noteData);
-
-    setNotesList((prev: any) => [
-      ...prev,
-      { message: inputMessage, createdAt: Date.now() },
-    ]);
-
-    setConversationMessages((prevState: any) => ({
-      ...prevState,
-      data: [
-        ...prevState.data,
-        {
-          infoSources: [],
-          is_note: 'true',
-          message: inputMessage,
-          sender_type: "agent",
-          createdAt: Date.now(),
-        },
-      ],
-    }));
     setInputMessage("");
+
+    // socket.emit("agent-send-add-note", noteData);
+
+    // setNotesList((prev: any) => [
+    //   ...prev,
+    //   { message: inputMessage, createdAt: Date.now() },
+    // ]);
+
+    // setConversationMessages((prevState: any) => ({
+    //   ...prevState,
+    //   data: [
+    //     ...prevState.data,
+    //     {
+    //       infoSources: [],
+    //       is_note: 'true',
+    //       message: inputMessage,
+    //       sender_type: "agent",
+    //       createdAt: Date.now(),
+    //     },
+    //   ],
+    // }));
+    // setInputMessage("");
   };
 
 
@@ -365,6 +436,14 @@ export default function Inbox(Props: any) {
     }
   }, [socketRef.current, openConversationId, openVisitorId]);
 
+  useEffect(()=>{
+     const socket = socketRef.current;
+    if (!socket) return;
+    socket.on("tag-append-message", (tags) => {
+       setTags(tags);
+    })
+  },[socketRef.current])
+
   const handleAddTagClick = async () => {
     try {
       const socket = socketRef.current;
@@ -374,12 +453,12 @@ export default function Inbox(Props: any) {
         "add-conversation-tag",
         { name: inputAddTag, conversationId: openConversationId },
         (response: any) => {
-          if (response.success) {
-            setTags(response.tags); // Update tags with the response
+          // if (response.success) {
+            // setTags(response.tags); // Update tags with the response
             setInputAddTag("");
-          } else {
-            console.error("Failed to add tag:", response.error);
-          }
+          // } else {
+          //   console.error("Failed to add tag:", response.error);
+          // }
         }
       );
     } catch (err) {
@@ -416,17 +495,25 @@ export default function Inbox(Props: any) {
         "remove-conversation-tag",
         { id, conversationId: openConversationId },
         (response: any) => {
-          if (response.success) {
-            setTags(tags.filter((tag: any) => tag._id !== id));
-          } else {
-            console.error("Failed to delete tag:", response.error);
-          }
+          // if (response.success) {
+          //   setTags(tags.filter((tag: any) => tag._id !== id));
+          // } else {
+          //   console.error("Failed to delete tag:", response.error);
+          // }
         }
       );
     } catch (err) {
       console.error("Error deleting tag:", err);
     }
   };
+
+  useEffect(()=>{
+     const socket = socketRef.current;
+    if (!socket) return;
+    socket.on('conversation-close-triggered',()=>{
+      setOpenConversationStatus("close");
+    })
+  },[socketRef.current])
 
   const handleCloseConversation = async () => {
     try {
@@ -436,11 +523,11 @@ export default function Inbox(Props: any) {
         "close-conversation",
         { conversationId: openConversationId, status: "close" },
         (response: any) => {
-          if (response.success) {
-            setOpenConversationStatus("close");
-          } else {
-            console.error("Failed to close conversation:", response.error);
-          }
+          // if (response.success) {
+          //   setOpenConversationStatus("close");
+          // } else {
+          //   console.error("Failed to close conversation:", response.error);
+          // }
         }
       );
     } catch (err) {

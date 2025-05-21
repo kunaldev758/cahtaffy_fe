@@ -13,9 +13,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(baseUrl + 'dashboard');
   }
 
-  if (!cookies().has('token') && !pathname.startsWith('/login')) {
-    return NextResponse.redirect(baseUrl + 'login');
-  }
+  // if (!cookies().has('token') && !pathname.startsWith('/login')) {
+  //   return NextResponse.redirect(baseUrl + 'login');
+  // }
 }
 export const config = {
   matcher: [
