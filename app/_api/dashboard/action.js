@@ -20,6 +20,24 @@ async function fetchData(endpoint, requestData = {}) {
   }
   return data
 }
+async function fetchDatawithoutToken(endpoint, requestData = {}) {
+  const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestData)
+  });
+  const data = await response.json();
+  console.log(response,"status code")
+  if(data.status_code==401){
+    // cookies().delete('token')
+    return 'error'
+  }
+  return data
+}
+
 
 async function uploadData(endpoint,formData ) {
   const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
@@ -180,4 +198,8 @@ export async function deleteAgent(id) {
 
 export async function updateAgentStatus(id, isActive) {
   return await fetchData(`agents/${id}/status`, { isActive });
+}
+
+export async function agentAcceptInviteVerify(token) {
+  return await fetchDatawithoutToken(`/agents/accept-invite/${token}`);
 }

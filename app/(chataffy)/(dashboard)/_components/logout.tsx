@@ -11,5 +11,5 @@ export default function Home() {
   return (<><button style={{ border: 'none' }} onClick={async () => {
     await logoutApi()
     router.replace('/login')
-  }}><Image src={logoutIconPic} alt="Logout" title="Logout" width={26} height={26} /></button></>)
+  }}>Logout</button></>)
 }

@@ -1,4 +1,4 @@
-import Signup from './_components/signup'
+import  { RegistrationForm } from './_components/signup'
 import {Metadata} from 'next'
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export default function Home() {
 
   return (
     <>
-      <Signup />
+      <RegistrationForm />
     </>
   )
 }

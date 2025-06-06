@@ -1,611 +1,1058 @@
 'use client'
 
-import Accordion from 'react-bootstrap/Accordion';
-import { useEffect, useState, useReducer } from 'react'
-import { getWidgetToken } from '@/app/_api/dashboard/action'
-import { useRouter } from 'next/navigation'
-import EmbeddingCode from './embeddingCode'
-import appearanceIconImage from '@/images/appearance-icon.svg'
-import logoUploadImage from '@/images/logo-upload.png'
-import widgetPositionIconImage from '@/images/widget-position-icon.svg'
-import preChatFormIconImage from '@/images/pre-chat-form-icon.svg'
-import tagPlusImage from '@/images/tag-plus.svg'
-import additionalTweaksIconImage from '@/images/additional-tweaks-icon.svg'
-import widgetIconImage from '@/images/widget-icon.png'
-import clientLogoImage from '@/images/client-logo.png'
-import closeBtnImage from '@/images/close-btn.svg'
-import sendIconWidgetImage from '@/images/send-icon-widget.svg'
-import Image from 'next/image';
-import { updateThemeSettings ,getThemeSettings ,uploadLogo } from '@/app/_api/dashboard/action';
-import { toast } from 'react-toastify';
+import React, { useEffect, useState, useReducer } from 'react'
+import { 
+  Upload, 
+  Settings, 
+  MapPin, 
+  MessageSquare, 
+  Sliders, 
+  Save,
+  Plus,
+  X,
+  Eye,
+  AlertCircle,
+  CheckCircle,
+  Trash2,
+  Edit3
+} from 'lucide-react'
+import { updateThemeSettings,getThemeSettings } from '@/app/_api/dashboard/action';
 
+// Enhanced field types for pre-chat form
+const FIELD_TYPES = [
+  { value: 'text', label: 'Text', icon: '📝' },
+  { value: 'email', label: 'Email', icon: '📧' },
+  { value: 'tel', label: 'Phone', icon: '📞' },
+  { value: 'number', label: 'Number', icon: '🔢' },
+  { value: 'url', label: 'URL', icon: '🔗' },
+  { value: 'textarea', label: 'Long Text', icon: '📄' }
+];
 
+// File validation constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_FILE_TYPES = ['jpg', 'jpeg', 'png'];
 
+// Mock API functions - replace with your actual implementations
+// const updateThemeSettings = async (data) => {
+//   console.log('Saving theme settings:', data);
+//   return new Promise(resolve => setTimeout(resolve, 1000));
+// };
+
+const getThemeSettingsData = async ({ userId }) => {
+  // return {
+  //   data: {
+  //     logo: null,
+  //     titleBar: "Support Chat",
+  //     welcomeMessage: "👋 Hi there! How can I help?",
+  //     showLogo: true,
+  //     showWhiteLabel: false,
+  //     isPreChatFormEnabled: true,
+  //     fields: [
+  //       { id: 1, name: 'Name', value: 'Name', type: 'text', placeholder: 'Enter your name', required: true },
+  //       { id: 2, name: 'Email', value: 'Email', type: 'email', placeholder: 'Enter your email', required: true },
+  //     ],
+  //     colorFields: [
+  //       { id: 1, name: 'title_bar', value: '#000000' },
+  //       { id: 2, name: 'title_bar_text', value: '#FFFFFF' },
+  //       { id: 3, name: 'visitor_bubble', value: '#000000' },
+  //       { id: 4, name: 'visitor_bubble_text', value: '#FFFFFF' },
+  //       { id: 5, name: 'ai_bubble', value: '#000000' },
+  //       { id: 6, name: 'ai_bubble_text', value: '#FFFFFF' },
+  //     ],
+  //     position: {
+  //       align: 'right',
+  //       sideSpacing: 20,
+  //       bottomSpacing: 20
+  //     }
+  //   }
+  // };
+  await getThemeSettings(userId);
+};
+
+const uploadLogo = async (formData) => {
+  console.log('Uploading logo');
+  return new Promise(resolve => setTimeout(resolve, 1000));
+};
+
+// Initial state with enhanced structure
 const initialState = {
   logo: null,
-  titleBar: "",
+  titleBar: "Support Chat",
   welcomeMessage: "👋 Hi there! How can I help?",
   showLogo: true,
+  showWhiteLabel: false,
   isPreChatFormEnabled: true,
   fields: [
-    { id: 1, name: 'Name', value: '', required: true },
-    { id: 2, name: 'Email', value: '', required: true },
-    { id: 3, name: 'Phone', value: '', required: true },
+    { 
+      id: 1, 
+      name: 'Name', 
+      value: 'Name', 
+      type: 'text', 
+      placeholder: 'Enter your name', 
+      required: true,
+      validation: { minLength: 2, maxLength: 50 }
+    },
+    { 
+      id: 2, 
+      name: 'Email', 
+      value: 'Email', 
+      type: 'email', 
+      placeholder: 'Enter your email', 
+      required: true,
+      validation: { pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$' }
+    },
   ],
   colorFields: [
-    { id: 1, name: 'title_bar', value: '#FFFFFF' },
+    { id: 1, name: 'title_bar', value: '#000000' },
     { id: 2, name: 'title_bar_text', value: '#FFFFFF' },
-    { id: 3, name: 'visitor_bubble', value: '#FFFFFF' },
+    { id: 3, name: 'visitor_bubble', value: '#000000' },
     { id: 4, name: 'visitor_bubble_text', value: '#FFFFFF' },
-    { id: 5, name: 'ai_bubble', value: '#FFFFFF' },
+    { id: 5, name: 'ai_bubble', value: '#000000' },
     { id: 6, name: 'ai_bubble_text', value: '#FFFFFF' },
-  ]
+  ],
+  position: {
+    align: 'right',
+    sideSpacing: 20,
+    bottomSpacing: 20
+  }
 };
 
+// Enhanced action types
 const actionTypes = {
-  UPDATE_FIELD_VALUE: 'UPDATE_FIELD_VALUE',
-  TOGGLE_REQUIRED: 'TOGGLE_REQUIRED',
-  REMOVE_FIELD: 'REMOVE_FIELD',
-  ADD_FIELD: 'ADD_FIELD',
-  TOGGLE_PRE_CHAT_FORM: 'TOGGLE_PRE_CHAT_FORM',
-  TITLE_BAR_COLOR: 'TITLE_BAR_COLOR',
-  TITLE_BAR_TEXT_COLOR: 'TITLE_BAR_TEXT_COLOR',
-  VISITOR_BUBBLE_COLOR: 'VISITOR_BUBBLE_COLOR',
-  VISITOR_BUBBLE_TEXT_COLOR: 'VISITOR_BUBBLE_TEXT_COLOR',
-  AI_BUBBLE_COLOR: 'AI_BUBBLE_COLOR',
-  AI_BUBBLE_TEXT_COLOR: 'AI_BUBBLE_TEXT_COLOR',
-  SHOW_LOGO: "SHOW_LOGO",
-  SHOW_WHITE_LABEL: "SHOW_WHITE_LABEL",
   SET_THEME_DATA: 'SET_THEME_DATA',
-
+  SET_LOGO: 'SET_LOGO',
+  SET_TITLE_BAR: 'SET_TITLE_BAR',
+  SET_WELCOME_MESSAGE: 'SET_WELCOME_MESSAGE',
+  TOGGLE_PRE_CHAT_FORM: 'TOGGLE_PRE_CHAT_FORM',
+  TOGGLE_SHOW_LOGO: 'TOGGLE_SHOW_LOGO',
+  TOGGLE_WHITE_LABEL: 'TOGGLE_WHITE_LABEL',
+  UPDATE_COLOR: 'UPDATE_COLOR',
+  UPDATE_POSITION: 'UPDATE_POSITION',
+  ADD_FIELD: 'ADD_FIELD',
+  UPDATE_FIELD: 'UPDATE_FIELD',
+  REMOVE_FIELD: 'REMOVE_FIELD',
+  TOGGLE_FIELD_REQUIRED: 'TOGGLE_FIELD_REQUIRED'
 };
 
-
-
-const reducer = (state:any, action:any) => {
+// Enhanced reducer
+const reducer = (state, action) => {
   switch (action.type) {
     case actionTypes.SET_THEME_DATA:
       return { 
         ...state, 
-        ...action.payload, 
-        // Fallback to existing values for missing fields
-        fields: action.payload.fields.length ? action.payload.fields : state.fields,
-        colorFields: action.payload.colorFields.length ? action.payload.colorFields : state.colorFields,
-        logo: action.payload.logo ?? state.logo,
-        titleBar: action.payload.titleBar.length ? action.payload.titleBar : state.titleBar,
-        welcomeMessage: action.payload.welcomeMessage.length ? action.payload.welcomeMessage : state.welcomeMessage,
-        showLogo: action.payload.showLogo ?? state.showLogo,
-        isPreChatFormEnabled: action.payload.isPreChatFormEnabled ?? state.isPreChatFormEnabled,
+        ...action.payload,
+        fields: action.payload.fields?.length ? action.payload.fields : state.fields,
+        colorFields: action.payload.colorFields?.length ? action.payload.colorFields : state.colorFields,
+        position: action.payload.position || state.position
       };
-    case "SET_LOGO":
+      
+    case actionTypes.SET_LOGO:
       return { ...state, logo: action.payload };
-    case "SET_TITLE_BAR":
+      
+    case actionTypes.SET_TITLE_BAR:
       return { ...state, titleBar: action.payload };
-    case "SET_WELCOME_MESSAGE":
+      
+    case actionTypes.SET_WELCOME_MESSAGE:
       return { ...state, welcomeMessage: action.payload };
-
+      
     case actionTypes.TOGGLE_PRE_CHAT_FORM:
+      return { ...state, isPreChatFormEnabled: !state.isPreChatFormEnabled };
+      
+    case actionTypes.TOGGLE_SHOW_LOGO:
+      return { ...state, showLogo: !state.showLogo };
+      
+    case actionTypes.TOGGLE_WHITE_LABEL:
+      return { ...state, showWhiteLabel: !state.showWhiteLabel };
+      
+    case actionTypes.UPDATE_COLOR:
       return {
         ...state,
-        isPreChatFormEnabled: !state.isPreChatFormEnabled
-      };
-    case "COLOR_CHANGE":
-      return {
-        ...state,
-        chatColorSetting: {
-          ...state.chatColorSetting,
-        },
-      };
-
-    case actionTypes.UPDATE_FIELD_VALUE:
-      return {
-        ...state,
-        fields: state.fields.map((field: any) =>
+        colorFields: state.colorFields.map(field =>
           field.id === action.payload.id
             ? { ...field, value: action.payload.value }
             : field
         )
       };
-    case actionTypes.TOGGLE_REQUIRED:
+      
+    case actionTypes.UPDATE_POSITION:
       return {
         ...state,
-        fields: state.fields.map((field: any) =>
+        position: { ...state.position, ...action.payload }
+      };
+      
+    case actionTypes.ADD_FIELD:
+      return {
+        ...state,
+        fields: [...state.fields, action.payload]
+      };
+      
+    case actionTypes.UPDATE_FIELD:
+      return {
+        ...state,
+        fields: state.fields.map(field =>
+          field.id === action.payload.id
+            ? { ...field, ...action.payload.updates }
+            : field
+        )
+      };
+      
+    case actionTypes.REMOVE_FIELD:
+      return {
+        ...state,
+        fields: state.fields.filter(field => field.id !== action.payload.id)
+      };
+      
+    case actionTypes.TOGGLE_FIELD_REQUIRED:
+      return {
+        ...state,
+        fields: state.fields.map(field =>
           field.id === action.payload.id
             ? { ...field, required: !field.required }
             : field
         )
       };
-    case actionTypes.REMOVE_FIELD:
-      return {
-        ...state,
-        fields: state.fields.filter((field: any) => field.id !== action.payload.id)
-      };
-    case actionTypes.ADD_FIELD:
-      return {
-        ...state,
-        fields: [
-          ...state.fields,
-          { id: state.fields.length + 1, name: `Field ${state.fields.length + 1}`, value: '', required: false }
-        ]
-      };
-    case actionTypes.TITLE_BAR_COLOR:
-      return {
-        ...state,
-        colorFields: state?.colorFields?.map((colorField: any) =>
-          colorField.id === action.payload.id
-            ? { ...colorField, value: action.payload.value }
-            : colorField
-        )
-      };
-
-    case actionTypes.SHOW_LOGO:
-      return {
-        ...state,
-        showLogo: !state.showLogo
-      }
-
-    case actionTypes.SHOW_WHITE_LABEL:
-      return {
-        ...state,
-        showWhiteLabel: !state.showWhiteLabel
-      }
-
+      
     default:
       return state;
   }
 };
 
+// Field creation modal component
+const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
+  const [fieldData, setFieldData] = useState({
+    name: '',
+    value: '',
+    type: 'text',
+    placeholder: '',
+    required: false,
+    validation: { minLength: 0, maxLength: 255, pattern: '' }
+  });
 
-export default function Widget() {
-  const [userId,setUserId] = useState<string | null>(null);
-  const [state, dispatch] = useReducer(reducer, initialState);
-  const [selectedLogo,setSelectedLogo] = useState(clientLogoImage)
-  const [error, setError] = useState<string | null>(null); // For validation errors
-  const [themeData,setThemeData] = useState(null);
+  const [errors, setErrors] = useState({});
 
-  const handleLogoChange = async (e: any) => {
-    const logo = e.target.files?.[0];
-    if (!logo) return;
-    const formData = new FormData();
-    formData.append("logo", logo);
-    try {
-      await uploadLogo(formData); // Upload the logo to the backend
-      const previewUrl = URL.createObjectURL(logo); // Generate a preview URL
-      setSelectedLogo(previewUrl as any); // Update the state for preview
-      dispatch({ type: "SET_LOGO", payload: previewUrl });
-    } catch (error) {
-      setError("Failed to upload logo. Please try again.");
+  const validateField = () => {
+    const newErrors = {};
+    
+    if (!fieldData.name.trim()) {
+      newErrors.name = 'Field name is required';
+    }
+    
+    if (!fieldData.value.trim()) {
+      newErrors.value = 'Field label is required';
+    }
+    
+    if (!fieldData.placeholder.trim()) {
+      newErrors.placeholder = 'Placeholder is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = () => {
+    if (validateField()) {
+      onSave({
+        ...fieldData,
+        id: Date.now(),
+        validation: {
+          minLength: parseInt(fieldData.validation.minLength) || 0,
+          maxLength: parseInt(fieldData.validation.maxLength) || 255,
+          pattern: fieldData.validation.pattern
+        }
+      });
+      setFieldData({
+        name: '',
+        value: '',
+        type: 'text',
+        placeholder: '',
+        required: false,
+        validation: { minLength: 0, maxLength: 255, pattern: '' }
+      });
+      setErrors({});
+      onClose();
     }
   };
 
-  const handleImageClick = () => {
-    document.getElementById("logoUploadInput")!.click(); // Trigger file input click
-  };
+  if (!isOpen) return null;
 
-  const handleTitleBarChange = (e: any) => {
-    dispatch({ type: "SET_TITLE_BAR", payload: e.target.value })
-  };
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold">Add New Field</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-  const handleWelcomeBarChange = (e: any) => {
-    dispatch({ type: "SET_WELCOME_MESSAGE", payload: e.target.value })
-  };
+        <div className="space-y-4">
+          {/* Field Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Field Name *
+            </label>
+            <input
+              type="text"
+              value={fieldData.name}
+              onChange={(e) => setFieldData({ ...fieldData, name: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.name ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="e.g., Name, Company"
+            />
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+          </div>
 
-  const handleInputChange = (id:any, value:any) => {
-    dispatch({
-      type: actionTypes.UPDATE_FIELD_VALUE,
-      payload: { id, value }
-    });
-  };
+          {/* Field Label */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Field Label *
+            </label>
+            <input
+              type="text"
+              value={fieldData.value}
+              onChange={(e) => setFieldData({ ...fieldData, value: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.value ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Label shown to users"
+            />
+            {errors.value && <p className="text-red-500 text-xs mt-1">{errors.value}</p>}
+          </div>
 
-  const handleToggleRequired = (id:any) => {
-    dispatch({
-      type: actionTypes.TOGGLE_REQUIRED,
-      payload: { id }
-    });
-  };
+          {/* Field Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Field Type *
+            </label>
+            <select
+              value={fieldData.type}
+              onChange={(e) => setFieldData({ ...fieldData, type: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {FIELD_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.icon} {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-  const handleRemoveField = (id:any) => {
-    dispatch({
-      type: actionTypes.REMOVE_FIELD,
-      payload: { id }
-    });
-  };
+          {/* Placeholder */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Placeholder *
+            </label>
+            <input
+              type="text"
+              value={fieldData.placeholder}
+              onChange={(e) => setFieldData({ ...fieldData, placeholder: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.placeholder ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Placeholder text"
+            />
+            {errors.placeholder && <p className="text-red-500 text-xs mt-1">{errors.placeholder}</p>}
+          </div>
 
-  const handleAddField = () => {
-    dispatch({ type: actionTypes.ADD_FIELD });
-  };
+          {/* Validation Settings */}
+          <div className="border-t pt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Validation (Optional)</h4>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Min Length</label>
+                <input
+                  type="number"
+                  value={fieldData.validation.minLength}
+                  onChange={(e) => setFieldData({
+                    ...fieldData,
+                    validation: { ...fieldData.validation, minLength: e.target.value }
+                  })}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  min="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Max Length</label>
+                <input
+                  type="number"
+                  value={fieldData.validation.maxLength}
+                  onChange={(e) => setFieldData({
+                    ...fieldData,
+                    validation: { ...fieldData.validation, maxLength: e.target.value }
+                  })}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  min="1"
+                />
+              </div>
+            </div>
+          </div>
 
-  const handleTogglePreChatForm = () => {
-    dispatch({ type: actionTypes.TOGGLE_PRE_CHAT_FORM });
-  };
+          {/* Required Toggle */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">Required Field</span>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={fieldData.required}
+                onChange={(e) => setFieldData({ ...fieldData, required: e.target.checked })}
+                className="sr-only"
+              />
+              <div className={`relative w-11 h-6 rounded-full transition-colors ${
+                fieldData.required ? 'bg-blue-600' : 'bg-gray-300'
+              }`}>
+                <div className={`absolute w-4 h-4 bg-white rounded-full top-1 transition-transform ${
+                  fieldData.required ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </div>
+            </label>
+          </div>
+        </div>
 
-  const handleColorChange = (event: React.ChangeEvent<HTMLInputElement>, id: any) => {
-    let value = event.target.value;
-    dispatch({
-      type: actionTypes.TITLE_BAR_COLOR,
-      payload: { id, value }
-    })
-  };
+        <div className="flex space-x-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Add Field
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-  const handleToggleShowLogo = () => {
-    dispatch({
-      type: actionTypes.SHOW_LOGO,
-    })
+// File validation helper
+const validateFile = (file) => {
+  const errors = [];
+  
+  if (!file) {
+    errors.push('No file selected');
+    return { isValid: false, errors };
   }
-
-  const handleTogglewhiteLabel = () => {
-    dispatch({
-      type: actionTypes.SHOW_WHITE_LABEL,
-    })
+  
+  // Check file type
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  if (!ALLOWED_FILE_TYPES.includes(fileExtension)) {
+    errors.push(`File type .${fileExtension} is not allowed. Only ${ALLOWED_FILE_TYPES.join(', ')} are allowed.`);
   }
+  
+  // Check file size
+  if (file.size > MAX_FILE_SIZE) {
+    const maxSizeMB = MAX_FILE_SIZE / (1024 * 1024);
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    errors.push(`File size ${fileSizeMB}MB exceeds maximum allowed size of ${maxSizeMB}MB`);
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
 
+// Main component
+export default function EnhancedWidgetSettings() {
+  const [userId, setUserId] = useState('user-123');
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [selectedLogo, setSelectedLogo] = useState('/api/placeholder/40/40');
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
+  const [fileValidationErrors, setFileValidationErrors] = useState([]);
 
-  const handelWidgetSettings = async () => {
+  // Handle logo file selection and validation
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file before upload
+    const validation = validateFile(file);
+    
+    if (!validation.isValid) {
+      setFileValidationErrors(validation.errors);
+      return;
+    }
+    
+    // Clear any previous errors
+    setFileValidationErrors([]);
+    
+    const formData = new FormData();
+    formData.append("logo", file);
+    
+    try {
+      setIsLoading(true);
+      await uploadLogo(formData);
+      const previewUrl = URL.createObjectURL(file);
+      setSelectedLogo(previewUrl);
+      dispatch({ type: actionTypes.SET_LOGO, payload: previewUrl });
+    } catch (error) {
+      setError("Failed to upload logo. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle form field addition
+  const handleAddField = (fieldData) => {
+    dispatch({ type: actionTypes.ADD_FIELD, payload: fieldData });
+  };
+
+  // Handle form field updates
+  const handleUpdateField = (fieldId, updates) => {
+    dispatch({ 
+      type: actionTypes.UPDATE_FIELD, 
+      payload: { id: fieldId, updates } 
+    });
+  };
+
+  // Handle saving all settings
+  const handleSaveSettings = async () => {
     const themeSettings = {
       logo: state.logo,
       titleBar: state.titleBar,
       welcomeMessage: state.welcomeMessage,
       showLogo: state.showLogo,
+      showWhiteLabel: state.showWhiteLabel,
       isPreChatFormEnabled: state.isPreChatFormEnabled,
       fields: state.fields,
       colorFields: state.colorFields,
+      position: state.position,
     };
   
     try {
-      await updateThemeSettings({themeSettings,userId});
-      toast.success('Widget settings saved successfully!');
+      setIsLoading(true);
+      await updateThemeSettings({ themeSettings, userId });
+      // Show success message
     } catch (error) {
-      toast.error('Failed to save widget settings. Please try again.');
+      setError('Failed to save widget settings. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // Load initial data
   useEffect(() => {
-    // Ensure this code runs only on the client side
-    if (typeof window !== 'undefined') {
-      const storedUserId = localStorage.getItem('userId');
-      setUserId(storedUserId);
-    }
-  }, []);
-
-  useEffect(()=>{
-    async function fetchData(){
-     const data =  await getThemeSettings({userId});
-     console.log(data,"theme data")
-     if (data) {
-      dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
-    }
-     setThemeData(data);
-    }
-    fetchData()
-  },[])
-
-  useEffect(() => {
-    if (state.logo) {
-      //if state.logo has 'blob' in it, it means it is a local file
-      if (state.logo.includes('blob')) {
-        setSelectedLogo(state.logo)
-      } else {
-        setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}/${state.logo}` as any)
+    const fetchData = async () => {
+      try {
+        const data = await getThemeSettingsData({ userId });
+        if (data?.data) {
+          console.log(data?.data,"widget data")
+          dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
+        }
+      } catch (error) {
+        setError('Failed to load settings');
       }
-    }
-  }, [state.logo])
+    };
+    fetchData();
+  }, [userId]);
 
+  // Color field labels
+  const colorFieldLabels = {
+    'title_bar': 'Title Bar Background',
+    'title_bar_text': 'Title Bar Text',
+    'visitor_bubble': 'Your Message Background',
+    'visitor_bubble_text': 'Your Message Text',
+    'ai_bubble': 'AI Message Background',
+    'ai_bubble_text': 'AI Message Text'
+  };
 
   return (
-    <><div className="main-content-area">
-      <div className="inbox-area d-flex">
-        <div className="widget-settingSection flex-grow-1">
-          <div className="inbox-heading d-flex justify-content-between align-item-center">
-            <div className="top-headbar-heading">Widget Setting</div>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Widget Settings</h1>
+          <p className="text-gray-600 mt-2">Customize your chat widget appearance and behavior</p>
+        </div>
 
-          <div className="widget-settingInner custom-scrollbar">
-            <div className="widget-settingBox">
-              <Accordion className="accordion Contentdetails-accordion" id="accordionExample">
-                <Accordion.Item eventKey="0" className="accordion-item">
-                  <Accordion.Header><Image src={appearanceIconImage} alt="" /> Embed Code</Accordion.Header>
-                  <Accordion.Body className="accordion-body">
-                    <EmbeddingCode />
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
-            </div>
-
-            <div className="widget-settingBox">
-              <Accordion className="accordion Contentdetails-accordion" id="accordionExample">
-                <Accordion.Item eventKey="0" className="accordion-item">
-                  <Accordion.Header><Image src={appearanceIconImage} alt="" /> Appearance</Accordion.Header>
-                  <Accordion.Body className="accordion-body">
-                    <div className="setting-accordionArea">
-                      <div className="setting-field widget-logoUpload mb-20">
-                        {state.logo ?
-                          <Image src={selectedLogo} alt="Logo" onClick={handleImageClick} width={100} height={100}
-                            style={{ cursor: 'pointer' }} />
-                          :
-                          <Image src={logoUploadImage} alt="" onClick={handleImageClick}
-                            style={{ cursor: 'pointer' }} />
-                        }
-                        <input
-                          type="file"
-                          id="logoUploadInput"
-                          style={{ display: "none" }}
-                          accept="image/*"
-                          onChange={handleLogoChange}
-                        />
-                      </div>
-                      <p className="mb-20"><strong>Note:</strong> Please upload jpg, png, or gif file that is no larger than 1500x1000 pixels.</p>
-
-                      <div className="input-box mb-20">
-                        <label>Title Bar Text</label>
-                        <input type="text" placeholder="Enter a title" className="form-control" value={state.titleBar} onChange={handleTitleBarChange} />
-                      </div>
-
-                      <div className="input-box mb-20">
-                        <label>Welcome Message</label>
-                        <textarea className="form-control" placeholder="Welcome Message here" value={state.welcomeMessage} onChange={handleWelcomeBarChange}></textarea>
-                      </div>
-
-                      <div className="widget-colorPicker flex-wrap d-flex gap-20">
-
-                        {state.colorFields.map((field:any) => (
-                          <div className="color-pickerBox">
-                            <label className="form-label">{field.name}</label>
-                            <div className="border rounded-3 d-flex align-items-center justify-content-between">
-                              <span className="colorCode">{field.value}</span>
-                              <div className="pick-colorBox">
-                                <input
-                                  type="color"
-                                  value={field.value} // Set the current selected color
-                                  onChange={(event) => handleColorChange(event, field.id)} // Handle color change
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Settings Panel */}
+          <div className="space-y-6">
+            
+            {/* Appearance Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Eye className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Appearance</h3>
+                </div>
+              </div>
+              <div className="p-6 space-y-6">
+                {/* Logo Upload with Enhanced Validation */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Logo</label>
+                  <div className="flex items-center space-x-4">
+                    <div 
+                      className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-300"
+                      onClick={() => document.getElementById('logoUpload').click()}
+                    >
+                      {selectedLogo ? (
+                        <img src={selectedLogo} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
+                      ) : (
+                        <Upload className="w-6 h-6 text-gray-400" />
+                      )}
                     </div>
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
-            </div>
-
-            <div className="widget-settingBox">
-              <Accordion className="accordion Contentdetails-accordion" id="accordionExample2">
-                <Accordion.Item eventKey="0" className="accordion-item">
-                  <Accordion.Header><Image src={widgetPositionIconImage} alt="" /> Widget Position</Accordion.Header>
-                  <Accordion.Body className="accordion-body">
-                    <div className="setting-accordionArea widget-position">
-                      <div className="d-flex gap-20">
-                        <div className="custom-dropi">
-                          <label className="form-label">Align to:</label>
-                          <select className="form-select width-100">
-                            <option>Right</option>
-                            <option>Left</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="form-label">Side spacing:</label>
-                          <div className="d-flex align-item-center gap-2">
-                            <input type="text" className="form-control width-100" defaultValue="0" />
-                            <label className="form-label mb-0">px</label>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="form-label">Bottom spacing:</label>
-                          <div className="d-flex align-item-center gap-2">
-                            <input type="text" className="form-control width-100" defaultValue="0" />
-                            <label className="form-label mb-0">px</label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
-            </div>
-
-            <div className="widget-settingBox">
-              <Accordion className="accordion Contentdetails-accordion" id="accordionExample3">
-                <Accordion.Item eventKey="0" className="accordion-item">
-                  <Accordion.Header><Image src={preChatFormIconImage} alt="" />
-                    Pre Chat Form
-                    <label className="toggle ml-10">
-                      {/* <input className="toggle-checkbox" type="checkbox" defaultChecked />
-                       */}
-                      <input
-                        className="toggle-checkbox"
-                        type="checkbox"
-                        checked={state.isPreChatFormEnabled}
-                        onChange={handleTogglePreChatForm}  // Toggles the pre-chat form enabled state
-                      />
-                      <div className="toggle-switch"></div>
-                    </label>
-                  </Accordion.Header>
-                  <Accordion.Body className="accordion-body">
-                    {state.isPreChatFormEnabled && (
-                      <div className="setting-accordionArea">
-                        <div className="pre-chatArea">
-                          {state?.fields?.map((field:any, index:any) => (
-                            <div className="preChat-box mb-20">
-                              <div className="preChat-head d-flex justify-content-end">
-                                <div className="d-flex align-item-center gap-2">
-                                  <div className="form-check">
-                                    <input className="form-check-input"
-                                      type="checkbox"
-                                      checked={field.required}
-                                      onChange={() => handleToggleRequired(field.id)}
-                                      id={`flexCheckDefault${index}`}
-                                    />
-                                  </div>
-                                  <label htmlFor={`flexCheckDefault${index}`}>Required</label>
-
-
-                                  <button
-                                    type="button"
-                                    className="btn-close ml-10"
-                                    onClick={() => handleRemoveField(field.id)}
-                                  ></button>
-
-                                </div>
-                              </div>
-                              <div className="input-box mt-3">
-                                <input
-                                  type={field.name === 'Email' ? 'email' : 'text'}
-                                  placeholder={field.name}
-                                  className="form-control"
-                                  value={field.value}
-                                  onChange={(e) => handleInputChange(field.id, e.target.value)}
-                                />
-                              </div>
+                    <div className="flex-1">
+                      <button
+                        onClick={() => document.getElementById('logoUpload').click()}
+                        disabled={isLoading}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-50"
+                      >
+                        {isLoading ? 'Uploading...' : 'Choose File'}
+                      </button>
+                      <p className="text-xs text-gray-500 mt-1">
+                        JPG or PNG (max 5MB)
+                      </p>
+                      {fileValidationErrors.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {fileValidationErrors.map((error, index) => (
+                            <div key={index} className="flex items-center space-x-2 text-red-600 text-xs">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>{error}</span>
                             </div>
                           ))}
                         </div>
+                      )}
+                    </div>
+                    <input
+                      id="logoUpload"
+                      type="file"
+                      className="hidden"
+                      accept=".jpg,.jpeg,.png"
+                      onChange={handleLogoChange}
+                    />
+                  </div>
+                </div>
 
-                        <div>
-                          <button className="custom-btn d-flex gap-2 align-item-center" onClick={handleAddField}><Image src={tagPlusImage} alt="" /> Add Element</button>
+                {/* Title Bar Text */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title Bar Text</label>
+                  <input
+                    type="text"
+                    value={state.titleBar}
+                    onChange={(e) => dispatch({ type: actionTypes.SET_TITLE_BAR, payload: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter title"
+                  />
+                </div>
+
+                {/* Welcome Message */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Welcome Message</label>
+                  <textarea
+                    value={state.welcomeMessage}
+                    onChange={(e) => dispatch({ type: actionTypes.SET_WELCOME_MESSAGE, payload: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                    placeholder="Welcome message here"
+                  />
+                </div>
+
+                {/* Color Settings */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Colors</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {state.colorFields.map((field) => (
+                      <div key={field.id} className="space-y-2">
+                        <label className="block text-xs font-medium text-gray-600">
+                          {colorFieldLabels[field.name] || field.name}
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={field.value}
+                            onChange={(e) => dispatch({
+                              type: actionTypes.UPDATE_COLOR,
+                              payload: { id: field.id, value: e.target.value }
+                            })}
+                            className="w-10 h-8 rounded border border-gray-300 cursor-pointer"
+                          />
+                          <span className="text-xs text-gray-500 font-mono">{field.value}</span>
                         </div>
                       </div>
-                    )}
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="widget-settingBox">
-              <Accordion className="accordion Contentdetails-accordion" id="accordionExample4">
-                <Accordion.Item eventKey="0" className="accordion-item">
-                  <Accordion.Header><Image src={additionalTweaksIconImage} alt="" /> Additional tweaks</Accordion.Header>
-                  <Accordion.Body className="accordion-body">
-                    <div className="setting-accordionArea">
-                      <div className="additional-tweakArea mt-20">
-                        <div className="additional-tweakBox d-flex align-item-center mb-20 position-relative">
-                          <h4 className="mb-0">Show logo</h4>
-                          <label className="toggle">
+            {/* Widget Position Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <MapPin className="w-4 h-4 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Widget Position</h3>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Align to</label>
+                    <select
+                      value={state.position.align}
+                      onChange={(e) => dispatch({
+                        type: actionTypes.UPDATE_POSITION,
+                        payload: { align: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="right">Right</option>
+                      <option value="left">Left</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Side spacing</label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="200"
+                        value={state.position.sideSpacing}
+                        onChange={(e) => dispatch({
+                          type: actionTypes.UPDATE_POSITION,
+                          payload: { sideSpacing: parseInt(e.target.value) || 0 }
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <span className="text-sm text-gray-500">px</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Bottom spacing</label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="200"
+                        value={state.position.bottomSpacing}
+                        onChange={(e) => dispatch({
+                          type: actionTypes.UPDATE_POSITION,
+                          payload: { bottomSpacing: parseInt(e.target.value) || 0 }
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <span className="text-sm text-gray-500">px</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Pre-Chat Form Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <MessageSquare className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">Pre-Chat Form</h3>
+                  </div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={state.isPreChatFormEnabled}
+                      onChange={() => dispatch({ type: actionTypes.TOGGLE_PRE_CHAT_FORM })}
+                      className="sr-only"
+                    />
+                    <div className={`relative w-11 h-6 rounded-full transition-colors ${
+                      state.isPreChatFormEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}>
+                      <div className={`absolute w-4 h-4 bg-white rounded-full top-1 transition-transform ${
+                        state.isPreChatFormEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </div>
+                  </label>
+                </div>
+              </div>
+              {state.isPreChatFormEnabled && (
+                <div className="p-6 space-y-4">
+                  {/* Form Fields */}
+                  {state.fields.map((field) => (
+                    <div key={field.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-lg">
+                            {FIELD_TYPES.find(t => t.value === field.type)?.icon || '📝'}
+                          </span>
+                          <div>
+                            <h4 className="font-medium text-gray-900">{field.value}</h4>
+                            <p className="text-sm text-gray-500">
+                              {FIELD_TYPES.find(t => t.value === field.type)?.label} 
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <label className="flex items-center space-x-2 text-sm">
                             <input
-                              className="toggle-checkbox"
                               type="checkbox"
-                              checked={state.showLogo}
-                              onChange={() => handleToggleShowLogo()}
+                              checked={field.required}
+                              onChange={() => dispatch({
+                                type: actionTypes.TOGGLE_FIELD_REQUIRED,
+                                payload: { id: field.id }
+                              })}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <div className="toggle-switch"></div>
+                            <span className="text-gray-700">Required</span>
                           </label>
+                          
+                          <button
+                            onClick={() => dispatch({
+                              type: actionTypes.REMOVE_FIELD,
+                              payload: { id: field.id }
+                            })}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Field Preview */}
+                      <div className="mt-3">
+                        {field.type === 'textarea' ? (
+                          <textarea
+                            placeholder={field.placeholder}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                            rows={3}
+                            disabled
+                          />
+                        ) : (
+                          <input
+                            type={field.type}
+                            placeholder={field.placeholder}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                            disabled
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Add Field Button */}
+                  <button
+                    onClick={() => setIsFieldModalOpen(true)}
+                    className="flex items-center space-x-2 px-4 py-3 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border-2 border-dashed border-blue-300 w-full justify-center"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Field</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Additional Tweaks Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Sliders className="w-4 h-4 text-gray-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Additional Tweaks</h3>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Show Logo</span>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={state.showLogo}
+                      onChange={() => dispatch({ type: actionTypes.TOGGLE_SHOW_LOGO })}
+                      className="sr-only"
+                    />
+                    <div className={`relative w-11 h-6 rounded-full transition-colors ${
+                      state.showLogo ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}>
+                      <div className={`absolute w-4 h-4 bg-white rounded-full top-1 transition-transform ${
+                        state.showLogo ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </div>
+                  </label>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">White Label Widget</span>
+                    <p className="text-xs text-gray-500">Remove "Powered by Chataffy" branding</p>
+                  </div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={state.showWhiteLabel}
+                      onChange={() => dispatch({ type: actionTypes.TOGGLE_WHITE_LABEL })}
+                      className="sr-only"
+                    />
+                    <div className={`relative w-11 h-6 rounded-full transition-colors ${
+                      state.showWhiteLabel ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}>
+                      <div className={`absolute w-4 h-4 bg-white rounded-full top-1 transition-transform ${
+                        state.showWhiteLabel ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveSettings}
+                disabled={isLoading}
+                className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isLoading ? 'Saving...' : 'Save Settings'}</span>
+              </button>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-red-800">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">{error}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Preview Panel */}
+          <div className="lg:sticky lg:top-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
+              </div>
+              <div className="p-6">
+                <div className="bg-gray-100 rounded-lg p-8 relative min-h-[500px]">
+                  {/* Widget Preview */}
+                  <div 
+                    className={`absolute ${state.position.align === 'left' ? 'left-0' : 'right-0'} bottom-0 w-80`}
+                    style={{
+                      [state.position.align]: `${state.position.sideSpacing}px`,
+                      bottom: `${state.position.bottomSpacing}px`
+                    }}
+                  >
+                    {/* Widget Button */}
+                    <div className="flex justify-end mb-4">
+                      <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full shadow-lg flex items-center justify-center">
+                        <MessageSquare className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+
+                    {/* Widget Chat Window */}
+                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+                      {/* Header */}
+                      <div 
+                        className="p-4 text-white"
+                        style={{ backgroundColor: state.colorFields[0]?.value }}
+                      >
+                        <div className="flex items-center space-x-3">
+                          {state.showLogo && (
+                            <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                              <img src={selectedLogo} alt="Logo" className="w-6 h-6 rounded-full" />
+                            </div>
+                          )}
+                          <div>
+                            <div 
+                              className="font-semibold text-sm"
+                              style={{ color: state.colorFields[1]?.value }}
+                            >
+                              {state.titleBar}
+                            </div>
+                            <div className="flex items-center space-x-1 text-xs opacity-90">
+                              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                              <span>Online</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Messages */}
+                      <div className="p-4 h-64 overflow-y-auto bg-gray-50">
+                        {/* AI Message */}
+                        <div className="flex items-start space-x-2 mb-4">
+                          <div className="w-6 h-6 rounded-full bg-gray-300 flex-shrink-0"></div>
+                          <div 
+                            className="px-3 py-2 rounded-lg text-sm max-w-xs"
+                            style={{ 
+                              backgroundColor: state.colorFields[4]?.value,
+                              color: state.colorFields[5]?.value
+                            }}
+                          >
+                            {state.welcomeMessage}
+                          </div>
                         </div>
 
-                        <div className="additional-tweakBox d-flex align-item-center position-relative">
-                          <h4 className="mb-0">White label widget</h4>
-                          <label className="toggle">
-                            <input
-                              className="toggle-checkbox"
-                              type="checkbox"
-                              checked={state.showWhiteLabel}
-                              onChange={() => handleTogglewhiteLabel()}
-                            />
-                            <div className="toggle-switch"></div>
-                          </label>
+                        {/* User Message */}
+                        <div className="flex justify-end mb-4">
+                          <div 
+                            className="px-3 py-2 rounded-lg text-sm max-w-xs"
+                            style={{ 
+                              backgroundColor: state.colorFields[2]?.value,
+                              color: state.colorFields[3]?.value
+                            }}
+                          >
+                            Hello! I need help with my order.
+                          </div>
                         </div>
                       </div>
+
+                      {/* Input */}
+                      <div className="p-4 border-t border-gray-200">
+                        <div className="flex items-center space-x-2">
+                          <input 
+                            type="text" 
+                            placeholder="Type a message..." 
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            disabled
+                          />
+                          <button className="p-2 bg-blue-600 text-white rounded-lg">
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* White Label Footer */}
+                      {!state.showWhiteLabel && (
+                        <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                          <div className="text-xs text-gray-500 text-center">
+                            Powered by <span className="font-semibold text-blue-600">Chataffy</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
-            </div>
-
-            <div>
-              <button onClick={handelWidgetSettings}>save</button>
-            </div>
-
-
-          </div>
-        </div>
-
-        <div className="widget-previewSection">
-          <div className="inbox-heading d-flex justify-content-between align-item-center">
-            <div className="top-headbar-heading">Preview</div>
-          </div>
-
-          <div className="chataffy-widget-area">
-            <div className="chataffy-widgetBtn-box" style={{ right: "40px" }}>
-              <div className="chataffy-widget-btn"><Image src={widgetIconImage} alt="" width={37} height={37} /></div>
-            </div>
-
-            <div className="chataffy-messageFrame">
-              <div className="chataffy-widget-head" style={{ background: state?.colorFields[0]?.value }}>
-                <div className="chataffy-widget-headLeft">
-                  <div className="chataffy-head-clientLogo">
-                    {state.showLogo && <Image src={selectedLogo} alt="" width={40} height={40} />}
-                  </div>
-                  <div className="chataffy-head-infoArea">
-                    <div className="chataffy-headName" style={{ color: state?.colorFields[1]?.value }}>{state.titleBar} </div>
-                    <div className="chataffy-headStatus" style={{ color: "#ffffff" }}><span className="chataffy-statusPoint"></span> Online</div>
                   </div>
                 </div>
-
-                <div className="chataffy-widget-headRight">
-                  <button type="button" className="chataffy-widget-closeBtn"><Image src={closeBtnImage} alt="" /></button>
-                </div>
               </div>
-
-              <div className="chataffy-widget-body">
-                <div className="chataffy-widget-chatArea">
-                  <div className="chataffy-widget-messageArea">
-                    <div className="chataffy-widget-messageImage">
-                      <Image src={selectedLogo} alt="" width={40} height={40} />
-                    </div>
-
-                    <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message" style={{ background: state?.colorFields[4]?.value, color: state?.colorFields[5]?.value }}>
-                        <p>{state.welcomeMessage}</p>
-                      </div>
-                      <div className="chataffy-widget-messageInfo">
-                        03:10 PM
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="chataffy-widget-messageClient">
-                    <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message" style={{ background: state?.colorFields[2]?.value, color: state?.colorFields[3]?.value }}>
-                        <p>Can I change the date of my reservation?</p>
-                      </div>
-                      <div className="chataffy-widget-messageInfo">
-                        2m ago・Seen
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="chataffy-widget-messageArea">
-                    <div className="chataffy-widget-messageImage">
-                      <Image src={selectedLogo} alt="" width={40} height={40} />
-                    </div>
-
-                    <div className="chataffy-widget-messageBox">
-                      <div className="chataffy-widget-message" style={{ background: state?.colorFields[4]?.value, color: state?.colorFields[5]?.value }}>
-                        <p>Yes, you can change the date of your reservation for up to seven days in advance. To do this, first go to "Your Reservations" and click the relevant one. Then, go to "Change Details" and enter a new date. Finally, click "Confirm". That's it!</p>
-                      </div>
-                      <div className="chataffy-widget-messageInfo">
-                        03:10 PM
-                      </div>
-                    </div>
-                  </div>
-
-
-                </div>
-              </div>
-
-              <div className="chataffy-widget-textarea" style={{ border: '2px' }}>
-                <input type="text" placeholder="Type a message..." className="form-control" />
-                <button type="button" className="chataffy-widget-textareaBtn"><Image src={sendIconWidgetImage} alt="" /></button>
-              </div>
-
             </div>
-            {state.showWhiteLabel && <div style={{ backgroundColor: "green", fontSize: 20, padding: 10, marginBottom: 10, }}>hello</div>}
           </div>
         </div>
       </div>
 
-
-    </div ></>
-  )
+      {/* Field Creation Modal */}
+      <FieldCreationModal
+        isOpen={isFieldModalOpen}
+        onClose={() => setIsFieldModalOpen(false)}
+        onSave={handleAddField}
+      />
+    </div>
+  );
 }

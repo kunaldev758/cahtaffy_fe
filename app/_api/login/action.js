@@ -17,6 +17,7 @@ export async function loginAgentApi(email, password) {
   if (result.message=="Login successful") {
     console.log(result.token,"this is token")
     cookies().set({ name: 'token', value: result.token, httpOnly: true})
+    cookies().set({name:"role",value:"agent",httpOnly: true})
   }
   console.log(result,"the result")
   return result

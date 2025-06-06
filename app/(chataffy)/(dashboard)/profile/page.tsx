@@ -24,11 +24,7 @@ import mapImage from '@/images/map.png';
 export default function Home() {
   return (
     <><div className="main-content">
-    <div className="submenu-sidebar">
-        <ul>
-            <li className="active"><a href="">Dashboard</a></li>
-        </ul>
-    </div>
+
 
     <div className="top-headbar">
         <div className="top-headbar-heading">Dashboard</div>

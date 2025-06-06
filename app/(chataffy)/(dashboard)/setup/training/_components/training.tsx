@@ -3,26 +3,221 @@
 import Image from 'next/image'
 import AddcontentModal from './addContentModal'
 import { useEffect, useState } from 'react'
-import TrainingList from './trainingList'
-import ScrapeProgressTracker from './scrapeProgressTracker'  // Import the new component
-
+import ScrapeProgressTracker from './scrapeProgressTracker'
 import { logoutApi } from '@/app/_api/dashboard/action'
 import { useRouter } from 'next/navigation'
-
-import webPageIconPic from '@/images/web-page-icon.svg'
-import docSnippetsIconPic from '@/images/doc-snippets-icon.svg'
-import faqIconPic from '@/images/faq-icon.svg'
-import searchIconPic from '@/images/search-icon.svg'
-
-import Skeleton from 'react-loading-skeleton'
-import 'react-loading-skeleton/dist/skeleton.css'
-
-// import { useSocket } from '@/app/socketContext'
 import { useSocket } from "../../../../../socketContext";
 import { toast } from 'react-toastify';
 
+// Images
+import webPageIconPic from '@/images/web-page-icon.svg'
+import docSnippetsIconPic from '@/images/doc-snippets-icon.svg'
+import faqIconPic from '@/images/faq-icon.svg'
 
-export default function Home(Props: any) {
+// shadcn/ui components
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Checkbox } from '@/components/ui/checkbox'
+
+// Data Table components
+import { DataTable } from '@/components/ui/data-table'
+import { ColumnDef } from '@tanstack/react-table'
+
+// Icons
+import { 
+  PlusIcon, 
+  MoreHorizontalIcon, 
+  EditIcon, 
+  TrashIcon,
+  EyeIcon,
+  Download
+} from 'lucide-react'
+
+// Types
+interface TrainingItem {
+  _id: string
+  title: string
+  url?: string
+  sourceType: 'Web Pages' | 'Doc/Snippets' | 'FAQs'
+  lastEdit: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  trainingStatus: number
+  createdAt: string
+  fileSize?: number
+}
+
+// Column definitions for the data table
+const createColumns = (
+  onEdit: (item: TrainingItem) => void,
+  onDelete: (item: TrainingItem) => void,
+  onView: (item: TrainingItem) => void
+): ColumnDef<TrainingItem>[] => [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={table.getIsAllPageRowsSelected()}
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    accessorKey: "title",
+    header: "Title/URL",
+    cell: ({ row }) => {
+      const item = row.original
+      return (
+        <div className="space-y-1">
+          <div className="font-medium text-gray-900 truncate max-w-[300px]" title={item.title}>
+            {item.title}
+          </div>
+          {item.url && (
+            <div className="text-xs text-gray-500 truncate max-w-[300px]" title={item.url}>
+              {item.url}
+            </div>
+          )}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: "sourceType",
+    header: "Type",
+    cell: ({ row }) => {
+      const sourceType = row.getValue("sourceType") as string
+      const variants: Record<string, string> = {
+        "Web Pages": "bg-blue-100 text-blue-800",
+        "Doc/Snippets": "bg-green-100 text-green-800",
+        "FAQs": "bg-purple-100 text-purple-800",
+      }
+      
+      return (
+        <Badge variant="secondary" className={variants[sourceType] || "bg-gray-100 text-gray-800"}>
+          {sourceType}
+        </Badge>
+      )
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id))
+    },
+  },
+  {
+    accessorKey: "lastEdit",
+    header: "Last Edit",
+    cell: ({ row }) => {
+      const dateValue = row.getValue("lastEdit")
+      
+      // Handle invalid or missing dates
+      if (!dateValue) {
+        return <div className="text-sm text-gray-400">-</div>
+      }
+      
+      const date = new Date(dateValue)
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return <div className="text-sm text-gray-400">-</div>
+      }
+      
+      return (
+        <div className="text-sm text-gray-600">
+          {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = row.original.trainingStatus
+      const statusConfig: Record<number, { label: string; className: string }> = {
+        0: { label: "Pending", className: "bg-yellow-100 text-yellow-800" },
+        1: { label: "Processing", className: "bg-blue-100 text-blue-800" },
+        2: { label: "Crawled", className: "bg-indigo-100 text-indigo-800" },
+        3: { label: "Minified", className: "bg-orange-100 text-orange-800" },
+        4: { label: "Completed", className: "bg-green-100 text-green-800" },
+        5: { label: "Failed", className: "bg-red-100 text-red-800" },
+      }
+      
+      const config = statusConfig[status] || statusConfig[0]
+      
+      return (
+        <Badge variant="secondary" className={config.className}>
+          {config.label}
+        </Badge>
+      )
+    },
+  },
+  {
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => {
+      const item = row.original
+      
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontalIcon className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => onView(item)}>
+              <EyeIcon className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(item)}>
+              <EditIcon className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => onDelete(item)}
+              className="text-red-600 focus:text-red-600"
+            >
+              <TrashIcon className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+  },
+]
+
+export default function ModernTrainingPage() {
   const router = useRouter()
   const { socket } = useSocket();
 
@@ -31,17 +226,14 @@ export default function Home(Props: any) {
   const [docCount, setDocCount] = useState({ crawled: 0, total: 0, loading: true })
   const [faqCount, setFaqCount] = useState({ crawled: 0, total: 0, loading: true })
   const [credit, setCredit] = useState({ used: 0, total: 0 })
-  const [trainingList, setTrainingList] = useState<any>({ data: [], loading: true })
-  const [search, setSearch] = useState('')
-  const [trainingListCheckbox, setTrainingListCheckbox] = useState({})
-  const [selectAllCheckbox, setSelectAllCheckbox] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Adjust items per page as needed
-  const [paginatedData, setPaginatedData] = useState<any>({ data: [], loading: true })
-  const [sourceTypeFilter, setSourceTypeFilter] = useState<any>("Show All Sources");
-  const [actionTypeFilter, setActionTypeFilter] = useState<any>("Action 1");
+  const [trainingList, setTrainingList] = useState<{ data: TrainingItem[], loading: boolean }>({ 
+    data: [], 
+    loading: true 
+  })
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>("all")
+  const [actionTypeFilter, setActionTypeFilter] = useState<string>("all")
   
-  // New state for tracking scraping progress
+  // Progress tracking states
   const [scrapeProgress, setScrapeProgress] = useState({
     status: 'waiting',
     stage: '',
@@ -55,31 +247,39 @@ export default function Home(Props: any) {
   const [isScrapingComplete, setIsScrapingComplete] = useState(false);
   const [completionStats, setCompletionStats] = useState({} as any);
   const [showProgressTracker, setShowProgressTracker] = useState(false);
-  
-  const totalPages = Math.ceil(webPageCount.crawled + docCount.crawled + faqCount.crawled / itemsPerPage);
 
-  const handleSourceTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSourceTypeFilter(event.target.value);
-  };
+  // Action handlers
+  const handleView = (item: TrainingItem) => {
+    console.log('View item:', item)
+    // Implement view logic
+  }
 
-  const handleActionTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setActionTypeFilter(event.target.value);
-  };
+  const handleEdit = (item: TrainingItem) => {
+    console.log('Edit item:', item)
+    // Implement edit logic
+  }
 
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
+  const handleDelete = (item: TrainingItem) => {
+    console.log('Delete item:', item)
+    // Implement delete logic
+    if (confirm('Are you sure you want to delete this item?')) {
+      // Call delete API
+    }
+  }
+
+  // Create columns with action handlers
+  const columns = createColumns(handleEdit, handleDelete, handleView)
 
   const getData = () => {
     if (!socket) return;
-    setTrainingList({ data: [], loading: true }); //set loading here
+    setTrainingList({ data: [], loading: true });
     
     socket.on('client-connect-response', function () {
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
       socket.emit('get-training-list', { 
-        skip: (currentPage - 1) * itemsPerPage, 
-        limit: itemsPerPage, 
+        skip: 0, 
+        limit: 1000, // Get all data for client-side pagination
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
@@ -97,7 +297,20 @@ export default function Home(Props: any) {
 
     socket.on('get-training-list-response', function ({ data }: any) {
       console.log(data, "training list data");
-      setTrainingList({ data: data, loading: false })
+      // Transform data to match our interface
+      const transformedData: TrainingItem[] = data.map((item: any) => ({
+        _id: item._id,
+        title: item.title || item.url || 'Untitled',
+        url: item.url,
+        sourceType: item.sourceType || 'Web Pages',
+        lastEdit: item.updatedAt || item.createdAt,
+        status: item.status || 'pending',
+        trainingStatus: item.trainingStatus || 0,
+        createdAt: item.createdAt,
+        fileSize: item.fileSize
+      }))
+      
+      setTrainingList({ data: transformedData, loading: false })
     })
 
     socket.on('error-handler', async function (data: any) {
@@ -106,20 +319,16 @@ export default function Home(Props: any) {
     })
 
     socket.on('web-page-error-insufficient-credits', async function (data: any) {
-      // await logoutApi()
-      // router.replace('/login')
       toast.error("Insufficient credits")
     })
 
     socket.on('web-page-error', async function (data: any) {
-      // await logoutApi()
-      // router.replace('/login')
       toast.error("Something went wrong Training Stopped")
     })
 
     // Progress tracking socket events
     socket.on('scraping-progress', (data) => {
-      console.log("scraping-progress data",data)
+      console.log("scraping-progress data", data)
       setScrapeProgress(data);
       setShowProgressTracker(true);
       if (data.status === 'complete') {
@@ -131,17 +340,15 @@ export default function Home(Props: any) {
       setCompletionStats(data);
       setIsScrapingComplete(true);
       
-      // Refresh data after scraping completes
       socket.emit('get-credit-count');
       socket.emit('get-training-list-count');
       socket.emit('get-training-list', { 
-        skip: (currentPage - 1) * itemsPerPage, 
-        limit: itemsPerPage, 
+        skip: 0, 
+        limit: 1000,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       });
       
-      // Hide the progress tracker after a delay
       setTimeout(() => {
         setShowProgressTracker(false);
       }, 5000);
@@ -154,151 +361,105 @@ export default function Home(Props: any) {
       socket.emit('get-credit-count')
       socket.emit('get-training-list-count')
       socket.emit('get-training-list', { 
-        skip: (currentPage - 1) * itemsPerPage, 
-        limit: itemsPerPage, 
+        skip: 0, 
+        limit: 1000,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
     }) 
 
-    // socket.on('web-pages-crawled', function (data: any) {
-    //   console.log("crawled", data);
-    // })
+    socket.on('faq-added', ({ trainingList }) => {
+      const newItem: TrainingItem = {
+        _id: trainingList._id,
+        title: trainingList.title || 'New FAQ',
+        sourceType: 'FAQs',
+        lastEdit: trainingList.createdAt,
+        status: 'pending',
+        trainingStatus: 0,
+        createdAt: trainingList.createdAt
+      }
+      
+      setTrainingList((prev) => ({
+        data: [newItem, ...prev.data],
+        loading: false,
+      }));
+      socket.emit('get-training-list-count')
+    });
 
-    // socket.on('web-page-crawled', ({ trainingListId }) => {
-    //   setTrainingList((prevTrainingList: any) => ({
-    //     data: prevTrainingList.data.map((item: any) =>
-    //       item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
-    //     ),
-    //     loading: false,
-    //   }));
-    // });
-
-    // socket.on('web-page-crawling-started', ({ trainingListId }) => {
-    //   setTrainingList((prevTrainingList: any) => ({
-    //     data: prevTrainingList.data.map((item: any) =>
-    //       item._id === trainingListId ? { ...item, trainingStatus: 1 } : item
-    //     ),
-    //     loading: false,
-    //   }));
-    // });
-
-    // socket.on('web-page-minifying-started', ({ trainingListId }) => {
-    //   setTrainingList((prevTrainingList: any) => ({
-    //     data: prevTrainingList.data.map((item: any) =>
-    //       item._id === trainingListId ? { ...item, trainingStatus: 2 } : item
-    //     ),
-    //     loading: false,
-    //   }));
-    // });
-
-    // socket.on('web-page-minified', ({ trainingListId }) => {
-    //   setTrainingList((prevTrainingList: any) => ({
-    //     data: prevTrainingList.data.map((item: any) =>
-    //       item._id === trainingListId ? { ...item, trainingStatus: 4 } : item
-    //     ),
-    //     loading: false,
-    //   }));
-    // });
-
-    // socket.on('web-pages-minified', function (data: any) {
-    //   console.log("minfied", data)
-    //   // Create an object to index data.list items based on _id
-    //   const indexedData = data.list.reduce((acc: any, item: any) => {
-    //     acc[item._id] = item;
-    //     return acc;
-    //   }, {});
-
-    //   // Update the trainingList state with the modified array
-    //   setTrainingList((prevTrainingList: any) => ({
-    //     data: prevTrainingList.data.map((item1: any) => ({
-    //       ...item1,
-    //       trainingStatus: indexedData[item1._id] && item1.trainingStatus < 3 ? 3 : item1.trainingStatus,
-    //     })),
-    //     loading: false,
-    //   }));
-    // })
-
-    // socket.on('web-pages-mapped', function (data: any) {
-    //   console.log("mapped", data)
-    //   // Create an object to index data.list items based on _id
-    //   const indexedData = data.list.reduce((acc: any, item: any) => {
-    //     acc[item._id] = item;
-    //     return acc;
-    //   }, {});
-
-    //   // Update the trainingList state with the modified array
-    //   setTrainingList((prevTrainingList: any) => ({
-    //     data: prevTrainingList.data.map((item1: any) => ({
-    //       ...item1,
-    //       trainingStatus: indexedData[item1._id] && item1.trainingStatus < 4 ? 4 : item1.trainingStatus,
-    //     })),
-    //     loading: false,
-    //   }));
-    // })
-
-     socket.on('faq-added', ({ trainingList }) => {
-      setTrainingList((prevTrainingList: any) => ({
-           data: [trainingList,...prevTrainingList.data],
-           loading: false,
-         }));
-       socket.emit('get-training-list-count')
-     });
-
-      socket.on('doc-snippet-added', ({ trainingList }) => {
-       setTrainingList((prevTrainingList: any) => ({
-            data: [trainingList,...prevTrainingList.data],
-            loading: false,
-          }));
-        socket.emit('get-training-list-count')
-      });
+    socket.on('doc-snippet-added', ({ trainingList }) => {
+      const newItem: TrainingItem = {
+        _id: trainingList._id,
+        title: trainingList.title || 'New Document',
+        sourceType: 'Doc/Snippets',
+        lastEdit: trainingList.createdAt,
+        status: 'pending',
+        trainingStatus: 0,
+        createdAt: trainingList.createdAt
+      }
+      
+      setTrainingList((prev) => ({
+        data: [newItem, ...prev.data],
+        loading: false,
+      }));
+      socket.emit('get-training-list-count')
+    });
 
     socket.emit('client-connect')
   }
 
   useEffect(() => {
     getData()
-  }, [currentPage])
+  }, [])
 
   useEffect(() => {
     if (socket) {
       socket.emit('get-training-list', { 
-        skip: (currentPage - 1) * itemsPerPage, 
-        limit: itemsPerPage, 
+        skip: 0,
+        limit: 1000,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
-
-      socket.on('get-training-list-response', function ({ data }: any) {
-        console.log(data, "training list data");
-        setTrainingList({ data: data, loading: false })
-      })
     }
-  }
-  , [sourceTypeFilter, actionTypeFilter])
+  }, [sourceTypeFilter, actionTypeFilter])
 
+  const creditPercentage = credit.total > 0 ? (credit.used / credit.total) * 100 : 0;
 
   return (
-    <>
-      <div className="top-headbar">
-        <div className="top-headbar-heading">Training</div>
-        <div className="top-headbar-right flex gap20">
-          <div className="top-headbar-credit">
-            <div className="headbar-credit-area flex justify-content-space-between">
-              <div className="credit-text">Free Credit</div>
-              <div className="credit-count">{credit.used}/{credit.total}</div>
-            </div>
-            <div className="headbar-credit-progress">
-              <div className="credit-progressInner" style={{ "width": `${(Number(credit.used) / Number(credit.total)) * 100}%` }}></div>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Training</h1>
+            <p className="text-sm text-gray-600 mt-1">Manage your AI training data and content</p>
           </div>
-          <button className="custom-btn" onClick={() => {
-            setShowModal(true)
-          }}>Add Content</button>
+          <div className="flex items-center space-x-4">
+            {/* Credit Display */}
+            <Card className="min-w-48">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Free Credit</span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {credit.used}/{credit.total}
+                  </span>
+                </div>
+                <Progress value={creditPercentage} className="h-2" />
+              </CardContent>
+            </Card>
+
+            {/* Add Content Button */}
+            <Button 
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Add Content
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Progress Tracker Component */}
+      {/* Progress Tracker */}
       {showProgressTracker && (
         <ScrapeProgressTracker 
           progress={scrapeProgress}
@@ -308,264 +469,182 @@ export default function Home(Props: any) {
         />
       )}
 
-      <div className="main-content-area">
-        <div className="training-highlight-area">
-          <div className="training-highlight-box">
-            <div className="training-highlight-top flex align-item-center gap15">
-              <div className="training-highlightTop-img">
-                <Image src={webPageIconPic} alt="" width={24} height={24} />
-              </div>
-              <p>Web Pages</p>
-            </div>
-
-            <div className="training-highlight-mid">
-              <div className="training-highlight-count">
-                {webPageCount.loading ?
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> :
-                  <h3>{webPageCount.crawled}</h3>}
-                <p>Crawled Pages</p>
-              </div>
-              <div className="training-highlight-count">
-                {webPageCount.loading ?
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> :
-                  <h3>{webPageCount.total}</h3>}
-                <p>Total Pages</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="training-highlight-box">
-            <div className="training-highlight-top flex align-item-center gap15">
-              <div className="training-highlightTop-img">
-                <Image src={docSnippetsIconPic} alt="" width={24} height={24} />
-              </div>
-              <p>Doc/Snippets</p>
-            </div>
-
-            <div className="training-highlight-mid">
-              <div className="training-highlight-count">
-                {docCount.loading ?
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> :
-                  <h3>{docCount.crawled}</h3>}
-                <p>Crawled Doc</p>
-              </div>
-              <div className="training-highlight-count">
-                {docCount.loading ?
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> :
-                  <h3>{docCount.total}</h3>}
-                <p>Total Doc</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="training-highlight-box">
-            <div className="training-highlight-top flex align-item-center gap15">
-              <div className="training-highlightTop-img">
-                <Image src={faqIconPic} alt="" width={24} height={24} />
-              </div>
-              <p>FAQs</p>
-            </div>
-
-            <div className="training-highlight-mid">
-              <div className="training-highlight-count">
-                {faqCount.loading ?
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> :
-                  <h3>{faqCount.crawled}</h3>}
-                <p>Crawled FAQs</p>
-              </div>
-              <div className="training-highlight-count">
-                {faqCount.loading ?
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> :
-                  <h3>{faqCount.total}</h3>}
-                <p>Total FAQs</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="training-table-area">
-          <div className="training-table-head flex justify-content-space-between align-item-center">
-            <div className="training-tableHead-left flex gap20">
-              <div className="custom-dropi">
-                <select 
-                className="form-select"
-                  value={sourceTypeFilter}
-                  onChange={handleSourceTypeChange}
-                >
-                  <option>Show All Sources</option>
-                  <option>Web Pages</option>
-                  <option>Doc/Snippets</option>
-                  <option>FAQs</option>
-                </select>
-              </div>
-
-              <div className="custom-dropi">
-                <select 
-                className="form-select"
-                value={actionTypeFilter}
-                onChange={handleActionTypeChange}
-                >
-                  <option>Action</option>
-                  <option>Action 1</option>
-                  <option>Action 2</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="training-tableHead-right">
-              {/* <div className="input-box input-iconBox">
-                <span className="input-icon"><Image src={searchIconPic} alt="" width={21} height={20} /></span>
-                <input type="text" placeholder="Search" className="form-control" value={search} onChange={(event: any) => {
-                  setSearch(event.target.value)
-                }} />
-              </div> */}
-            </div>
-          </div>
-
-          <div className="training-table">
-            <table className="table table-bordered">
-              <thead>
-                <tr>
-                  <th>
-                    <div className="form-check">
-                      <input className="form-check-input" type="checkbox" checked={selectAllCheckbox} onChange={() => {
-                        setSelectAllCheckbox(!selectAllCheckbox)
-                      }} />
+      {/* Main Content */}
+      <div className="p-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Web Pages Card */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-base font-medium">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  <Image src={webPageIconPic} alt="Web Pages" width={20} height={20} />
+                </div>
+                Web Pages
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  {webPageCount.loading ? (
+                    <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900 mb-1">
+                      {webPageCount.crawled.toLocaleString()}
                     </div>
-                    Title/URL
-                  </th>
-                  <th>Type</th>
-                  <th>Last Edit</th>
-                  {/* <th>Time Used</th> */}
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+                  )}
+                  <p className="text-sm text-gray-600">Crawled Pages</p>
+                </div>
+                <div className="text-center">
+                  {webPageCount.loading ? (
+                    <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900 mb-1">
+                      {webPageCount.total.toLocaleString()}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600">Total Pages</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-              <tbody>
-                {trainingList.loading ?
-                  (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: 'center' }}>
-                        <p>Loading training list...</p>
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                      </td>
-                    </tr>
-                  )
-                  :
-                  <>
-                    {trainingList.data.map((item: any, key: any) => (
-                      <TrainingList
-                        key={key}
-                        item={item}
-                        componentKey={key}
-                        selectAllCheckbox={selectAllCheckbox}
-                        handleOnchangeCheckbox={(componentKey: any, checkboxValue: any) => {
-                          setTrainingListCheckbox((trainingListCheckbox: any) => ({
-                            ...trainingListCheckbox,
-                            [componentKey]: checkboxValue,
-                          }));
-                        }}
-                      />
-                    ))}
-                  </>
-                }
-              </tbody>
-            </table>
-          </div>
+          {/* Doc/Snippets Card */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-base font-medium">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                  <Image src={docSnippetsIconPic} alt="Documents" width={20} height={20} />
+                </div>
+                Doc/Snippets
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  {docCount.loading ? (
+                    <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900 mb-1">
+                      {docCount.crawled.toLocaleString()}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600">Crawled Docs</p>
+                </div>
+                <div className="text-center">
+                  {docCount.loading ? (
+                    <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900 mb-1">
+                      {docCount.total.toLocaleString()}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600">Total Docs</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="pagination-controls">
-            <button
-              disabled={currentPage === 1}
-              onClick={() => handlePageChange(currentPage - 1)}
-            >
-              Previous
-            </button>
-
-            {totalPages <= 10 ? (
-              // Show all pages if totalPages <= 10
-              Array.from({ length: totalPages }, (_, index) => (
-                <button
-                  key={index}
-                  className={currentPage === index + 1 ? 'active' : ''}
-                  onClick={() => handlePageChange(index + 1)}
-                  style={{ backgroundClip: "red" }}
-                >
-                  {index + 1}
-                </button>
-              ))
-            ) : (
-              // Handle ellipsis for more than 10 pages
-              <>
-                <button
-                  className={currentPage === 1 ? 'active' : ''}
-                  onClick={() => handlePageChange(1)}
-                >
-                  1
-                </button>
-
-                {currentPage > 4 && <span>...</span>}
-
-                {Array.from({ length: 5 }, (_, index) => {
-                  const page = currentPage - 2 + index;
-                  if (page > 1 && page < totalPages) {
-                    return (
-                      <button
-                        key={page}
-                        className={currentPage === page ? 'active' : ''}
-                        onClick={() => handlePageChange(page)}
-                      >
-                        {page}
-                      </button>
-                    );
-                  }
-                  return null;
-                })}
-
-                {currentPage < totalPages - 3 && <span>...</span>}
-
-                <button
-                  className={currentPage === totalPages ? 'active' : ''}
-                  onClick={() => handlePageChange(totalPages)}
-                >
-                  {totalPages}
-                </button>
-              </>
-            )}
-
-            <button
-              disabled={currentPage === totalPages}
-              onClick={() => handlePageChange(currentPage + 1)}
-            >
-              Next
-            </button>
-
-            {/* Page Search */}
-            <div className="page-search">
-              <input
-                type="number"
-                min="1"
-                max={totalPages}
-                value={currentPage}
-                onChange={(e) => {
-                  const page = Math.min(
-                    Math.max(Number(e.target.value), 1),
-                    totalPages
-                  );
-                  handlePageChange(page);
-                }}
-              />
-              <button onClick={() => handlePageChange(currentPage)}>Go</button>
-            </div>
-          </div>
+          {/* FAQs Card */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-base font-medium">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                  <Image src={faqIconPic} alt="FAQs" width={20} height={20} />
+                </div>
+                FAQs
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  {faqCount.loading ? (
+                    <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900 mb-1">
+                      {faqCount.crawled.toLocaleString()}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600">Crawled FAQs</p>
+                </div>
+                <div className="text-center">
+                  {faqCount.loading ? (
+                    <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900 mb-1">
+                      {faqCount.total.toLocaleString()}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600">Total FAQs</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Data Table Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
+              <CardTitle>Training Data</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Filters */}
+                <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select source type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Show All Sources</SelectItem>
+                    <SelectItem value="Web Pages">Web Pages</SelectItem>
+                    <SelectItem value="Doc/Snippets">Doc/Snippets</SelectItem>
+                    <SelectItem value="FAQs">FAQs</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={actionTypeFilter} onValueChange={setActionTypeFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Actions</SelectItem>
+                    <SelectItem value="Action 1">Action 1</SelectItem>
+                    <SelectItem value="Action 2">Action 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {trainingList.loading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center space-x-4">
+                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="h-4 w-[300px]" />
+                    <Skeleton className="h-4 w-[100px]" />
+                    <Skeleton className="h-4 w-[150px]" />
+                    <Skeleton className="h-4 w-[100px]" />
+                    <Skeleton className="h-4 w-[50px]" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <DataTable 
+                columns={columns} 
+                data={trainingList.data}
+                searchKey="title"
+                searchPlaceholder="Search training data..."
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Modal */}
       <AddcontentModal
         showModal={showModal}
-        onHide={() => {
-          setShowModal(false)
-        }}
+        onHide={() => setShowModal(false)}
       />
-    </>
+    </div>
   )
 }

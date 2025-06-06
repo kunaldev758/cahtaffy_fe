@@ -1,6 +1,12 @@
 'use client'
 
 import Image from 'next/image'
+import { DateRangePicker, Progress } from 'rsuite';
+import 'rsuite/dist/rsuite.min.css';
+import { useEffect, useState } from 'react';
+import { Chart } from "react-google-charts";
+import { getTrainingStatus } from '@/app/_api/dashboard/action'
+import { useSocket } from "@/app/socketContext";
 
 import totalChatIconImage from '@/images/total-chat-icon.svg';
 import totalMessageIconImage from '@/images/total-message-icon.svg';
@@ -12,17 +18,12 @@ import trainingIconImage from '@/images/training-icon.svg';
 import closeBtnImage from '@/images/close-btn.svg';
 import tagPlusImage from '@/images/tag-plus.svg';
 
-import { DateRangePicker,Progress  } from 'rsuite';
-import 'rsuite/dist/rsuite.min.css';
-import { useEffect, useState } from 'react';
-import { Chart } from "react-google-charts";
-import { getTrainingStatus } from '@/app/_api/dashboard/action'
-import { useSocket } from "@/app/socketContext";
-
-
-export default function Home() {
+export default function ModernDashboard() {
   const { socket } = useSocket();
-  const [dateRange, setDateRange] = useState<any>([ new Date(new Date().setDate(new Date().getDate() - 7)), new Date()])
+  const [dateRange, setDateRange] = useState<any>([
+    new Date(new Date().setDate(new Date().getDate() - 7)), 
+    new Date()
+  ])
   const [totalChat, setTotalChat] = useState(0)
   const [totalMessage, setTotalMessage] = useState(0)
   const [art, setArt] = useState(0)
@@ -30,16 +31,15 @@ export default function Home() {
   const [fallbackMessage, setFallbackMessage] = useState(0)
   const [uptime, setUptime] = useState(0)
   const [aiChat, setAiChat] = useState(0)
-  const [data,setData] = useState<any>()
+  const [data, setData] = useState<any>()
   const [showGetStartedBox, setShowGetStartedBox] = useState(true)
 
   const [webpageStatus, setWebpageStatus] = useState(false)
   const [faqStatus, setFaqStatus] = useState(false)
   const [docSnippetStatus, setDocSnippetStatus] = useState(false)
 
-
   useEffect(() => {
-    getTrainingStatus().then((data:any) => {
+    getTrainingStatus().then((data: any) => {
       console.log(data)
       setWebpageStatus(data.webpageStatus)
       setFaqStatus(data.faqStatus)
@@ -47,13 +47,12 @@ export default function Home() {
     })
   }, [])
 
-  // Emit a request for initial data
   useEffect(() => {
     if (!socket) return;
-    // Emit event to fetch dashboard data
+    
     socket.emit('fetch-dashboard-data', { dateRange }, (response: any) => {
       if (response.success) {
-        const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists,locationData } = response.data;
+        const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists, locationData } = response.data;
         setTotalChat(totalChat);
         setTotalMessage(totalMessage);
         setArt(art);
@@ -62,16 +61,12 @@ export default function Home() {
         setUptime(uptime);
         setAiChat(aiAssists);
         setData(locationData);
-        // setWebpageStatus(trainingStatus.webpageStatus);
-        // setFaqStatus(trainingStatus.faqStatus);
-        // setDocSnippetStatus(trainingStatus.docSnippetStatus);
       }
     });
 
-    // Listen for real-time updates
     socket.on('update-dashboard-data', (data: any) => {
       console.log('Real-time Update:', data);
-      const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists ,locationData} = data;
+      const { totalChat, totalMessage, art, csat, fallbackMessage, uptime, aiAssists, locationData } = data;
       setTotalChat(totalChat);
       setTotalMessage(totalMessage);
       setArt(art);
@@ -80,184 +75,247 @@ export default function Home() {
       setUptime(uptime);
       setAiChat(aiAssists);
       setData(locationData);
-      // setWebpageStatus(trainingStatus.webpageStatus);
-      // setFaqStatus(trainingStatus.faqStatus);
-      // setDocSnippetStatus(trainingStatus.docSnippetStatus);
     });
 
-    // Cleanup socket listeners on unmount
     return () => {
       socket.off('update-dashboard-data');
     };
-  }, [dateRange,socket]);
+  }, [dateRange, socket]);
 
-  // Emit event when date range changes
-  // useEffect(() => {
-  //   socket.emit('fetch-dashboard-data', { dateRange });
-  // }, [dateRange]);
+  const completedTasks = Number(webpageStatus) + Number(docSnippetStatus) + Number(faqStatus);
+  const progressPercentage = Math.ceil((completedTasks / 3) * 100);
 
   return (
-    <><div className="main-content">
-      <div className="submenu-sidebar">
-        <ul>
-          <li className="active"><a href="">Dashboard</a></li>
-        </ul>
-      </div>
-
-      <div className="top-headbar">
-        <div className="top-headbar-heading">Dashboard</div>
-        <div className="top-headbar-right">
-          <DateRangePicker
-            placement='autoVerticalEnd'
-            value={dateRange}
-            onChange={setDateRange}
-          />
+    <div className="min-h-screen bg-gray-50 grow">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-sm text-gray-600 mt-1">Monitor your chatbot performance and analytics</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <DateRangePicker
+              placement='autoVerticalEnd'
+              value={dateRange}
+              onChange={setDateRange}
+              className="border border-gray-300 rounded-lg"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="main-content-area">
-        <div className="dashboard-area d-flex gap-20">
-          <div className="dashboard-left flex-grow-1">
-            <div className="d-grid gap-20 grid-column-4">
-              <div className="card d-flex flex-column">
-                <div className="dashboard-Lefticon">
-                  <Image src={totalChatIconImage} alt="" />
-                </div>
-                <div className="dashboard-highlightContent">
-                  <h3>{totalChat}</h3>
-                  <p>Total Chat</p>
-                </div>
-              </div>
-
-              <div className="card d-flex flex-column">
-                <div className="dashboard-Lefticon">
-                  <Image src={totalMessageIconImage} alt="" />
-                </div>
-                <div className="dashboard-highlightContent">
-                  <h3>{totalMessage}</h3>
-                  <p>Total Message</p>
+      {/* Main Content */}
+      <div className="p-6">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Left Content - 3 columns */}
+          <div className="xl:col-span-3 space-y-6">
+            {/* Top Metrics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              {/* Total Chat */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-600 mb-2">Total Chat</p>
+                    <p className="text-3xl font-bold text-gray-900">{totalChat.toLocaleString()}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Image src={totalChatIconImage} alt="Total Chat" width={24} height={24} />
+                  </div>
                 </div>
               </div>
 
-              <div className="card d-flex flex-column">
-                <div className="dashboard-Lefticon">
-                  <Image src={artIconImage} alt="" />
-                </div>
-                <div className="dashboard-highlightContent">
-                  <h3>{art}</h3>
-                  <p>ART</p>
+              {/* Total Message */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-600 mb-2">Total Message</p>
+                    <p className="text-3xl font-bold text-gray-900">{totalMessage.toLocaleString()}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Image src={totalMessageIconImage} alt="Total Message" width={24} height={24} />
+                  </div>
                 </div>
               </div>
 
-              <div className="card d-flex flex-column">
-                <div className="dashboard-Lefticon">
-                  <Image src={csatIconImage} alt="" />
+              {/* ART */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-600 mb-2">ART</p>
+                    <p className="text-3xl font-bold text-gray-900">{art}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Image src={artIconImage} alt="ART" width={24} height={24} />
+                  </div>
                 </div>
-                <div className="dashboard-highlightContent">
-                  <h3>{csat}</h3>
-                  <p>CSAT</p>
+              </div>
+
+              {/* CSAT */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-600 mb-2">CSAT</p>
+                    <p className="text-3xl font-bold text-gray-900">{csat}%</p>
+                  </div>
+                  <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <Image src={csatIconImage} alt="CSAT" width={24} height={24} />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="d-grid gap-20 mt-20 grid-column-2">
-              <div className="card d-flex flex-row gap-20 align-item-center">
-                <div className="dashboard-Lefticon mb-0">
-                  <Image src={fallbackMessageIconImage} alt="" />
-                </div>
-                <div className="dashboard-highlightContent">
-                  <h3>{fallbackMessage}</h3>
-                  <p>Fallback Message</p>
+            {/* Secondary Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Fallback Message */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Image src={fallbackMessageIconImage} alt="Fallback Message" width={24} height={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-600 mb-1">Fallback Message</p>
+                    <p className="text-2xl font-bold text-gray-900">{fallbackMessage}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="card d-flex flex-row gap-20 align-item-center">
-                <div className="dashboard-Lefticon mb-0">
-                  <Image src={uptimeIconImage} alt="" />
-                </div>
-                <div className="dashboard-highlightContent">
-                  <h3>{uptime}</h3>
-                  <p>Uptime</p>
+              {/* Uptime */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                    <Image src={uptimeIconImage} alt="Uptime" width={24} height={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-600 mb-1">Uptime</p>
+                    <p className="text-2xl font-bold text-gray-900">{uptime}%</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="d-grid gap-20 mt-20">
-              <div className="card training-highlight-box">
-                <div className="d-flex flex-row gap-20 align-item-center">
-                  <div className="dashboard-Lefticon dashboard-aiIcon mb-0">
-                    <Image src={trainingIconImage} alt="" />
-                  </div>
-                  <div className="dashboard-highlightContent">
-                    <h3 className="mb-0">Ai Assists</h3>
-                  </div>
+            {/* AI Assists Card */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 text-white">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Image src={trainingIconImage} alt="AI Assists" width={24} height={24} />
                 </div>
-
-                <div className="training-highlight-mid mt-3 mb-0">
-                  <div className="training-highlight-count">
-                    <h3>{aiChat}</h3>
-                    <p>AI Chats</p>
-                  </div>
-                  <div className="training-highlight-count">
-                    <h3>{totalChat}</h3>
-                    <p>Total Chats</p>
-                  </div>
+                <h3 className="text-xl font-bold">AI Assists</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-8">
+                <div className="text-center">
+                  <p className="text-3xl font-bold mb-2">{aiChat.toLocaleString()}</p>
+                  <p className="text-blue-100">AI Chats</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold mb-2">{totalChat.toLocaleString()}</p>
+                  <p className="text-blue-100">Total Chats</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="dashboard-right">
-            {showGetStartedBox &&
-              <div className="card setup-progresrArea">
-                <div className="setup-progressHead">
-                  <div className="d-flex align-item-center justify-content-between">
-                    <h3>Get Started</h3>
-                    <button type="button" className="plain-btn" onClick={() => setShowGetStartedBox(false)}><Image src={closeBtnImage} alt="" /></button>
-                  </div>
-                  <p className="text-gray mt-6">We&apos;ll guide you to setup your account.</p>
+          {/* Right Sidebar */}
+          <div className="xl:col-span-1 space-y-6">
+            {/* Get Started Card */}
+            {showGetStartedBox && (
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Get Started</h3>
+                  <button 
+                    onClick={() => setShowGetStartedBox(false)}
+                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <Image src={closeBtnImage} alt="Close" width={16} height={16} />
+                  </button>
                 </div>
-                <div className="dashboard-progressBar">
-                <Progress.Line percent={Math.ceil((webpageStatus ? 33.33 : 0)+(docSnippetStatus ? 33.33 : 0)+(faqStatus ? 33.33 : 0))}/>
-
-                  <div className="headbar-credit-area">
-                    <div className="credit-text">{Number(webpageStatus) + Number(docSnippetStatus) + Number(faqStatus)} of 3 tasks completed</div>
+                
+                <p className="text-sm text-gray-600 mb-6">We'll guide you to setup your account.</p>
+                
+                {/* Progress Bar */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Progress</span>
+                    <span className="text-sm text-gray-500">{completedTasks} of 3 completed</span>
                   </div>
-                  <div className="dashboard-setupArea">
-                    <ul className="m-0 p-0">
-                      <li className="d-flex align-item-center justify-content-between position-relative">
-                        <div className="d-flex gap-3 align-item-center">
-                          <div className={`setup-progressPoint ${webpageStatus && `done`}`}></div>
-                          <p>Web Page</p>
-                        </div>
-                        {webpageStatus == false &&
-                          <button className="custom-btn d-flex gap-2 align-item-center"><Image src={tagPlusImage} alt="" /> Add</button>}
-                      </li>
-
-                      <li className="d-flex align-item-center justify-content-between position-relative">
-                        <div className="d-flex gap-3 align-item-center">
-                          <div className={`setup-progressPoint ${docSnippetStatus && `done`}`}></div>
-                          <p>Doc/Snippets</p>
-                        </div>
-                        {docSnippetStatus == false &&
-                          <button className="custom-btn d-flex gap-2 align-item-center"><Image src={tagPlusImage} alt="" /> Add</button>}
-                      </li>
-
-                      <li className="d-flex align-item-center justify-content-between position-relative">
-                        <div className="d-flex gap-3 align-item-center">
-                          <div className={`setup-progressPoint ${faqStatus && `done`}`}></div>
-                          <p>{`FAQ's`}</p>
-                        </div>
-                        {faqStatus == false &&
-                          <button className="custom-btn d-flex gap-2 align-item-center"><Image src={tagPlusImage} alt="" /> Add</button>}
-                      </li>
-                    </ul>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${progressPercentage}%` }}
+                    ></div>
                   </div>
                 </div>
-              </div>}
 
-            <div className="card setup-progresrArea mt-20">
-              <div className="mapArea">
+                {/* Setup Tasks */}
+                <div className="space-y-4">
+                  {/* Web Page */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-4 h-4 rounded-full ${webpageStatus ? 'bg-green-500' : 'bg-gray-300'} flex items-center justify-center`}>
+                        {webpageStatus && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">Web Page</span>
+                    </div>
+                    {!webpageStatus && (
+                      <button className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1">
+                        <Image src={tagPlusImage} alt="Add" width={12} height={12} />
+                        <span>Add</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Doc/Snippets */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-4 h-4 rounded-full ${docSnippetStatus ? 'bg-green-500' : 'bg-gray-300'} flex items-center justify-center`}>
+                        {docSnippetStatus && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">Doc/Snippets</span>
+                    </div>
+                    {!docSnippetStatus && (
+                      <button className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1">
+                        <Image src={tagPlusImage} alt="Add" width={12} height={12} />
+                        <span>Add</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* FAQ's */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-4 h-4 rounded-full ${faqStatus ? 'bg-green-500' : 'bg-gray-300'} flex items-center justify-center`}>
+                        {faqStatus && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">FAQ's</span>
+                    </div>
+                    {!faqStatus && (
+                      <button className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1">
+                        <Image src={tagPlusImage} alt="Add" width={12} height={12} />
+                        <span>Add</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Geographic Chart */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Geographic Distribution</h3>
+              <div className="h-80">
                 <Chart
                   chartEvents={[
                     {
@@ -275,13 +333,17 @@ export default function Home() {
                   width="100%"
                   height="100%"
                   data={data}
+                  options={{
+                    backgroundColor: 'transparent',
+                    datalessRegionColor: '#f5f5f5',
+                    defaultColor: '#e0e7ff',
+                  }}
                 />
               </div>
             </div>
           </div>
         </div>
-
       </div>
-    </div></>
+    </div>
   )
 }
