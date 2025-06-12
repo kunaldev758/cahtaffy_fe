@@ -56,7 +56,7 @@ export default function ModernDashboard() {
         setTotalChat(totalChat);
         setTotalMessage(totalMessage);
         setArt(art);
-        setCsat(Number(csat).toFixed(2));
+        setCsat(Number(csat).toFixed(2) as any);
         setFallbackMessage(fallbackMessage);
         setUptime(uptime);
         setAiChat(aiAssists);
@@ -70,7 +70,7 @@ export default function ModernDashboard() {
       setTotalChat(totalChat);
       setTotalMessage(totalMessage);
       setArt(art);
-      setCsat(Number(csat).toFixed(2));
+      setCsat(Number(csat).toFixed(2) as any);
       setFallbackMessage(fallbackMessage);
       setUptime(uptime);
       setAiChat(aiAssists);

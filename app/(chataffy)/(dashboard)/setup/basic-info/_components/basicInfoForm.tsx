@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getBasicInfoApi, setBasicInfoApi } from "@/app/_api/dashboard/action";
 import { toast } from 'react-toastify';
 
-export default function BasicInfoForm(Props) {
+export default function BasicInfoForm(Props:any) {
   const [basicInfo, setBasicInfo] = useState({
     website: '',
     organisation: '',
@@ -36,7 +36,7 @@ export default function BasicInfoForm(Props) {
   }, []);
 
   // Validation functions
-  const validateField = (name, value) => {
+  const validateField = (name:any, value:any) => {
     switch (name) {
       case 'website':
         if (!value.trim()) return 'Website is required';
@@ -77,8 +77,8 @@ export default function BasicInfoForm(Props) {
   const validateForm = () => {
     const newErrors = {};
     Object.keys(basicInfo).forEach(key => {
-      const error = validateField(key, basicInfo[key]);
-      if (error) newErrors[key] = error;
+      const error = validateField(key as any, basicInfo[key as keyof typeof basicInfo]);
+      if (error) (newErrors as any)[key] = error;
     });
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -107,7 +107,7 @@ export default function BasicInfoForm(Props) {
   };
 
   // Handle input change with real-time validation
-  const handleChange = (e) => {
+  const handleChange = (e:any) => {
     const { name, value } = e.target;
     setBasicInfo({
       ...basicInfo,
@@ -115,7 +115,7 @@ export default function BasicInfoForm(Props) {
     });
 
     // Clear error for this field and validate
-    if (errors[name]) {
+    if ((errors as any)[name]) {
       const error = validateField(name, value);
       setErrors({
         ...errors,
@@ -125,7 +125,7 @@ export default function BasicInfoForm(Props) {
   };
 
   // Handle blur for validation
-  const handleBlur = (e) => {
+  const handleBlur = (e:any) => {
     const { name, value } = e.target;
     const error = validateField(name, value);
     setErrors({
@@ -168,17 +168,17 @@ export default function BasicInfoForm(Props) {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                    errors.website 
+                    (errors as any).website 
                       ? 'border-red-500 bg-red-50' 
                       : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
                   }`}
                 />
-                {errors.website && (
+                {(errors as any).website  && (
                   <p className="text-red-500 text-sm flex items-center mt-1">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    {errors.website}
+                    {(errors as any).website }
                   </p>
                 )}
               </div>
@@ -196,17 +196,17 @@ export default function BasicInfoForm(Props) {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                    errors.organisation 
+                    (errors as any).organisation 
                       ? 'border-red-500 bg-red-50' 
                       : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
                   }`}
                 />
-                {errors.organisation && (
+                {(errors as any).organisation && (
                   <p className="text-red-500 text-sm flex items-center mt-1">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    {errors.organisation}
+                    {(errors as any).organisation }
                   </p>
                 )}
               </div>
@@ -224,17 +224,17 @@ export default function BasicInfoForm(Props) {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                    errors.email 
+                    (errors as any).email 
                       ? 'border-red-500 bg-red-50' 
                       : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
                   }`}
                 />
-                {errors.email && (
+                {(errors as any).email && (
                   <p className="text-red-500 text-sm flex items-center mt-1">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    {errors.email}
+                    {(errors as any).email}
                   </p>
                 )}
               </div>
@@ -252,17 +252,17 @@ export default function BasicInfoForm(Props) {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                    errors.phone 
+                    (errors as any).phone 
                       ? 'border-red-500 bg-red-50' 
                       : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
                   }`}
                 />
-                {errors.phone && (
+                {(errors as any).phone && (
                   <p className="text-red-500 text-sm flex items-center mt-1">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    {errors.phone}
+                    {(errors as any).phone}
                   </p>
                 )}
               </div>
@@ -281,18 +281,18 @@ export default function BasicInfoForm(Props) {
                 onBlur={handleBlur}
                 rows={4}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 resize-vertical ${
-                  errors.fallbackMessage 
+                  (errors as any).fallbackMessage  
                     ? 'border-red-500 bg-red-50' 
                     : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
                 }`}
               />
               <div className="flex justify-between items-center">
-                {errors.fallbackMessage ? (
+                {(errors as any).fallbackMessage  ? (
                   <p className="text-red-500 text-sm flex items-center">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    {errors.fallbackMessage}
+                    {(errors as any).fallbackMessage }
                   </p>
                 ) : (
                   <div></div>

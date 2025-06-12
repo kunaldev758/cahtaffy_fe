@@ -495,7 +495,7 @@ export default function Inbox(Props: any) {
   const handleOpenConversationsListResponse = async (data: any) => {
     console.log("Open conversations list received:", data);
 
-    const filteredConversations = data.conversations.filter(conv => conv.is_started === true);
+    const filteredConversations = data.conversations.filter((conv: any) => conv.is_started === true);
     setIsConversationAvailable(filteredConversations.length > 0);
     setConversationsList({ 
       data: filteredConversations, 
@@ -510,7 +510,7 @@ export default function Inbox(Props: any) {
   const handleCloseConversationsListResponse = async (data: any) => {
     console.log("Close conversations list received:", data);
 
-    const filteredConversations = data.conversations.filter(conv => conv.is_started === true);
+    const filteredConversations = data.conversations.filter((conv: any) => conv.is_started === true);
     setIsConversationAvailable(filteredConversations.length > 0);
     setConversationsList({ 
       data: filteredConversations, 
@@ -524,7 +524,7 @@ export default function Inbox(Props: any) {
 
   const handleOpenConversationsListUpdateResponse = async (data: any) => {
     status == 'open' && setConversationsList({ 
-      data: data.conversations.filter(conv => conv.is_started === true), 
+      data: data.conversations.filter((conv: any) => conv.is_started === true), 
       loading: false 
     });
   };

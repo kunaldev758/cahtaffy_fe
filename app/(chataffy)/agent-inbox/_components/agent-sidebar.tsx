@@ -172,7 +172,7 @@ export default function AgentSidebar() {
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
-        });
+        } as any);
         setShowEditModal(true);
       }
     }
