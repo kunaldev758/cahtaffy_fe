@@ -21,13 +21,13 @@ export default function IntegratedSidebar() {
     pathname?.startsWith('/settings') || false
   )
 
-  const imageLoader = ({ src, width, quality }) => {
+  const imageLoader = ({ src, width, quality }: { src: any; width: any; quality: any }) => {
     return `${src}?w=${width}&q=${quality || 75}`
   }
 
   // Check if current path matches
-  const isActive = (path) => pathname === path
-  const isParentActive = (parentPath) => pathname?.startsWith(parentPath)
+  const isActive = (path: any) => pathname === path
+  const isParentActive = (parentPath: any) => pathname?.startsWith(parentPath)
 
   return (
     <div className="bg-white border-r border-gray-200 w-64 min-h-screen flex flex-col shadow-sm">
@@ -35,7 +35,7 @@ export default function IntegratedSidebar() {
       <div className="p-6 border-b border-gray-100">
         <Link href="/dashboard" className="flex items-center space-x-3">
           <Image 
-            loader={imageLoader} 
+            loader={imageLoader as any} 
             src={logoPic} 
             alt="Chataffy" 
             title="Chataffy" 

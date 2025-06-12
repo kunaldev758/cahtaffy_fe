@@ -22,7 +22,7 @@ const axios = require('axios');
 require('./_components/widgetcss.css');
 
 // Field validation helpers
-const validateField = (field, value) => {
+const validateField = (field:any, value:any) => {
   const errors = [];
 
   // Check required fields
@@ -85,11 +85,11 @@ const validateField = (field, value) => {
 };
 
 // Form validation component
-const FormField = ({ field, value, onChange, error }) => {
+const FormField = ({ field, value, onChange, error }: { field: any; value: any; onChange: any; error: any }) => {
   const baseClasses = "w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors";
   const errorClasses = error ? "border-red-500 bg-red-50" : "border-gray-300 bg-white";
 
-  const handleChange = (e) => {
+  const handleChange = (e:any) => {
     let newValue = e.target.value;
 
     // Type-specific formatting
@@ -162,15 +162,15 @@ const FormField = ({ field, value, onChange, error }) => {
 };
 
 
-export default function EnhancedChatWidget({ params }) {
+export default function EnhancedChatWidget({ params } :any) {
   const [inputMessage, setInputMessage] = useState('');
-  const [conversation, setConversation] = useState([]);
+  const [conversation, setConversation] = useState([] as any);
   const [conversationId, setConversationId] = useState(null);
-  const [themeSettings, setThemeSettings] = useState(null);
+  const [themeSettings, setThemeSettings]:any = useState(null as any);
   const [visitorExists, setVisitorExists] = useState(false);
-  const [formData, setFormData] = useState({});
-  const [formErrors, setFormErrors] = useState({});
-  const [fields, setFields] = useState([]);
+  const [formData, setFormData]:any = useState({});
+  const [formErrors, setFormErrors]:any = useState({});
+  const [fields, setFields]:any = useState([]);
   const [conversationStatus, setConversationStatus] = useState('open');
   const [visitorIp, setVisitorIp] = useState('');
   const [visitorLocation, setVisitorLocation] = useState('');
@@ -234,7 +234,7 @@ export default function EnhancedChatWidget({ params }) {
       if (!conversation.length) {
         setConversationId(data.chatMessage[0]?.conversationId);
       }
-      setConversation((prev) => [...prev, data.chatMessage]);
+      setConversation((prev: any[]) => [...prev, data.chatMessage]);
     });
 
     socket.on("visitor-blocked", handleCloseConversationClient);
@@ -293,7 +293,7 @@ export default function EnhancedChatWidget({ params }) {
         setVisitorIp(response.data.ip);
         socket?.emit('save-visitor-details', { location: response.data.country, ip: response.data.ip });
       } catch (error) {
-        console.error('Error fetching IP info:', error.message);
+        console.error('Error fetching IP info:', (error as any).message);
       }
     };
     fetchVisitorDetails();
@@ -309,21 +309,21 @@ export default function EnhancedChatWidget({ params }) {
 
   // Initialize form data based on fields
   useEffect(() => {
-    const initialFormData = {};
-    fields?.forEach(field => {
+    const initialFormData:any = {};
+    fields?.forEach((field:any) => {
       initialFormData[field.value] = '';
     });
     setFormData(initialFormData);
   }, [fields]);
 
-  const sanitizeInput = (text) => {
+  const sanitizeInput = (text:any) => {
     const sanitized = text.replace(/<[^>]*>/g, '');
     return sanitized.replace(/[^\w\s.,!?'"-]/g, '');
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e:any) => {
     const text = e.target.value;
-    const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const wordCount = text.trim().split(/\s+/).filter((word:any) => word.length > 0).length;
 
     if (wordCount > 100) {
       setError('Message cannot exceed 100 words');
@@ -335,20 +335,20 @@ export default function EnhancedChatWidget({ params }) {
     }
   };
 
-  const handleFormFieldChange = (fieldName, value) => {
-    setFormData(prev => ({ ...prev, [fieldName]: value }));
+  const handleFormFieldChange = (fieldName:any, value:any) => {
+    setFormData((prev:any) => ({ ...prev, [fieldName]: value }));
 
     // Clear field error when user starts typing
     if (formErrors[fieldName]) {
-      setFormErrors(prev => ({ ...prev, [fieldName]: '' }));
+      setFormErrors((prev:any) => ({ ...prev, [fieldName]: '' }));
     }
   };
 
   const validateForm = () => {
-    const errors = {};
+    const errors:any = {};
     let isValid = true;
 
-    fields?.forEach(field => {
+    fields?.forEach((field:any) => {
       const fieldErrors = validateField(field, formData[field.value]);
       if (fieldErrors.length > 0) {
         errors[field.value] = fieldErrors[0]; // Show first error only
@@ -408,14 +408,14 @@ export default function EnhancedChatWidget({ params }) {
     setConversationStatus('close');
   };
 
-  const handleFeedback = (type) => {
+  const handleFeedback = (type:any) => {
     const socket = socketRef.current;
     if (!socket) return;
 
     socket.emit(
       "conversation-feedback",
       { conversationId: conversationId, feedback: type },
-      (response) => {
+      (response:any) => {
         if (response.success) {
           setFeedback(type);
         }
@@ -423,11 +423,11 @@ export default function EnhancedChatWidget({ params }) {
     );
   };
 
-  const getThemeColor = (index, fallback) => {
+  const getThemeColor = (index:any, fallback:any) => {
     return themeSettings?.colorFields?.[index]?.value || fallback;
   };
 
-  const formatTime = (date) => {
+  const formatTime = (date:any) => {
     const d = new Date(date);
     return d.toLocaleTimeString('en-US', {
       hour: 'numeric',
@@ -444,7 +444,7 @@ export default function EnhancedChatWidget({ params }) {
   };
 
   // Position styles
-  const positionStyles = {
+  const positionStyles:any = {
     position: 'fixed',
     bottom: '20px',
     right: '20px',
@@ -497,9 +497,9 @@ export default function EnhancedChatWidget({ params }) {
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {/* Avatar */}
-                {themeSettings?.showLogo && (
+                {(themeSettings as any)?.showLogo && (
                   <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                    {themeSettings?.logo ? (
+                    {(themeSettings as any)?.logo ? (
                       <img src={clientLogo} alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
                       <User className="w-5 h-5 text-white" />
@@ -510,7 +510,7 @@ export default function EnhancedChatWidget({ params }) {
 
                 <div>
                   <h3 className="font-semibold text-sm" style={{ color: getThemeColor(1, '#ffffff') }}>
-                    {themeSettings?.titleBar || "Support"}
+                    {(themeSettings as any)?.titleBar || "Support"}
                   </h3>
                   <div className="flex items-center space-x-2 text-xs opacity-90">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -551,9 +551,9 @@ export default function EnhancedChatWidget({ params }) {
             <>
               {/* Messages Area or Pre-Chat Form */}
               <div className="flex-1 p-4 h-96 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
-                {visitorExists || (!visitorExists &&  !themeSettings?.isPreChatFormEnabled)? (
+                {visitorExists || (!visitorExists &&  !(themeSettings as any)?.isPreChatFormEnabled)? (
                   <div className="space-y-4">
-                    {conversation.map((item, key) => (
+                    {conversation.map((item:any, key:any) => (
                       <div key={key}>
                         {/* Agent/System/Bot messages */}
                         {(item.sender_type === 'system' || item.sender_type === 'bot' ||
@@ -650,12 +650,12 @@ export default function EnhancedChatWidget({ params }) {
                       <p className="text-gray-600 text-sm">Please fill out the form below to start chatting.</p>
                     </div>
 
-                    {fields?.map((field) => (
+                    {fields?.map((field:any) => (
                       <FormField
                         key={field._id}
                         field={field}
                         value={formData[field.value] || ''}
-                        onChange={(value) => handleFormFieldChange(field.value, value)}
+                        onChange={(value:any) => handleFormFieldChange(field.value, value)}
                         error={formErrors[field.value]}
                       />
                     ))}
@@ -742,7 +742,7 @@ export default function EnhancedChatWidget({ params }) {
 
                         <button
                           onClick={handleMessageSend}
-                          disabled={!inputMessage.trim() || error || isTyping}
+                          disabled={!inputMessage.trim() || Boolean(error) || isTyping}
                           className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
                         >
                           <Send className="w-5 h-5" />

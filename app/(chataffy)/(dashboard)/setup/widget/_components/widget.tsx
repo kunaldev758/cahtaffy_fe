@@ -96,7 +96,7 @@ const actionTypes = {
 };
 
 // Enhanced reducer
-const reducer = (state, action) => {
+const reducer = (state:any, action:any) => {
   switch (action.type) {
     case actionTypes.SET_THEME_DATA:
       return { 
@@ -128,7 +128,7 @@ const reducer = (state, action) => {
     case actionTypes.UPDATE_COLOR:
       return {
         ...state,
-        colorFields: state.colorFields.map(field =>
+        colorFields: state.colorFields.map((field: any) =>
           field.id === action.payload.id
             ? { ...field, value: action.payload.value }
             : field
@@ -150,7 +150,7 @@ const reducer = (state, action) => {
     case actionTypes.UPDATE_FIELD:
       return {
         ...state,
-        fields: state.fields.map(field =>
+        fields: state.fields.map((field: any) =>
           field.id === action.payload.id
             ? { ...field, ...action.payload.updates }
             : field
@@ -160,13 +160,13 @@ const reducer = (state, action) => {
     case actionTypes.REMOVE_FIELD:
       return {
         ...state,
-        fields: state.fields.filter(field => field.id !== action.payload.id)
+        fields: state.fields.filter((field: any) => field.id !== action.payload.id)
       };
       
     case actionTypes.TOGGLE_FIELD_REQUIRED:
       return {
         ...state,
-        fields: state.fields.map(field =>
+        fields: state.fields.map((field: any) =>
           field.id === action.payload.id
             ? { ...field, required: !field.required }
             : field
@@ -179,7 +179,7 @@ const reducer = (state, action) => {
 };
 
 // Field creation modal component
-const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
+const FieldCreationModal = ({ isOpen, onClose, onSave }: { isOpen: any, onClose: any, onSave: any }) => {
   const [fieldData, setFieldData] = useState({
     name: '',
     value: '',
@@ -194,16 +194,16 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
   const validateField = () => {
     const newErrors = {};
     
-    if (!fieldData.name.trim()) {
-      newErrors.name = 'Field name is required';
+    if (!(fieldData as any).name.trim()) {
+      (newErrors as any).name = 'Field name is required';
     }
     
-    if (!fieldData.value.trim()) {
-      newErrors.value = 'Field label is required';
+    if (!(fieldData as any).value.trim()) {
+      (newErrors as any).value = 'Field label is required';
     }
     
-    if (!fieldData.placeholder.trim()) {
-      newErrors.placeholder = 'Placeholder is required';
+    if (!(fieldData as any).placeholder.trim()) {
+      (newErrors as any).placeholder = 'Placeholder is required';
     }
 
     setErrors(newErrors);
@@ -216,8 +216,8 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
         ...fieldData,
         id: Date.now(),
         validation: {
-          minLength: parseInt(fieldData.validation.minLength) || 0,
-          maxLength: parseInt(fieldData.validation.maxLength) || 255,
+          minLength: parseInt(fieldData.validation.minLength as any) || 0,
+          maxLength: parseInt(fieldData.validation.maxLength as any) || 255,
           pattern: fieldData.validation.pattern
         }
       });
@@ -260,11 +260,11 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
               value={fieldData.name}
               onChange={(e) => setFieldData({ ...fieldData, name: e.target.value })}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+                (errors as any).name ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="e.g., Name, Company"
             />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+            {(errors as any).name && <p className="text-red-500 text-xs mt-1">{(errors as any).name}</p>}
           </div>
 
           {/* Field Label */}
@@ -277,11 +277,11 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
               value={fieldData.value}
               onChange={(e) => setFieldData({ ...fieldData, value: e.target.value })}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.value ? 'border-red-500' : 'border-gray-300'
+                (errors as any).value ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Label shown to users"
             />
-            {errors.value && <p className="text-red-500 text-xs mt-1">{errors.value}</p>}
+            {(errors as any).value && <p className="text-red-500 text-xs mt-1">{(errors as any).value}</p>}
           </div>
 
           {/* Field Type */}
@@ -312,11 +312,11 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
               value={fieldData.placeholder}
               onChange={(e) => setFieldData({ ...fieldData, placeholder: e.target.value })}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.placeholder ? 'border-red-500' : 'border-gray-300'
+                (errors as any).placeholder ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Placeholder text"
             />
-            {errors.placeholder && <p className="text-red-500 text-xs mt-1">{errors.placeholder}</p>}
+            {(errors as any).placeholder && <p className="text-red-500 text-xs mt-1">{(errors as any).placeholder}</p>}
           </div>
 
           {/* Validation Settings */}
@@ -331,7 +331,7 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
                   value={fieldData.validation.minLength}
                   onChange={(e) => setFieldData({
                     ...fieldData,
-                    validation: { ...fieldData.validation, minLength: e.target.value }
+                    validation: { ...fieldData.validation, minLength: parseInt(e.target.value) || 0 }
                   })}
                   className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                   min="0"
@@ -345,7 +345,7 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
                   value={fieldData.validation.maxLength}
                   onChange={(e) => setFieldData({
                     ...fieldData,
-                    validation: { ...fieldData.validation, maxLength: e.target.value }
+                    validation: { ...fieldData.validation, maxLength: parseInt(e.target.value) || 0 }
                   })}
                   className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                   min="1"
@@ -395,7 +395,7 @@ const FieldCreationModal = ({ isOpen, onClose, onSave }) => {
 };
 
 // File validation helper
-const validateFile = (file) => {
+const validateFile = (file:any) => {
   const errors = [];
   
   if (!file) {
@@ -422,7 +422,7 @@ const validateFile = (file) => {
   };
 };
 
-const uploadLogoFunc = async (formData,userId) => {
+const uploadLogoFunc = async (formData:any,userId:any) => {
   console.log('Uploading logo');
   // if (!userId) {
   //   throw new Error('User ID is required for logo upload');
@@ -453,7 +453,7 @@ export default function EnhancedWidgetSettings() {
 
  
   // Handle logo file selection and validation
-  const handleLogoChange = async (e) => {
+  const handleLogoChange = async (e:any) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -461,7 +461,7 @@ export default function EnhancedWidgetSettings() {
     const validation = validateFile(file);
     console.log(validation,"Validation log")
     if (!validation.isValid) {
-      setFileValidationErrors(validation.errors);
+      setFileValidationErrors(validation.errors as any);
       return;
     }
     
@@ -478,19 +478,19 @@ export default function EnhancedWidgetSettings() {
       setSelectedLogo(previewUrl);
       dispatch({ type: actionTypes.SET_LOGO, payload: previewUrl });
     } catch (error) {
-      setError("Failed to upload logo. Please try again.");
+      setError("Failed to upload logo. Please try again." as any);
     } finally {
       setIsLoading(false);
     }
   };
 
   // Handle form field addition
-  const handleAddField = (fieldData) => {
+  const handleAddField = (fieldData:any) => {
     dispatch({ type: actionTypes.ADD_FIELD, payload: fieldData });
   };
 
   // Handle form field updates
-  const handleUpdateField = (fieldId, updates) => {
+  const handleUpdateField = (fieldId:any, updates:any) => {
     dispatch({ 
       type: actionTypes.UPDATE_FIELD, 
       payload: { id: fieldId, updates } 
@@ -516,7 +516,7 @@ export default function EnhancedWidgetSettings() {
       await updateThemeSettings({ themeSettings });
       // Show success message
     } catch (error) {
-      setError('Failed to save widget settings. Please try again.');
+      setError('Failed to save widget settings. Please try again.' as any);
     } finally {
       setIsLoading(false);
     }
@@ -598,7 +598,7 @@ export default function EnhancedWidgetSettings() {
                   <div className="flex items-center space-x-4">
                     <div 
                       className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-300"
-                      onClick={() => document.getElementById('logoUpload').click()}
+                      onClick={() => (document.getElementById('logoUpload') as any).click()}
                     >
                       {selectedLogo ? (
                         <img src={selectedLogo} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
@@ -608,7 +608,7 @@ export default function EnhancedWidgetSettings() {
                     </div>
                     <div className="flex-1">
                       <button
-                        onClick={() => document.getElementById('logoUpload').click()}
+                        onClick={() => (document.getElementById('logoUpload') as any).click()}
                         disabled={isLoading}
                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-50"
                       >
@@ -666,10 +666,10 @@ export default function EnhancedWidgetSettings() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">Colors</label>
                   <div className="grid grid-cols-2 gap-4">
-                    {state.colorFields.map((field) => (
+                    {state.colorFields.map((field:any) => (
                       <div key={field.id} className="space-y-2">
                         <label className="block text-xs font-medium text-gray-600">
-                          {colorFieldLabels[field.name] || field.name}
+                          {(colorFieldLabels as any)[field.name] || field.name}
                         </label>
                         <div className="flex items-center space-x-2">
                           <input
@@ -784,7 +784,7 @@ export default function EnhancedWidgetSettings() {
               {state.isPreChatFormEnabled && (
                 <div className="p-6 space-y-4">
                   {/* Form Fields */}
-                  {state.fields.map((field) => (
+                  {state.fields.map((field:any) => (
                     <div key={field.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
