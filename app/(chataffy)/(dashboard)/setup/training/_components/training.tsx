@@ -141,7 +141,7 @@ const createColumns = (
         return <div className="text-sm text-gray-400">-</div>
       }
       
-      const date = new Date(dateValue)
+      const date = new Date(dateValue as any)
       
       // Check if date is valid
       if (isNaN(date.getTime())) {

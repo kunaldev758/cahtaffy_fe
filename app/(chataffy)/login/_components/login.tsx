@@ -18,7 +18,7 @@ export function LoginForm() {
   const router = useRouter()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-  const handleOnSubmit = async (event) => {
+  const handleOnSubmit = async (event:any) => {
     event.preventDefault()
     if (email !== '' && password !== '') {
       setButtonStatus({ loading: true, disabled: true })
@@ -35,7 +35,7 @@ export function LoginForm() {
     }
   }
 
-  const handleSocketEvent = (userId) => {
+  const handleSocketEvent = (userId:any) => {
     if (socket) {
       socket.on('user-logged-in', () => {
         socket.emit('join', userId);
@@ -43,17 +43,17 @@ export function LoginForm() {
     }
   }
 
-  const handleEmailOnChange = (event) => {
+  const handleEmailOnChange = (event:any) => {
     setEmail(event.target.value.trim())
     blankValidation(event.target.value.trim(), password)
   }
 
-  const handlePasswordOnChange = (event) => {
+  const handlePasswordOnChange = (event:any) => {
     setPassword(event.target.value.trim())
     blankValidation(email, event.target.value.trim())
   }
 
-  const blankValidation = (email, password) => {
+  const blankValidation = (email:any, password:any) => {
     if (email === '' || password === '') {
       setButtonStatus({ ...buttonStatus, disabled: true })
     } else {
