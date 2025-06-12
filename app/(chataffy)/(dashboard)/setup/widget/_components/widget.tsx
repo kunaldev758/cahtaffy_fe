@@ -14,9 +14,11 @@ import {
   AlertCircle,
   CheckCircle,
   Trash2,
-  Edit3
+  Edit3,
+  Code
 } from 'lucide-react'
-import { updateThemeSettings,getThemeSettings } from '@/app/_api/dashboard/action';
+import { updateThemeSettings,getThemeSettings,uploadLogo } from '@/app/_api/dashboard/action';
+import EmbeddingCode from './embeddingCode';
 
 // Enhanced field types for pre-chat form
 const FIELD_TYPES = [
@@ -32,47 +34,6 @@ const FIELD_TYPES = [
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ['jpg', 'jpeg', 'png'];
 
-// Mock API functions - replace with your actual implementations
-// const updateThemeSettings = async (data) => {
-//   console.log('Saving theme settings:', data);
-//   return new Promise(resolve => setTimeout(resolve, 1000));
-// };
-
-const getThemeSettingsData = async ({ userId }) => {
-  // return {
-  //   data: {
-  //     logo: null,
-  //     titleBar: "Support Chat",
-  //     welcomeMessage: "👋 Hi there! How can I help?",
-  //     showLogo: true,
-  //     showWhiteLabel: false,
-  //     isPreChatFormEnabled: true,
-  //     fields: [
-  //       { id: 1, name: 'Name', value: 'Name', type: 'text', placeholder: 'Enter your name', required: true },
-  //       { id: 2, name: 'Email', value: 'Email', type: 'email', placeholder: 'Enter your email', required: true },
-  //     ],
-  //     colorFields: [
-  //       { id: 1, name: 'title_bar', value: '#000000' },
-  //       { id: 2, name: 'title_bar_text', value: '#FFFFFF' },
-  //       { id: 3, name: 'visitor_bubble', value: '#000000' },
-  //       { id: 4, name: 'visitor_bubble_text', value: '#FFFFFF' },
-  //       { id: 5, name: 'ai_bubble', value: '#000000' },
-  //       { id: 6, name: 'ai_bubble_text', value: '#FFFFFF' },
-  //     ],
-  //     position: {
-  //       align: 'right',
-  //       sideSpacing: 20,
-  //       bottomSpacing: 20
-  //     }
-  //   }
-  // };
-  await getThemeSettings(userId);
-};
-
-const uploadLogo = async (formData) => {
-  console.log('Uploading logo');
-  return new Promise(resolve => setTimeout(resolve, 1000));
-};
 
 // Initial state with enhanced structure
 const initialState = {
@@ -461,9 +422,20 @@ const validateFile = (file) => {
   };
 };
 
+const uploadLogoFunc = async (formData,userId) => {
+  console.log('Uploading logo');
+  // if (!userId) {
+  //   throw new Error('User ID is required for logo upload');
+  // }
+  console.log(userId,"this is userId")
+  await uploadLogo(formData, userId);
+  return new Promise(resolve => setTimeout(resolve, 1000));
+};
+
+
 // Main component
 export default function EnhancedWidgetSettings() {
-  const [userId, setUserId] = useState('user-123');
+  const [userId, setUserId] = useState<string | null>(null);
   const [state, dispatch] = useReducer(reducer, initialState);
   const [selectedLogo, setSelectedLogo] = useState('/api/placeholder/40/40');
   const [error, setError] = useState(null);
@@ -471,6 +443,15 @@ export default function EnhancedWidgetSettings() {
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
   const [fileValidationErrors, setFileValidationErrors] = useState([]);
 
+  useEffect(() => {
+    // Ensure this code runs only on the client side
+    if (typeof window !== 'undefined') {
+      const storedUserId = localStorage.getItem('userId');
+      setUserId(storedUserId);
+    } 
+  }, []);
+
+ 
   // Handle logo file selection and validation
   const handleLogoChange = async (e) => {
     const file = e.target.files?.[0];
@@ -478,7 +459,7 @@ export default function EnhancedWidgetSettings() {
     
     // Validate file before upload
     const validation = validateFile(file);
-    
+    console.log(validation,"Validation log")
     if (!validation.isValid) {
       setFileValidationErrors(validation.errors);
       return;
@@ -492,7 +473,7 @@ export default function EnhancedWidgetSettings() {
     
     try {
       setIsLoading(true);
-      await uploadLogo(formData);
+      await uploadLogoFunc(formData,userId);
       const previewUrl = URL.createObjectURL(file);
       setSelectedLogo(previewUrl);
       dispatch({ type: actionTypes.SET_LOGO, payload: previewUrl });
@@ -532,7 +513,7 @@ export default function EnhancedWidgetSettings() {
   
     try {
       setIsLoading(true);
-      await updateThemeSettings({ themeSettings, userId });
+      await updateThemeSettings({ themeSettings });
       // Show success message
     } catch (error) {
       setError('Failed to save widget settings. Please try again.');
@@ -541,21 +522,24 @@ export default function EnhancedWidgetSettings() {
     }
   };
 
-  // Load initial data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await getThemeSettingsData({ userId });
-        if (data?.data) {
-          console.log(data?.data,"widget data")
-          dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
-        }
-      } catch (error) {
-        setError('Failed to load settings');
-      }
-    };
-    fetchData();
-  }, [userId]);
+
+  useEffect(()=>{
+    async function fetchData(){
+      if(userId){
+        console.log(userId,"userId this is the user id")
+     const data =  await getThemeSettings(userId);
+     console.log(data,"theme data")
+     if (data) {
+      dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
+    }
+    if(data?.data?.logo){
+      setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.data?.logo}`);
+    }
+  }
+    //  setThemeData(data);
+    }
+    fetchData()
+  },[userId])
 
   // Color field labels
   const colorFieldLabels = {
@@ -579,6 +563,23 @@ export default function EnhancedWidgetSettings() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Settings Panel */}
           <div className="space-y-6">
+
+            
+            {/* Embed Code Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Code className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Embed Code</h3>
+                </div>
+              </div>
+              <div className="p-6">
+                <EmbeddingCode />
+              </div>
+            </div>
+
             
             {/* Appearance Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

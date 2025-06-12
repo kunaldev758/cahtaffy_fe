@@ -357,7 +357,7 @@ export default function Settings() {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="pl-10 w-full rounded-lg border border-gray-300 py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="pl-10 w-full rounded-lg border border-gray-300 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter agent name"
                     />
                   </div>

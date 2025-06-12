@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from "react";
-import { 
-  X, 
-  Send, 
-  MessageCircle, 
-  ThumbsUp, 
+import {
+  X,
+  Send,
+  MessageCircle,
+  ThumbsUp,
   ThumbsDown,
   Minimize2,
   User,
@@ -15,19 +15,22 @@ import {
   Bot,
   ArrowDown
 } from "lucide-react";
+import { io, Socket } from 'socket.io-client'
+import { v4 as uuidv4 } from "uuid";
 
-import './_components/widgetcss.css'
+const axios = require('axios');
+require('./_components/widgetcss.css');
 
 // Field validation helpers
 const validateField = (field, value) => {
   const errors = [];
-  
+
   // Check required fields
   if (field.required && (!value || value.trim() === '')) {
     errors.push(`${field.value} is required`);
     return errors;
   }
-  
+
   if (value && value.trim() !== '') {
     // Type-specific validation
     switch (field.type) {
@@ -37,20 +40,20 @@ const validateField = (field, value) => {
           errors.push(`${field.value} must be a valid email address`);
         }
         break;
-        
+
       case 'tel':
         const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
         if (!phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
           errors.push(`${field.value} must be a valid phone number`);
         }
         break;
-        
+
       case 'number':
         if (isNaN(value)) {
           errors.push(`${field.value} must be a number`);
         }
         break;
-        
+
       case 'url':
         try {
           new URL(value);
@@ -59,16 +62,16 @@ const validateField = (field, value) => {
         }
         break;
     }
-    
+
     // Length validation
     if (field.validation?.minLength && value.length < field.validation.minLength) {
       errors.push(`${field.value} must be at least ${field.validation.minLength} characters`);
     }
-    
+
     if (field.validation?.maxLength && value.length > field.validation.maxLength) {
       errors.push(`${field.value} must not exceed ${field.validation.maxLength} characters`);
     }
-    
+
     // Pattern validation
     if (field.validation?.pattern) {
       const regex = new RegExp(field.validation.pattern);
@@ -77,7 +80,7 @@ const validateField = (field, value) => {
       }
     }
   }
-  
+
   return errors;
 };
 
@@ -85,16 +88,16 @@ const validateField = (field, value) => {
 const FormField = ({ field, value, onChange, error }) => {
   const baseClasses = "w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors";
   const errorClasses = error ? "border-red-500 bg-red-50" : "border-gray-300 bg-white";
-  
+
   const handleChange = (e) => {
     let newValue = e.target.value;
-    
+
     // Type-specific formatting
     if (field.type === 'tel') {
       // Remove non-numeric characters for phone
       newValue = newValue.replace(/[^\d\+\-\(\)\s]/g, '');
     }
-    
+
     onChange(newValue);
   };
 
@@ -158,92 +161,34 @@ const FormField = ({ field, value, onChange, error }) => {
   );
 };
 
-// Mock socket functions - replace with your actual socket implementation
-const mockSocket = {
-  emit: (event, data, callback) => {
-    console.log('Socket emit:', event, data);
-    if (callback) callback({ success: true });
-  },
-  on: (event, callback) => {
-    console.log('Socket listening for:', event);
-  },
-  off: (event) => {
-    console.log('Socket off:', event);
-  }
-};
 
-export default function EnhancedChatWidget({ 
-  widgetId = "demo-widget",
-  widgetToken = "demo-token",
-  themeSettings = null 
-}) {
+export default function EnhancedChatWidget({ params }) {
   const [inputMessage, setInputMessage] = useState('');
-  const [conversation, setConversation] = useState([
-    {
-      id: 1,
-      message: "👋 Hi there! How can I help you today?",
-      sender_type: 'bot',
-      createdAt: new Date(),
-      is_note: "false"
-    }
-  ]);
-  const [conversationId, setConversationId] = useState('demo-conversation');
-  const [settings, setSettings] = useState({
-    logo: '/api/placeholder/40/40',
-    titleBar: "Support Chat",
-    welcomeMessage: "👋 Hi there! How can I help?",
-    showLogo: true,
-    showWhiteLabel: false,
-    isPreChatFormEnabled: true,
-    fields: [
-      { 
-        id: 1, 
-        name: 'Name', 
-        value: 'Name', 
-        type: 'text', 
-        placeholder: 'Enter your name', 
-        required: true,
-        validation: { minLength: 2, maxLength: 50 }
-      },
-      { 
-        id: 2, 
-        name: 'Email', 
-        value: 'Email', 
-        type: 'email', 
-        placeholder: 'Enter your email', 
-        required: true,
-        validation: { pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$' }
-      },
-    ],
-    colorFields: [
-      { id: 1, name: 'title_bar', value: '#000000' },
-      { id: 2, name: 'title_bar_text', value: '#FFFFFF' },
-      { id: 3, name: 'visitor_bubble', value: '#000000' },
-      { id: 4, name: 'visitor_bubble_text', value: '#FFFFFF' },
-      { id: 5, name: 'ai_bubble', value: '#000000' },
-      { id: 6, name: 'ai_bubble_text', value: '#FFFFFF' },
-    ],
-    position: {
-      align: 'right',
-      sideSpacing: 20,
-      bottomSpacing: 20
-    }
-  });
-  
+  const [conversation, setConversation] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
+  const [themeSettings, setThemeSettings] = useState(null);
   const [visitorExists, setVisitorExists] = useState(false);
   const [formData, setFormData] = useState({});
   const [formErrors, setFormErrors] = useState({});
+  const [fields, setFields] = useState([]);
   const [conversationStatus, setConversationStatus] = useState('open');
+  const [visitorIp, setVisitorIp] = useState('');
+  const [visitorLocation, setVisitorLocation] = useState('');
   const [showWidget, setShowWidget] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [clientLogo, setClientLogo] = useState('/api/placeholder/40/40');
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
-  const chatBottomRef = useRef(null);
-  const socketRef = useRef(mockSocket);
+  const chatBottomRef = useRef<any>(null);
+  const socketRef = useRef<Socket | null>(null);
+
+  // Extract widget params
+  const widgetId = params?.slug?.[0] || 'demo-widget';
+  const widgetToken = params?.slug?.[1] || 'demo-token';
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -252,21 +197,124 @@ export default function EnhancedChatWidget({
     }
   }, [conversation, showWidget, isMinimized]);
 
-  // Update settings when themeSettings prop changes
+
   useEffect(() => {
-    if (themeSettings) {
-      setSettings(prev => ({ ...prev, ...themeSettings }));
+    let storedVisitorId = localStorage.getItem('visitorId');
+    if (!storedVisitorId) {
+      storedVisitorId = uuidv4();
+      localStorage.setItem('visitorId', storedVisitorId);
     }
-  }, [themeSettings]);
+    console.log(storedVisitorId,"storedVisitorId")
+
+    // Initialize socket connection - REPLACE THIS ENTIRE SECTION
+    const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
+      query: {
+        widgetId,
+        widgetAuthToken: widgetToken,
+        visitorId: localStorage.getItem('visitorId'),
+      },
+      transports: ["websocket", "polling"],
+    });
+
+    socketRef.current = socketInstance;
+
+    // Cleanup on unmount
+    return () => {
+      socketInstance.disconnect();
+      socketRef.current = null;
+    };
+  }, [widgetId, widgetToken]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.on("conversation-append-message", (data) => {
+      data.chatMessage.sender_type != 'visitor' && setIsTyping(false);
+      if (!conversation.length) {
+        setConversationId(data.chatMessage[0]?.conversationId);
+      }
+      setConversation((prev) => [...prev, data.chatMessage]);
+    });
+
+    socket.on("visitor-blocked", handleCloseConversationClient);
+    socket.on("visitor-conversation-close", handleCloseConversationClient);
+
+    return () => {
+      socket.off("conversation-append-message");
+      socket.off("visitor-blocked");
+      socket.off("visitor-conversation-close");
+    }
+  }, [socketRef.current]);
+
+  const handleCloseConversationClient = () => {
+    setConversationStatus('close');
+  };
+
+  // Handle socket events
+  // Handle socket events
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit('visitor-connect', {
+      widgetToken
+    });
+
+    socket.on("visitor-connect-response", (data) => {
+      setConversation(data.chatMessages || []);
+      setThemeSettings(data.themeSettings || {});
+      setFields(data.themeSettings?.fields || []);
+      if (data.themeSettings.logo) {
+        setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}`);
+      }
+      if (data?.chatMessages) {
+        setConversationId(data.chatMessages[0]?.conversation_id);
+      }
+      if (data?.chatMessages?.length > 1) {
+        setVisitorExists(true);
+      }
+    });
+
+    return () => {
+      socket.off("visitor-connect-response");
+    };
+  }, [widgetToken]);
+
+  // Fetch visitor IP and location
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const fetchVisitorDetails = async () => {
+      try {
+        const response = await axios.get("https://ipinfo.io/?token=def346c1243a80");
+        setVisitorLocation(response.data.country);
+        setVisitorIp(response.data.ip);
+        socket?.emit('save-visitor-details', { location: response.data.country, ip: response.data.ip });
+      } catch (error) {
+        console.error('Error fetching IP info:', error.message);
+      }
+    };
+    fetchVisitorDetails();
+
+    socket.on("visitor-is-blocked", () => {
+      setConversationStatus('close');
+    })
+
+    if (visitorLocation) {
+      socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp });
+    }
+  }, []);
 
   // Initialize form data based on fields
   useEffect(() => {
     const initialFormData = {};
-    settings.fields?.forEach(field => {
-      initialFormData[field.name] = '';
+    fields?.forEach(field => {
+      initialFormData[field.value] = '';
     });
     setFormData(initialFormData);
-  }, [settings.fields]);
+  }, [fields]);
 
   const sanitizeInput = (text) => {
     const sanitized = text.replace(/<[^>]*>/g, '');
@@ -289,7 +337,7 @@ export default function EnhancedChatWidget({
 
   const handleFormFieldChange = (fieldName, value) => {
     setFormData(prev => ({ ...prev, [fieldName]: value }));
-    
+
     // Clear field error when user starts typing
     if (formErrors[fieldName]) {
       setFormErrors(prev => ({ ...prev, [fieldName]: '' }));
@@ -299,15 +347,15 @@ export default function EnhancedChatWidget({
   const validateForm = () => {
     const errors = {};
     let isValid = true;
-    
-    settings.fields?.forEach(field => {
-      const fieldErrors = validateField(field, formData[field.name]);
+
+    fields?.forEach(field => {
+      const fieldErrors = validateField(field, formData[field.value]);
       if (fieldErrors.length > 0) {
-        errors[field.name] = fieldErrors[0]; // Show first error only
+        errors[field.value] = fieldErrors[0]; // Show first error only
         isValid = false;
       }
     });
-    
+
     setFormErrors(errors);
     return isValid;
   };
@@ -315,35 +363,13 @@ export default function EnhancedChatWidget({
   const handleMessageSend = () => {
     if (inputMessage.trim() === '' || error) return;
 
+    const socket = socketRef.current;
     const sanitizedMessage = sanitizeInput(inputMessage);
-    const userMessage = {
-      id: Date.now(),
-      message: sanitizedMessage,
-      sender_type: 'visitor',
-      createdAt: new Date(),
-      is_note: "false"
-    };
+    const messageData = { message: sanitizedMessage, id: Date.now().toString() };
 
-    // Add user message
-    setConversation(prev => [...prev, userMessage]);
-    setInputMessage('');
     setIsTyping(true);
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = {
-        id: Date.now() + 1,
-        message: "Thanks for your message! I'm here to help you with any questions you might have.",
-        sender_type: 'bot',
-        createdAt: new Date(),
-        is_note: "false"
-      };
-      setConversation(prev => [...prev, aiResponse]);
-      setIsTyping(false);
-    }, 1500);
-
-    // Emit to socket
-    socketRef.current?.emit("visitor-send-message", { message: sanitizedMessage, id: userMessage.id });
+    socket?.emit("visitor-send-message", messageData);
+    setInputMessage('');
   };
 
   const handleSubmitVisitorDetails = async () => {
@@ -352,23 +378,18 @@ export default function EnhancedChatWidget({
     }
 
     setIsSubmittingForm(true);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      socketRef.current?.emit('save-visitor-details', { visitorDetails: formData });
+      const socket = socketRef.current;
+      if (!socket) return;
+
+      socket.emit('save-visitor-details', {
+        location: visitorLocation,
+        ip: visitorIp,
+        visitorDetails: formData
+      });
+
       setVisitorExists(true);
-      
-      // Add welcome message to conversation
-      const welcomeMessage = {
-        id: Date.now(),
-        message: settings.welcomeMessage,
-        sender_type: 'bot',
-        createdAt: new Date(),
-        is_note: "false"
-      };
-      setConversation([welcomeMessage]);
     } catch (error) {
       setError('Failed to submit form. Please try again.');
     } finally {
@@ -377,15 +398,21 @@ export default function EnhancedChatWidget({
   };
 
   const handleCloseConversation = () => {
-    socketRef.current?.emit('close-conversation-visitor', { 
-      conversationId: conversationId, 
-      status: 'close' 
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit('close-conversation-visitor', {
+      conversationId: conversationId,
+      status: 'close'
     });
     setConversationStatus('close');
   };
 
   const handleFeedback = (type) => {
-    socketRef.current?.emit(
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit(
       "conversation-feedback",
       { conversationId: conversationId, feedback: type },
       (response) => {
@@ -397,15 +424,15 @@ export default function EnhancedChatWidget({
   };
 
   const getThemeColor = (index, fallback) => {
-    return settings?.colorFields?.[index]?.value || fallback;
+    return themeSettings?.colorFields?.[index]?.value || fallback;
   };
 
   const formatTime = (date) => {
     const d = new Date(date);
-    return d.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     });
   };
 
@@ -419,8 +446,8 @@ export default function EnhancedChatWidget({
   // Position styles
   const positionStyles = {
     position: 'fixed',
-    bottom: `${settings.position?.bottomSpacing || 20}px`,
-    [settings.position?.align || 'right']: `${settings.position?.sideSpacing || 20}px`,
+    bottom: '20px',
+    right: '20px',
     zIndex: 1000
   };
 
@@ -434,7 +461,7 @@ export default function EnhancedChatWidget({
         >
           {/* Ripple effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full animate-pulse opacity-75"></div>
-          
+
           {/* Icon */}
           <div className="relative z-10 flex items-center justify-center w-full h-full">
             {showWidget ? (
@@ -455,33 +482,35 @@ export default function EnhancedChatWidget({
 
       {/* Chat Window */}
       {showWidget && (
-        <div className={`absolute bottom-16 ${settings.position?.align === 'left' ? 'left-0' : 'right-0'} w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform ${
-          isMinimized ? 'h-16' : 'h-[600px]'
-        }`}>
-          
+        <div className={`absolute bottom-16 right-0 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform ${isMinimized ? 'h-16' : 'h-[600px]'
+          }`}>
+
           {/* Header */}
-          <div 
+          <div
             className="p-4 text-white relative overflow-hidden cursor-pointer"
-            style={{ backgroundColor: getThemeColor(0, '#000000') }}
+            style={{ backgroundColor: getThemeColor(0, '#2563eb') }}
             onClick={() => setIsMinimized(!isMinimized)}
           >
             {/* Background pattern */}
             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
-            
+
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {/* Avatar */}
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                  {settings.showLogo && settings.logo ? (
-                    <img src={settings.logo} alt="Logo" className="w-8 h-8 rounded-full object-cover" />
-                  ) : (
-                    <User className="w-5 h-5 text-white" />
-                  )}
-                </div>
-                
+                {themeSettings?.showLogo && (
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                    {themeSettings?.logo ? (
+                      <img src={clientLogo} alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <User className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                )}
+
+
                 <div>
                   <h3 className="font-semibold text-sm" style={{ color: getThemeColor(1, '#ffffff') }}>
-                    {settings.titleBar || "Support"}
+                    {themeSettings?.titleBar || "Support"}
                   </h3>
                   <div className="flex items-center space-x-2 text-xs opacity-90">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -491,40 +520,6 @@ export default function EnhancedChatWidget({
               </div>
 
               <div className="flex items-center space-x-2">
-                {/* Feedback buttons - only show when conversation exists */}
-                {conversationId && conversationStatus === 'open' && visitorExists && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleFeedback(true);
-                      }}
-                      disabled={feedback === false}
-                      className={`p-2 rounded-full transition-colors ${
-                        feedback === true 
-                          ? 'bg-green-500/20 text-green-100' 
-                          : 'hover:bg-white/20 text-white/80 hover:text-white'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <ThumbsUp className="w-4 h-4" />
-                    </button>
-                    
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleFeedback(false);
-                      }}
-                      disabled={feedback === true}
-                      className={`p-2 rounded-full transition-colors ${
-                        feedback === false 
-                          ? 'bg-red-500/20 text-red-100' 
-                          : 'hover:bg-white/20 text-white/80 hover:text-white'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <ThumbsDown className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
 
                 {/* Minimize/Maximize button */}
                 <button
@@ -556,49 +551,52 @@ export default function EnhancedChatWidget({
             <>
               {/* Messages Area or Pre-Chat Form */}
               <div className="flex-1 p-4 h-96 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
-                {visitorExists || !settings.isPreChatFormEnabled ? (
+                {visitorExists || (!visitorExists &&  !themeSettings?.isPreChatFormEnabled)? (
                   <div className="space-y-4">
                     {conversation.map((item, key) => (
                       <div key={key}>
                         {/* Agent/System/Bot messages */}
-                        {(item.sender_type === 'system' || item.sender_type === 'bot' || 
-                          (item.sender_type === 'agent' && item.is_note === "false") || 
+                        {(item.sender_type === 'system' || item.sender_type === 'bot' ||
+                          (item.sender_type === 'agent' && item.is_note === "false") ||
                           (item.sender_type === 'assistant' && item.is_note === "false")) && (
-                          <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                                 style={{ backgroundColor: getThemeColor(4, '#000000') }}>
-                              {settings.showLogo && settings.logo ? (
-                                <img src={settings.logo} alt="" className="w-6 h-6 rounded-full object-cover" />
-                              ) : (
-                                <Bot className="w-4 h-4" style={{ color: getThemeColor(5, '#ffffff') }} />
+                            <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
+                              {themeSettings?.showLogo && (
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                                  {themeSettings?.logo ? (
+                                    <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                  ) : (
+                                    <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                                  )}
+                                </div>
                               )}
-                            </div>
-                            <div className="flex-1 max-w-xs">
-                              <div 
-                                className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
-                                style={{ 
-                                  backgroundColor: getThemeColor(4, '#f1f5f9'),
-                                  color: getThemeColor(5, '#1e293b')
-                                }}
-                              >
-                                <div dangerouslySetInnerHTML={{ __html: item.message }} />
+
+                              <div className="flex-1 max-w-xs">
+                                <div
+                                  className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
+                                  style={{
+                                    backgroundColor: getThemeColor(2, '#f1f5f9'),
+                                    color: getThemeColor(3, '#1e293b')
+                                  }}
+                                >
+                                  <div dangerouslySetInnerHTML={{ __html: item.message }} />
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1 ml-2">
+                                  {item.createdAt && formatTime(item.createdAt)}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 mt-1 ml-2">
-                                {item.createdAt && formatTime(item.createdAt)}
-                              </div>
                             </div>
-                          </div>
-                        )}
-                        
+                          )}
+
                         {/* Visitor messages */}
                         {item.sender_type === 'visitor' && (
                           <div className="flex justify-end animate-in slide-in-from-right duration-300">
                             <div className="max-w-xs">
-                              <div 
+                              <div
                                 className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm"
-                                style={{ 
-                                  backgroundColor: getThemeColor(2, '#3b82f6'),
-                                  color: getThemeColor(3, '#ffffff')
+                                style={{
+                                  backgroundColor: getThemeColor(4, '#3b82f6'),
+                                  color: getThemeColor(5, '#ffffff')
                                 }}
                               >
                                 <div dangerouslySetInnerHTML={{ __html: item.message }} />
@@ -622,14 +620,17 @@ export default function EnhancedChatWidget({
                     {/* Typing indicator */}
                     {isTyping && (
                       <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                             style={{ backgroundColor: getThemeColor(4, '#000000') }}>
-                          {settings.showLogo && settings.logo ? (
-                            <img src={settings.logo} alt="" className="w-6 h-6 rounded-full object-cover" />
-                          ) : (
-                            <Bot className="w-4 h-4" style={{ color: getThemeColor(5, '#ffffff') }} />
-                          )}
-                        </div>
+                        {themeSettings?.showLogo && (
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                            {themeSettings?.logo ? (
+                              <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
+                            ) : (
+                              <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                            )}
+                          </div>
+                        )}
+
                         <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
                           <div className="flex space-x-1">
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
@@ -648,17 +649,17 @@ export default function EnhancedChatWidget({
                       <h3 className="text-lg font-semibold text-gray-800 mb-2">Welcome! 👋</h3>
                       <p className="text-gray-600 text-sm">Please fill out the form below to start chatting.</p>
                     </div>
-                    
-                    {settings.fields?.map((field) => (
+
+                    {fields?.map((field) => (
                       <FormField
-                        key={field.id}
+                        key={field._id}
                         field={field}
-                        value={formData[field.name] || ''}
-                        onChange={(value) => handleFormFieldChange(field.name, value)}
-                        error={formErrors[field.name]}
+                        value={formData[field.value] || ''}
+                        onChange={(value) => handleFormFieldChange(field.value, value)}
+                        error={formErrors[field.value]}
                       />
                     ))}
-                    
+
                     <button
                       type="button"
                       onClick={handleSubmitVisitorDetails}
@@ -679,16 +680,51 @@ export default function EnhancedChatWidget({
               </div>
 
               {/* Input Area - Only show when conversation is active */}
-              {visitorExists && (
+              {(visitorExists || (!visitorExists &&  !themeSettings?.isPreChatFormEnabled))&& (
                 <div className="border-t border-gray-200 bg-white">
                   {conversationStatus === 'close' ? (
                     <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <AlertCircle className="w-8 h-8 text-gray-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">Conversation Ended</h3>
-                      <p className="text-gray-600 text-sm">This conversation has been closed. Thank you for contacting us!</p>
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertCircle className="w-8 h-8 text-gray-400" />
                     </div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Conversation Ended</h3>
+                    <p className="text-gray-600 text-sm mb-6">This conversation has been closed. Thank you for contacting us!</p>
+                    
+                    {/* Feedback buttons */}
+
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-600">How was your experience?</p>
+                        <div className="flex justify-center space-x-4">
+                          <button
+                            onClick={() => handleFeedback(true)}
+                            disabled={feedback === false}
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${feedback === true
+                              ? 'bg-green-500 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-green-500 hover:text-white'
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <ThumbsUp className="w-4 h-4" />
+                            <span className="text-sm">Good</span>
+                          </button>
+                
+                          <button
+                            onClick={() => handleFeedback(false)}
+                            disabled={feedback === true}
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${feedback === false
+                              ? 'bg-red-500 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-red-500 hover:text-white'
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <ThumbsDown className="w-4 h-4" />
+                            <span className="text-sm">Poor</span>
+                          </button>
+                        </div>
+                        {feedback !== null && (
+                          <p className="text-xs text-green-600 mt-2">Thank you for your feedback!</p>
+                        )}
+                      </div>
+
+                  </div>
                   ) : (
                     <div className="p-4">
                       <div className="flex items-end space-x-3">
@@ -700,10 +736,10 @@ export default function EnhancedChatWidget({
                             onChange={handleInputChange}
                             onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
-                            disabled={isTyping}
+                          disabled={isTyping}
                           />
                         </div>
-                        
+
                         <button
                           onClick={handleMessageSend}
                           disabled={!inputMessage.trim() || error || isTyping}
@@ -724,7 +760,7 @@ export default function EnhancedChatWidget({
                         <span>
                           {inputMessage.trim().split(/\s+/).filter(word => word.length > 0).length}/100 words
                         </span>
-                        
+
                         <button
                           onClick={handleCloseConversation}
                           className="text-red-500 hover:text-red-700 transition-colors"
@@ -735,8 +771,8 @@ export default function EnhancedChatWidget({
                     </div>
                   )}
 
-                  {/* White Label Footer - Show "Powered by Chataffy" when white label is disabled */}
-                  {!settings.showWhiteLabel && (
+                  {/* White Label Footer */}
+                  {!themeSettings?.showWhiteLabel && (
                     <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
                       <div className="text-xs text-gray-500 text-center">
                         Powered by <span className="font-semibold text-blue-600">Chataffy</span>

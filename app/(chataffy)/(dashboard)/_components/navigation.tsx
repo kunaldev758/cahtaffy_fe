@@ -183,7 +183,7 @@ export default function IntegratedSidebar() {
         </div>
 
         {/* Profile */}
-        <Link
+        {/* <Link
           href="/profile"
           className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
             isParentActive('/profile')
@@ -195,7 +195,7 @@ export default function IntegratedSidebar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
           Profile
-        </Link>
+        </Link> */}
       </nav>
 
       {/* Logout Section */}

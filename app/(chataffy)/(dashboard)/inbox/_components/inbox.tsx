@@ -11,7 +11,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import Message from "./message";
 import { io, Socket } from 'socket.io-client';
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { 
   Search, 
   Send, 
@@ -77,7 +77,7 @@ export default function Inbox(Props: any) {
   const socketRef = useRef<Socket | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
-
+  console.log(openConversationStatus,"openConversationStatus status")
   // All your original useEffects and functions remain the same
   useEffect(() => {
     if (socketRef.current) {
@@ -183,6 +183,8 @@ export default function Inbox(Props: any) {
 
   const openOldConversation = async (conversationId: any, visitorName: string) => {
     try {
+      const socket = socketRef.current;
+      if (!socket) return;
       const data = await getOldConversationMessages({ conversationId });
       if (data) {
         setConversationMessages({
@@ -193,6 +195,15 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
+
+        socket.emit("set-conversation-id", { conversationId }, (response: any) => {
+          if (response && response.success) {
+            console.log("Successfully joined conversation room:", conversationId);
+          } else {
+            console.error("Failed to join conversation room:", response?.error || "Unknown error");
+          }
+        });
+
       }
     } catch (error) {
       console.error("Error fetching old conversation messages:", error);
@@ -484,39 +495,38 @@ export default function Inbox(Props: any) {
   const handleOpenConversationsListResponse = async (data: any) => {
     console.log("Open conversations list received:", data);
 
-    if (data.conversations.length <= 0) {
-      setIsConversationAvailable(false);
-      setConversationsList({ data: [], loading: false });
-      return;
-    }
+    const filteredConversations = data.conversations.filter(conv => conv.is_started === true);
+    setIsConversationAvailable(filteredConversations.length > 0);
+    setConversationsList({ 
+      data: filteredConversations, 
+      loading: false 
+    });
 
-    setIsConversationAvailable(true);
-    setConversationsList({ data: data.conversations, loading: false });
-
-    if (!openConversationId && data.conversations[0]) {
-      await openConversation(data.conversations[0], data.conversations[0]?.visitor?.name, 0);
+    if (!openConversationId && filteredConversations[0]) {
+      setOpenConversationId(filteredConversations[0].id);
     }
   };
 
   const handleCloseConversationsListResponse = async (data: any) => {
     console.log("Close conversations list received:", data);
 
-    if (data.conversations.length <= 0) {
-      setIsConversationAvailable(false);
-      setConversationsList({ data: [], loading: false });
-      return;
-    }
+    const filteredConversations = data.conversations.filter(conv => conv.is_started === true);
+    setIsConversationAvailable(filteredConversations.length > 0);
+    setConversationsList({ 
+      data: filteredConversations, 
+      loading: false 
+    });
 
-    setIsConversationAvailable(true);
-    setConversationsList({ data: data.conversations, loading: false });
-
-    if (!openConversationId && data.conversations[0]) {
-      await openConversation(data.conversations[0], data.conversations[0]?.visitor?.name, 0);
+    if (!openConversationId && filteredConversations[0]) {
+      setOpenConversationId(filteredConversations[0].id);
     }
   };
 
   const handleOpenConversationsListUpdateResponse = async (data: any) => {
-    status == 'open' && setConversationsList({ data: data.conversations, loading: false });
+    status == 'open' && setConversationsList({ 
+      data: data.conversations.filter(conv => conv.is_started === true), 
+      loading: false 
+    });
   };
 
   useEffect(() => {
@@ -602,6 +612,9 @@ export default function Inbox(Props: any) {
         }
       );
     }
+    if(!openConversationId){
+      setNotesList([])
+    }
   }, [socketRef.current, openConversationId, openVisitorId]);
 
   const getConvTags = (data: any) => {
@@ -676,7 +689,6 @@ export default function Inbox(Props: any) {
 
   return (
     <>
-      {isConversationAvailable ? (
         <div className="flex h-screen bg-gray-50">
           {/* Conversations List */}
           <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
@@ -760,7 +772,7 @@ export default function Inbox(Props: any) {
                                 {conversation?.visitor?.name}
                               </h3>
                               <span className="text-xs text-gray-500">
-                                {conversation.lastMessageTime || 'Now'}
+                                {conversation.updatedAt ? format(new Date(conversation.updatedAt), 'dd/MM/yy') : 'Now'}
                               </span>
                             </div>
                             
@@ -783,7 +795,10 @@ export default function Inbox(Props: any) {
           </div>
 
           {/* Main Chat Area */}
-          <div className="flex-1 flex flex-col">
+          {isConversationAvailable ? ( 
+          <>
+          {conversationMessages?.data?.length>1 ?
+          (<div className="flex-1 flex flex-col">
             {/* Chat Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex items-center justify-between">
@@ -1001,7 +1016,15 @@ export default function Inbox(Props: any) {
                 </div>
               </div>
             </div>
+          </div>):(
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Conversation</h3>
+              <p className="text-sm text-gray-500">This conversation is currently closed or not available.</p>
+            </div>
           </div>
+          )}
+
 
           {/* Right Sidebar - Details */}
           <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
@@ -1079,16 +1102,16 @@ export default function Inbox(Props: any) {
               </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex h-screen bg-gray-50 items-center justify-center">
-          <div className="text-center">
-            <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Conversations</h2>
-            <p className="text-gray-600">No conversations found. New conversations will appear here.</p>
+          </>):(
+            <div className="flex h-screen w-full bg-gray-50 items-center justify-center">
+            <div className="text-center">
+              <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">No Conversations</h2>
+              <p className="text-gray-600">No conversations found. New conversations will appear here.</p>
+            </div>
           </div>
+          )}
         </div>
-      )}
     </>
   );
 }

@@ -56,7 +56,7 @@ export default function ModernDashboard() {
         setTotalChat(totalChat);
         setTotalMessage(totalMessage);
         setArt(art);
-        setCsat(csat);
+        setCsat(Number(csat).toFixed(2));
         setFallbackMessage(fallbackMessage);
         setUptime(uptime);
         setAiChat(aiAssists);
@@ -70,7 +70,7 @@ export default function ModernDashboard() {
       setTotalChat(totalChat);
       setTotalMessage(totalMessage);
       setArt(art);
-      setCsat(csat);
+      setCsat(Number(csat).toFixed(2));
       setFallbackMessage(fallbackMessage);
       setUptime(uptime);
       setAiChat(aiAssists);
@@ -96,6 +96,7 @@ export default function ModernDashboard() {
           </div>
           <div className="flex items-center space-x-4">
             <DateRangePicker
+              cleanable={false}
               placement='autoVerticalEnd'
               value={dateRange}
               onChange={setDateRange}
@@ -261,12 +262,12 @@ export default function ModernDashboard() {
                       </div>
                       <span className="text-sm font-medium text-gray-700">Web Page</span>
                     </div>
-                    {!webpageStatus && (
+                    {/* {!webpageStatus && (
                       <button className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1">
                         <Image src={tagPlusImage} alt="Add" width={12} height={12} />
                         <span>Add</span>
                       </button>
-                    )}
+                    )} */}
                   </div>
 
                   {/* Doc/Snippets */}
@@ -281,12 +282,12 @@ export default function ModernDashboard() {
                       </div>
                       <span className="text-sm font-medium text-gray-700">Doc/Snippets</span>
                     </div>
-                    {!docSnippetStatus && (
+                    {/* {!docSnippetStatus && (
                       <button className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1">
                         <Image src={tagPlusImage} alt="Add" width={12} height={12} />
                         <span>Add</span>
                       </button>
-                    )}
+                    )} */}
                   </div>
 
                   {/* FAQ's */}
@@ -301,12 +302,6 @@ export default function ModernDashboard() {
                       </div>
                       <span className="text-sm font-medium text-gray-700">FAQ's</span>
                     </div>
-                    {!faqStatus && (
-                      <button className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1">
-                        <Image src={tagPlusImage} alt="Add" width={12} height={12} />
-                        <span>Add</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginAgentApi } from "../_api/login/action";
+import { loginAgentApi } from "../../_api/login/action";
 
 export default function AgentLogin() {
   const [email, setEmail] = useState("");
@@ -15,17 +15,8 @@ export default function AgentLogin() {
     try {
       console.log(email,password,"email pass")
       const res = await loginAgentApi(email.trim(), password.trim())
-      // const res = await fetch(`http://localhost:9000/api/agents/login`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, password }),
-      // });
-      // const data = await res.json();
-      // const data = await res.json();
-      // console.log(data,"agent data")
-      console.log(res,"the res")
+
       if (res.message != "Login successful") {
-        console.log(res,"error agent")
         setError(res.message || "Login failed");
         return;
       }
