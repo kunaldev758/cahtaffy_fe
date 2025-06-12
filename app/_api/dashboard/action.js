@@ -15,14 +15,32 @@ async function fetchData(endpoint, requestData = {}) {
   const data = await response.json();
   console.log(response,"status code")
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
+    return 'error'
+  }
+  return data
+}
+async function fetchDatawithoutToken(endpoint, requestData = {}) {
+  const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestData)
+  });
+  const data = await response.json();
+  console.log(response,"status code")
+  if(data.status_code==401){
+    // cookies().delete('token')
     return 'error'
   }
   return data
 }
 
-async function uploadData(endpoint,formData ) {
-  const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+
+async function uploadData(endpoint,formData,userId ) {
+  const response = await fetch(`${process.env.API_HOST}${endpoint}/${userId}`, {
     method: 'POST',
     body: formData,
     headers: {
@@ -32,15 +50,16 @@ async function uploadData(endpoint,formData ) {
   const data = await response.json();
   console.log(response,"status code")
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
     return 'error'
   }
   return data
 }
 
 async function getFetchData(endpoint,params=null) {
-  let response =null;
+  let response =null; 
   if(params){
+    console.log(params,"params")
   response = await fetch(`${process.env.API_HOST}${endpoint}/${params}`, {
     method: 'GET',
     cache: 'no-cache',
@@ -61,7 +80,7 @@ async function getFetchData(endpoint,params=null) {
 }
   const data = await response.json();
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
     return 'error'
   }
   return data
@@ -86,7 +105,7 @@ export async function openaiCreateSnippet(formData) {
   });
   const data = await response.json();
   if(data.status_code==401){
-    cookies().delete('token')
+    // cookies().delete('token')
     return 'error'
   }
   return data
@@ -137,11 +156,11 @@ export async function setBasicInfoApi(basicInfo) {
 }
 
 export async function getThemeSettings(id) {
-  return await getFetchData('getThemeSettings',{id});
+  return await getFetchData('getThemeSettings',id);
 }
 
-export async function uploadLogo(formData) {
-  return await uploadData('uploadLogo',formData);
+export async function uploadLogo(formData,userId) {
+  return await uploadData('uploadLogo',formData,userId);
 }
 
 export async function updateThemeSettings(themeSettings) {
@@ -169,6 +188,10 @@ export async function updateAgent(id, agentData) {
   return await fetchData(`agents/${id}`, agentData);
 }
 
+export async function toggleActiveStatus(id,status) {
+  return await fetchData(`agents/${id}/status`,{isActive:status});
+}
+
 export async function deleteAgent(id) {
   if (!id) {
     console.error('Delete agent called without an ID');
@@ -180,4 +203,8 @@ export async function deleteAgent(id) {
 
 export async function updateAgentStatus(id, isActive) {
   return await fetchData(`agents/${id}/status`, { isActive });
+}
+
+export async function agentAcceptInviteVerify(token) {
+  return await fetchDatawithoutToken(`/agents/accept-invite/${token}`);
 }

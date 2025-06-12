@@ -8,7 +8,7 @@ export default function SetupLayout({
   return (
     <>
       <div className="main-content">
-        <Navigation />
+        {/* <Navigation /> */}
         {children}
       </div>
     </>

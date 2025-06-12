@@ -1,4 +1,4 @@
-import Login from './_components/login'
+import { LoginForm } from './_components/login'
 import {Metadata} from 'next'
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export default function Home() {
 
   return (
     <>
-      <Login />
+      <LoginForm />
     </>
   )
 }

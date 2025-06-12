@@ -1,210 +1,640 @@
-body {
-	font-family: 'Inter', sans-serif;
-	font-size: 14px;
-}	
-	
-.chataffy-widgetBtn-box {
-    background: #222;
-    width: 76px;
-    height: 76px;
-    box-shadow: 0px 20px 20px -8px rgba(26, 26, 26, 0.28), 0px 1px 0px 0px rgba(204, 204, 204, 0.50) inset, 0px -1px 0px 0px rgba(0, 0, 0, 0.17) inset, -1px 0px 0px 0px rgba(0, 0, 0, 0.17) inset, 1px 0px 0px 0px rgba(0, 0, 0, 0.13) inset;
-    border-radius: 100px;
-    text-align: center;
-    position: fixed;
-    bottom: 28px;
-    right: 28px;
-    z-index: 2;
-	cursor: pointer;
-}
-	
-.chataffy-widget-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 76px;
-    height: 76px;
-}	
-	
-.chataffy-messageFrame {
-    z-index: 2147483000;
-    position: fixed;
-    bottom: 124px;
-    background: #fff;
-    right: 20px;
-    transform-origin: right bottom;
-    height: min(624px, 100% - 140px);
-    min-height: 80px;
-    width: 380px;
-    max-height: 624px;
-    box-shadow: 0px 20px 20px -8px rgba(26, 26, 26, 0.28);
-    border-radius: 20px;
-    overflow: hidden;
+/* Enhanced Chat Widget CSS */
+
+    @tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+
+/* Keyframe Animations */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
     opacity: 1;
-    transition: width 200ms ease 0s, height 200ms ease 0s, max-height 200ms ease 0s, transform 300ms cubic-bezier(0, 1.2, 1, 1) 0s, opacity 83ms ease-out 0s;
-    pointer-events: all;
-}	
-	
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* Chat Widget Container */
+.chataffy-widget-area {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Widget Button */
+.chataffy-widgetBtn-box {
+  position: relative;
+  cursor: pointer;
+}
+
+.chataffy-widget-btn {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.chataffy-widget-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.4);
+}
+
+.chataffy-widget-btn:active {
+  transform: scale(0.95);
+}
+
+.chataffy-widget-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.chataffy-widget-btn:hover::before {
+  opacity: 1;
+}
+
+/* Notification Badge */
+.chataffy-notification-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  background: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: bounce 2s infinite;
+  border: 2px solid white;
+}
+
+.chataffy-notification-dot {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+}
+
+/* Message Frame */
+.chataffy-messageFrame {
+  width: 384px;
+  height: 600px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn 0.3s ease-out;
+  backdrop-filter: blur(10px);
+}
+
+.chataffy-messageFrame.minimized {
+  height: 64px;
+  width: 320px;
+}
+
+/* Widget Header */
 .chataffy-widget-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 15px 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: between;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 16px 16px 0 0;
 }
-	
+
+.chataffy-widget-head::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2));
+  animation: pulse 3s ease-in-out infinite;
+}
+
 .chataffy-widget-headLeft {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  position: relative;
+  z-index: 10;
 }
-	
-.chataffy-head-clientLogo {
-    background: #fff;
-    border-radius: 100px;
-    width: 40px;
-    height: 40px;
-    line-height: 40px;
-    text-align: center;
-}	
-	
+
+.chataffy-head-avatar {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.chataffy-head-infoArea {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .chataffy-headName {
-    font-weight: 600;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
 }
-	
+
 .chataffy-headStatus {
-    font-size: 11px;
-    margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.9;
 }
-	
+
 .chataffy-statusPoint {
-    background: #3EDF4E;
-    width: 6px;
-    height: 6px;
-    border-radius: 100px;
-    display: inline-block;
-    vertical-align: middle;
-    margin-top: -2px;
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
 }
-	
-.chataffy-widget-closeBtn {
-    background: transparent;
-    padding: 0;
-    box-shadow: none;
-    border: none;
-    cursor: pointer;
-}	
-	
-.chataffy-widget-messageImage {
-    border-radius: 100px;
-    width: 40px;
-    height: 40px;
-    border: 1px solid #F3F3F3;
-    line-height: 40px;
+
+.chataffy-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 10;
 }
-	
-.chataffy-widget-messageImage img {
-    width: 40px;
-    height: 40px;
+
+.chataffy-header-btn {
+  padding: 6px;
+  background: transparent;
+  border: none;
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-	
-.chataffy-widget-message {
-    padding: 16px 15px;
-    background: #F3F3F3;
-    border-radius: 10px;
+
+.chataffy-header-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
-	
-.chataffy-widget-message p {
-    margin: 0;
-    line-height: 19.6px;
+
+.chataffy-header-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
-	
-.chataffy-widget-messageArea {
-    margin-top: 20px;
-    display: flex;
-    gap: 15px;
+
+.chataffy-header-btn.active {
+  background: rgba(255, 255, 255, 0.3);
 }
-	
-.chataffy-widget-messageClient {
-    margin-top: 20px;
-    padding-left: 55px;
-}
-	
-.chataffy-widget-messageInfo {
-    width: 100%;
-    display: inline-block;
-    color: #737376;
-    font-size: 13px;
-    margin-top: 6px;
-}
-	
-.chataffy-widget-messageClient .chataffy-widget-message {
-    float: right;
-}
-	
-.chataffy-widget-messageClient .chataffy-widget-messageBox .chataffy-widget-messageInfo {
-    text-align: right;
-}	
-	
-.chataffy-widget-textarea {
-    border-top: 1px solid #F3F3F3;
-}
-	
-.chataffy-widget-textarea .form-control {
-    width: 100%;
-    border: none;
-    padding: 16px 20px;
-}
-	
+
+/* Widget Body */
 .chataffy-widget-body {
-    height: calc(60% - -112px);
-    padding: 0 20px 20px;
-    overflow: auto;
-    position: relative;
-}	
-	
-.chataffy-widget-textarea .form-control {
-    width: calc(100% - 75px);
-    border: none;
-    padding: 16px 20px;
-}	
-	
-.chataffy-widget-textarea .form-control:focus {
-    box-shadow: none;
-    border: none;
-    outline: none;
-}	
-	
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background: linear-gradient(to bottom, #f8fafc, #ffffff);
+  position: relative;
+}
+
+/* Custom Scrollbar */
+.chataffy-widget-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chataffy-widget-body::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5);
+  border-radius: 10px;
+}
+
+.chataffy-widget-body::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.chataffy-widget-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
+/* Message Areas */
+.chataffy-widget-messageArea {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.chataffy-widget-messageClient {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.chataffy-widget-messageImage {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.chataffy-widget-messageBox {
+  max-width: 280px;
+  flex: 1;
+}
+
+.chataffy-widget-messageClient .chataffy-widget-messageBox {
+  max-width: 280px;
+}
+
+.chataffy-widget-message {
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.chataffy-widget-messageArea .chataffy-widget-message {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-bottom-left-radius: 4px;
+}
+
+.chataffy-widget-messageClient .chataffy-widget-message {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.chataffy-widget-message:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.chataffy-widget-messageInfo {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+  margin-left: 4px;
+}
+
+/* Typing Indicator */
+.chataffy-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.chataffy-typing-dots {
+  background: #f1f5f9;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+  display: flex;
+  gap: 4px;
+}
+
+.chataffy-typing-dot {
+  width: 8px;
+  height: 8px;
+  background: #64748b;
+  border-radius: 50%;
+  animation: bounce 1.4s ease-in-out infinite both;
+}
+
+.chataffy-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.chataffy-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+.chataffy-typing-dot:nth-child(3) { animation-delay: 0s; }
+
+/* Form Styles */
+.chataffy-form {
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  margin: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.chataffy-form-field {
+  margin-bottom: 20px;
+}
+
+.chataffy-form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.chataffy-form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: #f9fafb;
+}
+
+.chataffy-form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.chataffy-form-submit {
+  width: 100%;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.chataffy-form-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+/* Widget Textarea */
 .chataffy-widget-textarea {
-    position: relative;
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 0 0 16px 16px;
 }
-	
-.chataffy-widget-textareaBtn {
-    position: absolute;
-    right: 20px;
-    top: 50%;
-    background: transparent;
-    border: none;
-    padding: 0;
-    transform: translateY(-50%);
-}	
-	
-.chataffy-widget-messageInfo.dangerText {
-    color: #FE8585;
+
+.chataffy-input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
 }
-	
-.chataffy-widget-messageInfo img {
-    vertical-align: middle;
-    margin-right: 5px;
-    margin-top: -3px;
+
+.chataffy-input-wrapper {
+  flex: 1;
+  position: relative;
 }
-	
-.chataffy-widget-internetIssue {
-    background: #F6D661;
-    padding: 14px 20px;
-    position: absolute;
-    bottom: -50px;
-    width: calc(100% - 40px);
-    left: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+
+.chataffy-message-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  resize: none;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: all 0.3s ease;
+  background: #f9fafb;
+  min-height: 48px;
+  max-height: 120px;
+}
+
+.chataffy-message-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.chataffy-send-btn {
+  padding: 12px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.chataffy-send-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.chataffy-send-btn:active {
+  transform: scale(0.95);
+}
+
+.chataffy-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.chataffy-input-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.chataffy-word-count {
+  color: #64748b;
+  transition: color 0.3s ease;
+}
+
+.chataffy-word-count.warning {
+  color: #ef4444;
+  animation: pulse 1s infinite;
+}
+
+.chataffy-error-message {
+  color: #ef4444;
+  font-size: 12px;
+  animation: pulse 1s infinite;
+}
+
+.chataffy-close-btn {
+  color: #ef4444;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.chataffy-close-btn:hover {
+  color: #dc2626;
+  text-decoration: underline;
+}
+
+/* Closed State */
+.chataffy-conversation-closed {
+  text-align: center;
+  padding: 32px 16px;
+  color: #64748b;
+}
+
+.chataffy-closed-icon {
+  margin: 0 auto 12px;
+  opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .chataffy-widget-area {
+    bottom: 16px;
+    right: 16px;
+  }
+  
+  .chataffy-messageFrame {
+    width: calc(100vw - 32px);
+    max-width: 384px;
+    height: calc(100vh - 120px);
+    max-height: 600px;
+  }
+  
+  .chataffy-widget-message {
+    max-width: calc(100vw - 120px);
+  }
+}
+
+/* Utility Classes */
+.chataffy-animate-slideInLeft {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.chataffy-animate-slideInRight {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.chataffy-animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.chataffy-animate-bounce {
+  animation: bounce 2s infinite;
+}
+
+.chataffy-animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+.chataffy-animate-ping {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
 }

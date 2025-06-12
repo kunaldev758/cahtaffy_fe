@@ -11,18 +11,34 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import Message from "./message";
 import { io, Socket } from 'socket.io-client';
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
+import { 
+  Search, 
+  Send, 
+  Mic, 
+  X, 
+  Plus, 
+  MessageCircle, 
+  StickyNote, 
+  Settings,
+  Phone,
+  Clock,
+  Tag,
+  ChevronDown,
+  UserX,
+  PhoneOff,
+  MoreVertical,
+  MapPin,
+  Globe
+} from "lucide-react";
 
 import {
   getConversationMessages,
   getOldConversationMessages,
 } from "@/app/_api/dashboard/action";
 
-
 export default function Inbox(Props: any) {
-
   const [expandedSources, setExpandedSources] = useState<null | number>(null);
-
   const [credit, setCredit] = useState({ used: 0, total: 0 });
   const [isConversationAvailable, setIsConversationAvailable] = useState(true);
   const [conversationsList, setConversationsList] = useState<any>({
@@ -59,64 +75,96 @@ export default function Inbox(Props: any) {
   const [isAIChat, setIsAIChat] = useState(true);
 
   const socketRef = useRef<Socket | null>(null);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
-
+  console.log(openConversationStatus,"openConversationStatus status")
+  // All your original useEffects and functions remain the same
   useEffect(() => {
-    const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-      query: {
-        token: localStorage.getItem('token'),
-      },
-      transports: ["websocket", "polling"], // Ensure compatibility
-    });
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
 
-    socketRef.current = socketInstance;
+    try {
+      const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
+        query: {
+          token: localStorage.getItem('token'),
+        },
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-    // Cleanup on unmount
+      socketInstance.on("connect", () => {
+        console.log("Socket connected successfully");
+      });
+
+      socketInstance.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+      });
+
+      socketRef.current = socketInstance;
+    } catch (error) {
+      console.error("Error initializing socket:", error);
+    }
+
     return () => {
-      socketInstance.disconnect();
-      socketRef.current = null;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
-  }, [openConversationId]);
+  }, []);
 
-  // Open conversation and fetch messages
   const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
     try {
       const socket = socketRef.current;
       if (!socket) return;
 
       const visitorId = ConversationData?.visitor?._id;
-
       setOpenVisitorId(visitorId);
       setOpenVisitorName(visitorName);
 
       const data = await getConversationMessages(visitorId);
       if (data) {
+        const conversationId = data.chatMessages[0]?.conversation_id;
+
         setConversationMessages({
           data: data.chatMessages,
           loading: false,
-          conversationId: data.chatMessages[0]?.conversation_id,
+          conversationId: conversationId,
           visitorName,
         });
         setOpenConversationStatus(data.conversationOpenStatus);
-        setOpenConversationId(data.chatMessages[0]?.conversation_id);
+        setOpenConversationId(conversationId);
 
-        socket.emit("set-conversation-id", { conversationId: data.chatMessages[0]?.conversation_id });
-        socket.emit("message-seen", { conversationId: data.chatMessages[0]?.conversation_id });
+        socket.emit("set-conversation-id", { conversationId }, (response: any) => {
+          if (response && response.success) {
+            console.log("Successfully joined conversation room:", conversationId);
+
+            socket.emit("message-seen", { conversationId }, (seenResponse: any) => {
+              if (seenResponse && !seenResponse.success) {
+                console.error("Failed to mark messages as seen:", seenResponse.error);
+              }
+            });
+
+            fetchConversationTags(conversationId);
+          } else {
+            console.error("Failed to join conversation room:", response?.error || "Unknown error");
+          }
+        });
+
         setConversationsList((prev: any) => ({
           ...prev,
           data: prev.data?.map((d: any) =>
-            d._id === data?.chatMessages[0]?.conversation_id
-              ? { ...d, newMessage: 0 }
-              : d
+            d._id === conversationId ? { ...d, newMessage: 0 } : d
           ),
         }));
-        // Transform the visitorDetails array to an object
+
         const transformedVisitorDetails =
           ConversationData?.visitor?.visitorDetails?.reduce(
             (acc: any, { field, value }: { field: string; value: string }) => {
-              acc[field.toLowerCase()] = value; // Use lowercase keys for consistency
+              acc[field.toLowerCase()] = value;
               return acc;
             },
             {
@@ -133,12 +181,10 @@ export default function Inbox(Props: any) {
     }
   };
 
-  // Open old conversation
-  const openOldConversation = async (
-    conversationId: any,
-    visitorName: string
-  ) => {
+  const openOldConversation = async (conversationId: any, visitorName: string) => {
     try {
+      const socket = socketRef.current;
+      if (!socket) return;
       const data = await getOldConversationMessages({ conversationId });
       if (data) {
         setConversationMessages({
@@ -149,13 +195,21 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
+
+        socket.emit("set-conversation-id", { conversationId }, (response: any) => {
+          if (response && response.success) {
+            console.log("Successfully joined conversation room:", conversationId);
+          } else {
+            console.error("Failed to join conversation room:", response?.error || "Unknown error");
+          }
+        });
+
       }
     } catch (error) {
       console.error("Error fetching old conversation messages:", error);
     }
   };
 
-  // Handle message send
   const handleMessageSend = () => {
     const socket = socketRef.current;
     if (!inputMessage.trim() || !socket) return;
@@ -163,16 +217,227 @@ export default function Inbox(Props: any) {
     const messageData = { message: inputMessage, visitorId: openVisitorId };
     socket.emit("client-send-message", messageData, (response: any) => {
       if (response?.chatMessage) {
-        setConversationMessages((prev: any) => ({
-          ...prev,
-          data: [...prev.data, response.chatMessage],
-        }));
         setInputMessage("");
       }
     });
   };
 
-  //new messages and visitor close chat
+  const handleAddNote = () => {
+    const socket = socketRef.current;
+    if (!inputMessage.trim() || !socket) return;
+
+    const noteData = {
+      message: inputMessage,
+      visitorId: openVisitorId,
+      conversationId: openConversationId,
+    };
+    socket.emit("client-send-add-note", noteData);
+    setInputMessage("");
+  };
+
+  const fetchConversationTags = (conversationId?: string) => {
+    const socket = socketRef.current;
+    const convId = conversationId || openConversationId;
+
+    if (!socket || !convId) {
+      console.log("Cannot fetch tags: missing socket or conversation ID");
+      return;
+    }
+
+    socket.emit("get-conversation-tags", { conversationId: convId }, (response: any) => {
+      if (response && response.success) {
+        setTags(response.tags);
+      } else {
+        console.error("Failed to fetch tags:", response?.error || "Unknown error");
+      }
+    });
+  };
+
+  const handleAddTagClick = async () => {
+    try {
+      const socket = socketRef.current;
+      if (!socket || !openConversationId || !inputAddTag.trim()) {
+        console.error("Cannot add tag: missing socket, conversation ID, or tag name");
+        return;
+      }
+
+      setAddTag(false);
+
+      socket.emit(
+        "add-conversation-tag",
+        { name: inputAddTag.trim(), conversationId: openConversationId },
+        (response: any) => {
+          setInputAddTag("");
+
+          if (response && response.success) {
+            console.log("Tag added successfully");
+            fetchConversationTags();
+          } else {
+            console.error("Failed to add tag:", response?.error || "Unknown error");
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error adding tag:", err);
+    }
+  };
+
+  const handleTagDelete = (id: any) => {
+    try {
+      const socket = socketRef.current;
+      if (!socket || !openConversationId || !id) {
+        console.error("Cannot delete tag: missing socket, conversation ID, or tag ID");
+        return;
+      }
+
+      socket.emit(
+        "remove-conversation-tag",
+        { id, conversationId: openConversationId },
+        (response: any) => {
+          if (response && response.success) {
+            console.log("Tag deleted successfully");
+            fetchConversationTags();
+          } else {
+            console.error("Failed to delete tag:", response?.error || "Unknown error");
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error deleting tag:", err);
+    }
+  };
+
+  const handleCloseConversation = async () => {
+    try {
+      const socket = socketRef.current;
+      if (!socket || !openConversationId) {
+        console.error("Cannot close conversation: missing socket or conversation ID");
+        return;
+      }
+
+      socket.emit(
+        "close-conversation",
+        { conversationId: openConversationId, status: "close" },
+        (response: any) => {
+          if (response && response.success) {
+            console.log("Conversation closed successfully");
+            setOpenConversationStatus("close");
+          } else {
+            console.error("Failed to close conversation:", response?.error || "Unknown error");
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error closing conversation:", err);
+    }
+  };
+
+  const handleBlockVisitor = async () => {
+    try {
+      const socket = socketRef.current;
+      if (!socket || !openVisitorId || !openConversationId) {
+        console.error("Cannot block visitor: missing socket, visitor ID, or conversation ID");
+        return;
+      }
+
+      socket.emit(
+        "block-visitor",
+        { visitorId: openVisitorId, conversationId: openConversationId },
+        (response: any) => {
+          if (response && response.success) {
+            console.log("Visitor blocked successfully");
+            setOpenConversationStatus("close");
+          } else {
+            console.error("Failed to block visitor:", response?.error || "Unknown error");
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error blocking visitor:", err);
+    }
+  };
+
+  const handleSearchConversations = (searchText: string) => {
+    try {
+      const socket = socketRef.current;
+      socket?.emit(
+        "search-conversations",
+        { query: searchText, status: status },
+        (response: any) => {
+          if (response.success) {
+            setSearchConversationsList({ data: response.data, loading: false });
+          } else {
+            console.error("Search Error:", response.error);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Error in search:", err);
+    }
+  };
+
+  const handleSearchInputChange = (e: any) => {
+    const searchValue = e.target.value;
+    setSearchText(searchValue);
+    if (searchValue.trim().length <= 0) {
+      setSearchConversationsList({ data: [], loading: false });
+    }
+  };
+
+  const handleSearchInputClick = () => {
+    if (searchText.trim().length > 0) {
+      handleSearchConversations(searchText);
+    }
+  };
+
+  const handleChange = (event: any) => {
+    setStatus(event.target.value);
+  };
+
+  const handleAddTag = () => {
+    setAddTag(true);
+  };
+
+  const handleToggle = () => {
+    try {
+      const socket = socketRef.current;
+      if (isAIChat === true) {
+        socket?.emit(
+          "close-ai-response",
+          { conversationId: openConversationId }
+        );
+      }
+    } catch (err) {
+      console.error("Error blocking visitor:", err);
+    }
+  };
+
+  const scrollToMessage = (index: any) => {
+    const messageIndex = conversationMessages.data.findIndex(
+      (msg: any) => msg._id === index
+    );
+    if (messageIndex !== -1) {
+      const messageElement = messageRefs.current[messageIndex];
+      if (messageElement && containerRef.current) {
+        containerRef.current.scrollTop =
+          messageElement.offsetTop - containerRef.current.offsetTop;
+      }
+    }
+  };
+
+  const getAvatarColor = (index: number) => {
+    const colors = [
+      "bg-purple-100 text-purple-600",
+      "bg-blue-100 text-blue-600", 
+      "bg-green-100 text-green-600",
+      "bg-yellow-100 text-yellow-600",
+      "bg-pink-100 text-pink-600",
+      "bg-indigo-100 text-indigo-600"
+    ];
+    return colors[index % colors.length];
+  };
+
+  // All other useEffects remain the same...
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -185,35 +450,25 @@ export default function Inbox(Props: any) {
     };
 
     const handleNewMessageCount = (data: any) => {
+      console.log("New message count triggered:", data);
       const userId = localStorage.getItem("userId");
 
-      socket.emit("get-open-conversations-list", { userId })
-      socket.on(
-        "get-open-conversations-list-response",
-        handleOpenConversationsListUpdateResponse
-      );
-
-      return () => {
-        socket.off(
-          "get-open-conversations-list-response",
-          handleOpenConversationsListUpdateResponse
-        );
-      };
-    }
+      if (status === "open") {
+        socket.emit("get-open-conversations-list", { userId });
+      } else {
+        socket.emit("get-close-conversations-list", { userId });
+      }
+    };
 
     socket.on("new-message-count", handleNewMessageCount);
-
     socket.on("conversation-append-message", handleAppendMessage);
 
-    socket.on("visitor-close-chat", handleCloseConversationVisitor);
     return () => {
       socket.off("conversation-append-message", handleAppendMessage);
       socket.off("visitor-close-chat");
     };
+  }, [socketRef.current]);
 
-  }, [socketRef.current])
-
-  // Socket get conversation List
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -221,48 +476,59 @@ export default function Inbox(Props: any) {
     const userId = localStorage.getItem("userId");
 
     if (status == "open") {
-      socket.emit("get-open-conversations-list", { userId })
-      socket.on(
-        "get-open-conversations-list-response",
-        handleOpenConversationsListResponse
-      );
+      socket.emit("get-open-conversations-list", { userId });
+      socket.on("get-open-conversations-list-response", handleOpenConversationsListResponse);
 
       return () => {
-        socket.off(
-          "get-open-conversations-list-response",
-          handleOpenConversationsListResponse
-        );
+        socket.off("get-open-conversations-list-response", handleOpenConversationsListResponse);
       };
     } else {
       socket.emit("get-close-conversations-list", { userId });
-      socket.on(
-        "get-close-conversations-list-response",
-        handleCloseConversationsListResponse
-      );
+      socket.on("get-close-conversations-list-response", handleCloseConversationsListResponse);
 
       return () => {
-        socket.off(
-          "get-close-conversations-list-response",
-          handleCloseConversationsListResponse
-        );
+        socket.off("get-close-conversations-list-response", handleCloseConversationsListResponse);
       };
     }
-  }, [status]);
+  }, [status, socketRef.current]);
 
   const handleOpenConversationsListResponse = async (data: any) => {
-    if (data.conversations.length <= 0) {
-      setIsConversationAvailable(false);
-    }
-    setConversationsList({ data: data.conversations, loading: false });
-    await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
-  }
+    console.log("Open conversations list received:", data);
 
-  const handleOpenConversationsListUpdateResponse = async (data: any) => {
-    status == 'open' && setConversationsList({ data: data.conversations, loading: false });
+    const filteredConversations = data.conversations.filter(conv => conv.is_started === true);
+    setIsConversationAvailable(filteredConversations.length > 0);
+    setConversationsList({ 
+      data: filteredConversations, 
+      loading: false 
+    });
+
+    if (!openConversationId && filteredConversations[0]) {
+      setOpenConversationId(filteredConversations[0].id);
+    }
   };
 
+  const handleCloseConversationsListResponse = async (data: any) => {
+    console.log("Close conversations list received:", data);
 
-  // conv list update
+    const filteredConversations = data.conversations.filter(conv => conv.is_started === true);
+    setIsConversationAvailable(filteredConversations.length > 0);
+    setConversationsList({ 
+      data: filteredConversations, 
+      loading: false 
+    });
+
+    if (!openConversationId && filteredConversations[0]) {
+      setOpenConversationId(filteredConversations[0].id);
+    }
+  };
+
+  const handleOpenConversationsListUpdateResponse = async (data: any) => {
+    status == 'open' && setConversationsList({ 
+      data: data.conversations.filter(conv => conv.is_started === true), 
+      loading: false 
+    });
+  };
+
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -283,54 +549,37 @@ export default function Inbox(Props: any) {
         handleOpenConversationsListUpdateResponse
       );
     };
+  }, [socketRef.current]);
 
-  }, [socketRef.current])
-
-  //handle close conv list
-  const handleCloseConversationsListResponse = async (data: any) => {
-    if (data.conversations.length <= 0) {
-      setIsConversationAvailable(false);
-    }
-    setConversationsList({ data: data.conversations, loading: false });
-    await openConversation(data.conversations[0], data.conversations[0]?.name, 0);
-  }
-
-
-  // Handle adding a note
-  const handleAddNote = () => {
+  useEffect(() => {
     const socket = socketRef.current;
-    if (!inputMessage.trim() || !socket) return;
+    if (!socket) return;
 
-    const noteData = {
-      message: inputMessage,
-      visitorId: openVisitorId,
-      conversationId: openConversationId,
-    };
-    socket.emit("client-send-add-note", noteData);
+    const handleNoteAppendMessage = ({ note }: any) => {
+      console.log(note, "new note data");
 
-    setNotesList((prev: any) => [
-      ...prev,
-      { message: inputMessage, createdAt: Date.now() },
-    ]);
+      setNotesList((prev: any) => [
+        ...prev,
+        { message: note.message, createdAt: Date.now() }
+      ]);
 
-    setConversationMessages((prevState: any) => ({
-      ...prevState,
-      data: [
-        ...prevState.data,
-        {
-          infoSources: [],
+      setConversationMessages((prev: any) => ({
+        ...prev,
+        data: [...prev.data, {
+          message: note.message,
           is_note: 'true',
-          message: inputMessage,
           sender_type: "agent",
-          createdAt: Date.now(),
-        },
-      ],
-    }));
-    setInputMessage("");
-  };
+          createdAt: Date.now()
+        }],
+      }));
+    };
 
+    socket.on("note-append-message", handleNoteAppendMessage);
+    return () => {
+      socket.off("note-append-message", handleNoteAppendMessage);
+    };
+  }, [socketRef.current]);
 
-  //old conv and notes
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -363,810 +612,506 @@ export default function Inbox(Props: any) {
         }
       );
     }
+    if(!openConversationId){
+      setNotesList([])
+    }
   }, [socketRef.current, openConversationId, openVisitorId]);
 
-  const handleAddTagClick = async () => {
-    try {
-      const socket = socketRef.current;
-      setAddTag(false);
-      // Emit event to add a tag to the conversation
-      socket?.emit(
-        "add-conversation-tag",
-        { name: inputAddTag, conversationId: openConversationId },
-        (response: any) => {
-          if (response.success) {
-            setTags(response.tags); // Update tags with the response
-            setInputAddTag("");
-          } else {
-            console.error("Failed to add tag:", response.error);
-          }
-        }
-      );
-    } catch (err) {
-      console.error("Error adding tag:", err);
+  const getConvTags = (data: any) => {
+    if (data && data.tags) {
+      console.log("Received tags:", data.tags);
+      setTags(data.tags);
+    } else {
+      console.error("Received invalid tag data:", data);
     }
   };
 
-  //tags socket
   useEffect(() => {
     const socket = socketRef.current;
-    if (!socket || !openConversationId) return;
+    if (!socket) return;
 
-    // Fetch tags when the conversation changes
-    socket.emit(
-      "get-conversation-tags",
-      { conversationId: openConversationId },
-      (response: any) => {
-        if (response.success) {
-          // console.log("Fetched tags:", response.tags);
-          setTags(response.tags);
-        } else {
-          console.error("Failed to fetch tags:", response.error);
-        }
-      }
-    );
-  }, [socketRef.current, openConversationId]);
+    socket.on("get-tags-response", getConvTags);
 
-
-  const handleTagDelete = (id: any) => {
-    try {
-      const socket = socketRef.current;
-      // Emit event to delete a tag from the conversation
-      socket?.emit(
-        "remove-conversation-tag",
-        { id, conversationId: openConversationId },
-        (response: any) => {
-          if (response.success) {
-            setTags(tags.filter((tag: any) => tag._id !== id));
-          } else {
-            console.error("Failed to delete tag:", response.error);
-          }
-        }
-      );
-    } catch (err) {
-      console.error("Error deleting tag:", err);
-    }
-  };
-
-  const handleCloseConversation = async () => {
-    try {
-      const socket = socketRef.current;
-      // Emit event to close the conversation
-      socket?.emit(
-        "close-conversation",
-        { conversationId: openConversationId, status: "close" },
-        (response: any) => {
-          if (response.success) {
-            setOpenConversationStatus("close");
-          } else {
-            console.error("Failed to close conversation:", response.error);
-          }
-        }
-      );
-    } catch (err) {
-      console.error("Error closing conversation:", err);
-    }
-  };
-
-  const handleCloseConversationVisitor = () => {
-    setOpenConversationStatus("close");
-  };
-
-  const handleBlockVisitor = async () => {
-    try {
-      const socket = socketRef.current;
-      // Emit event to block a visitor
-      socket?.emit(
-        "block-visitor",
-        { visitorId: openVisitorId, conversationId: openConversationId },
-        (response: any) => {
-          if (response.success) {
-            setOpenConversationStatus("close");
-          } else {
-            console.error("Failed to block visitor:", response.error);
-          }
-        }
-      );
-    } catch (err) {
-      console.error("Error blocking visitor:", err);
-    }
-  };
-
-  const handleSearchConversations = (searchText: string) => {
-    try {
-      const socket = socketRef.current;
-
-      // Emit a search event to the server
-      socket?.emit(
-        "search-conversations",
-        { query: searchText, status: status },
-        (response: any) => {
-          if (response.success) {
-            setSearchConversationsList({ data: response.data, loading: false });
-          } else {
-            console.error("Search Error:", response.error);
-          }
-        }
-      );
-    } catch (err) {
-      console.error("Error in search:", err);
-    }
-  };
-
-  const debounce = (func: Function, delay: number) => {
-    let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), delay);
+    return () => {
+      socket.off("get-tags-response", getConvTags);
     };
-  };
+  }, [socketRef.current]);
 
-  // Use this function to update search results when the input changes
-  // const handleSearchInputChange = useCallback(
-  //   debounce((e: React.ChangeEvent<HTMLInputElement>) => {
-  //     const searchValue = e.target.value;
-  //     setSearchText(searchValue);
-  //     console.log(searchValue, "this is searchValue")
-  //     if (searchValue.trim().length > 0) {
-  //       handleSearchConversations(searchValue);
-  //     } else {
-  //       setSearchConversationsList({ data: [], loading: false });
-  //     }
-  //   }, 300),
-  //   [setSearchText]
-  // );
-
-  const handleSearchInputChange = (e: any) => {
-    const searchValue = e.target.value;
-    setSearchText(searchValue);
-    if (searchValue.trim().length <= 0) {
-      setSearchConversationsList({ data: [], loading: false });
-    }
-  };
-
-  const handleSearchInputClick = () => {
-    if (searchText.trim().length > 0) {
-      handleSearchConversations(searchText);
-    }
-  };
-
-  // Function to handle the change event
-  const handleChange = (event: any) => {
-    // console.log(event.target.value, "this is val");
-    setStatus(event.target.value);
-  };
-
-  const handleAddTag = () => {
-    setAddTag(true);
-  };
-
-  // Scroll to the bottom whenever conversationMessages changes
   useEffect(() => {
-    // Delay scrolling to ensure the DOM has updated
+    if (openConversationId) {
+      fetchConversationTags();
+    }
+  }, [openConversationId]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const handleConversationClose = (data: any) => {
+      console.log("Conversation closed event received:", data);
+      setOpenConversationStatus("close");
+    };
+
+    const handleVisitorBlocked = (data: any) => {
+      console.log("Visitor blocked event received:", data);
+      setOpenConversationStatus("close");
+    };
+
+    socket.on('conversation-close-triggered', handleConversationClose);
+    socket.on('visitor-blocked', handleVisitorBlocked);
+    socket.on('visitor-conversation-close', handleConversationClose);
+
+    return () => {
+      socket.off('conversation-close-triggered', handleConversationClose);
+      socket.off('visitor-blocked', handleVisitorBlocked);
+      socket.off('visitor-conversation-close', handleConversationClose);
+    };
+  }, [socketRef.current]);
+
+  useEffect(() => {
     const scrollTimeout = setTimeout(() => {
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
       }
-    }, 100); // Adjust delay if necessary
+    }, 100);
 
-    return () => clearTimeout(scrollTimeout); // Clean up timeout on unmount
+    return () => clearTimeout(scrollTimeout);
   }, [conversationMessages?.data]);
 
-  // Scroll to a specific message
-  const scrollToMessage = (index: any) => {
-    const messageIndex = conversationMessages.data.findIndex(
-      (msg: any) => msg._id === index
-    );
-    if (messageIndex !== -1) {
-      const messageElement = messageRefs.current[messageIndex];
-      if (messageElement && containerRef.current) {
-        containerRef.current.scrollTop =
-          messageElement.offsetTop - containerRef.current.offsetTop;
-      }
-    }
-  };
-
-  // Function to handle toggle
-  const handleToggle = () => {
-    try {
-      const socket = socketRef.current;
-      // Emit event to block a visitor
-      if (isAIChat === true) {
-        socket?.emit(
-          "close-ai-response",
-          { conversationId: openConversationId },
-          (response: any) => {
-            if (response.success) {
-              // console.log("Visitor blocked successfully.");
-              setIsAIChat(false);
-            } else {
-              console.error("Failed to block visitor:", response.error);
-            }
-          }
-        );
-      }
-    } catch (err) {
-      console.error("Error blocking visitor:", err);
-    }
-  };
-  function handelEditMessage(message: any) {
+  useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
-
-    // socket.emit("edit-message", { messageId: message._id, newMessage: message.newMessage }, (response: any) => {
-    //   if (response.success) {
-    setConversationMessages((prev: any) => ({
-      ...prev,
-      data: prev.data.map((msg: any) =>
-        msg._id === message._id ? { ...msg, message: message.newMessage } : msg
-      ),
-    }));
-    //   } else {
-    //     console.error("Failed to edit message:", response.error);
-    //   }
-    // });
-  }
-
-
-  async function handelDeleteMessage(message: any) {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    // socket.emit("delete-message", { messageId: message._id }, (response: any) => {
-    //   if (response.success) {
-    setConversationMessages((prev: any) => ({
-      ...prev,
-      data: prev.data.filter((msg: any) => msg._id !== message._id),
-    }));
-    // } else {
-    //   console.error("Failed to delete message:", response.error);
-    // }
-    // }
-    // );
-  }
+    const handleAiResponse = () => {
+      setIsAIChat(false);
+    }
+    socket.on("ai-response-update", handleAiResponse);
+  }, [socketRef.current]);
 
   return (
     <>
-      <div className="main-content-area">
-        {isConversationAvailable ? (
-          <div className="inbox-area d-flex">
-            <div className="chat-listArea">
-              <div className="inbox-heading d-flex justify-content-between align-item-center">
-                <div className="top-headbar-heading">Inbox</div>
-                <div className="chat-listSearch">
-                  <input
-                    type="text"
-                    value={searchText}
-                    onChange={handleSearchInputChange}
-                    placeholder="Search Conversations"
-                    className="search-input"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleSearchInputClick();
-                      }
-                    }}
-                  />
-
-                  <button
-                    type="button"
-                    className="plain-btn"
-                    onClick={handleSearchInputClick}
-                  >
-                    <Image src={searchIconImage} alt="" />
-                  </button>
-                </div>
+        <div className="flex h-screen bg-gray-50">
+          {/* Conversations List */}
+          <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200">
+              <h1 className="text-xl font-semibold text-gray-900 mb-4">Inbox</h1>
+              
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search conversations..."
+                  value={searchText}
+                  onChange={handleSearchInputChange}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleSearchInputClick();
+                    }
+                  }}
+                />
               </div>
 
-              <div className="chat-listSection ">
-                <div className="chat-listFilter plr-20 ptb-10 d-flex justify-content-between">
-                  <div className="custom-dropi plain-dropi">
-                    <select className="form-select">
-                      <option>Newest</option>
-                      <option>Oldest</option>
-                    </select>
-                  </div>
-
-                  <div className="custom-dropi plain-dropi">
-                    <select
-                      className="form-select"
-                      value={status}
-                      onChange={handleChange}
-                    >
-                      <option>open</option>
-                      <option>close</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="chat-listBox--area custom-scrollbar">
-                  {conversationsList.loading ? (
-                    <>
-                      {[...Array(8)].map((_, index) => (
-                        <div className="chat-listBox gap-10 d-flex" key={index}>
-                          <div className="chatlist-userLetter">
-                            <Skeleton />
-                          </div>
-                          <div className="chatlist-listInfo">
-                            <div className="chatlist-userName">
-                              <Skeleton />
-                            </div>
-                            <div className="chatlist-userMessage">
-                              <Skeleton />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      {searchConversationsList.data.length ?
-                        <>
-                          {searchConversationsList.data
-                            .map((item: any, index: any) => (
-                              <div
-                                className={`chat-listBox gap-10 d-flex${conversationMessages.conversationId == item._id
-                                  ? " active"
-                                  : ""
-                                  }`}
-                                key={index}
-                                onClick={async () =>
-                                  await openConversation(item, item?.visitor?.name, index)
-                                }
-                              >
-                                <div className="chatlist-userLetter">
-                                  {item?.visitor?.name[0]}
-                                </div>
-                                <div className="chatlist-listInfo">
-                                  <div className="chatlist-userName">
-                                    {item?.visitor?.name}
-                                  </div>
-                                  <div
-                                    className="chatlist-userMessage"
-                                    dangerouslySetInnerHTML={{
-                                      __html: item?.lastMessage,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                        </>
-                        :
-                        <>
-                          {conversationsList.data
-                            .map((item: any, index: any) => {
-                              return (
-                                <div
-                                  className={`chat-listBox gap-10 d-flex${item._id == openConversationId
-                                    ? " active"
-                                    : ""
-                                    }`}
-                                  key={index}
-                                  onClick={async () =>
-                                    await openConversation(item, item?.visitor?.name, index)
-                                  }
-                                >
-                                  <div className="chatlist-userLetter">
-                                    {item?.visitor?.name[0]}
-                                  </div>
-                                  <div className="chatlist-listInfo">
-                                    <div className="chatlist-userName">
-                                      {item?.visitor?.name}
-                                    </div>
-                                    <div
-                                      className="chatlist-userMessage"
-                                      dangerouslySetInnerHTML={{
-                                        __html: item?.visitor?.lastMessage,
-                                      }}
-                                    />
-                                    <div className="new-message">{item?.newMessage}</div>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            )
-                          }
-                        </>
-                      }
-
-                    </>
-                  )}
-                </div>
+              {/* Filters */}
+              <div className="flex gap-3">
+                <select 
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue="newest"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                </select>
+                
+                <select 
+                  value={status}
+                  onChange={handleChange}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="open">Open</option>
+                  <option value="close">Closed</option>
+                </select>
               </div>
             </div>
 
-            <div className="chat-Area flex-grow-1">
-              <div className="inbox-heading d-flex justify-content-between align-item-center">
-                <div className="top-headbar-heading">
-                  {conversationMessages.visitorName}
+            {/* Conversation List */}
+            <div className="flex-1 overflow-y-auto">
+              {conversationsList.loading ? (
+                <div className="p-4 space-y-4">
+                  {[...Array(8)].map((_, index) => (
+                    <div className="flex items-center space-x-3" key={index}>
+                      <div className="w-10 h-10 rounded-full">
+                        <Skeleton circle height={40} width={40} />
+                      </div>
+                      <div className="flex-1">
+                        <Skeleton height={16} width="60%" />
+                        <Skeleton height={14} width="80%" className="mt-1" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: "20px",
-                    gap: "10px",
-                  }}
-                >
-                  <label
-                    style={{
-                      position: "relative",
-                      display: "inline-block",
-                      width: "60px",
-                      height: "34px",
-                    }}
+              ) : (
+                <>
+                  {(searchConversationsList.data.length ? searchConversationsList.data : conversationsList.data)
+                    .map((conversation: any, index: any) => (
+                      <div
+                        key={conversation._id}
+                        onClick={async () => await openConversation(conversation, conversation?.visitor?.name, index)}
+                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                          openConversationId === conversation._id ? 'bg-blue-50 border-r-2 border-r-blue-500' : ''
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm ${getAvatarColor(index)}`}>
+                            {conversation?.visitor?.name?.[0] || 'U'}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-sm font-medium text-gray-900 truncate">
+                                {conversation?.visitor?.name}
+                              </h3>
+                              <span className="text-xs text-gray-500">
+                                {conversation.updatedAt ? format(new Date(conversation.updatedAt), 'dd/MM/yy') : 'Now'}
+                              </span>
+                            </div>
+                            
+                            <p className="text-sm text-gray-600 truncate">
+                              {conversation?.visitor?.lastMessage || conversation?.lastMessage}
+                            </p>
+                            
+                            {conversation.newMessage > 0 && (
+                              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full mt-1">
+                                {conversation.newMessage}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Main Chat Area */}
+          {isConversationAvailable ? ( 
+          <>
+          {conversationMessages?.data?.length>1 ?
+          (<div className="flex-1 flex flex-col">
+            {/* Chat Header */}
+            <div className="bg-white border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {conversationMessages.visitorName}
+                  </h2>
+                  
+                  {/* AI Toggle */}
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm text-gray-600">AI Chat</span>
+                    <button
+                      onClick={handleToggle}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        isAIChat ? 'bg-blue-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          isAIChat ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-sm text-gray-600">Agent Chat</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  {openConversationStatus === "open" ? (
+                    <button 
+                      onClick={handleCloseConversation}
+                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      <PhoneOff className="w-4 h-4 mr-2" />
+                      Close Conversation
+                    </button>
+                  ) : (
+                    <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-gray-50 rounded-lg cursor-not-allowed">
+                      <PhoneOff className="w-4 h-4 mr-2" />
+                      Conversation Closed
+                    </button>
+                  )}
+                  
+                  {openConversationStatus === "open" ? (
+                    <button 
+                      onClick={handleBlockVisitor}
+                      className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                    >
+                      <UserX className="w-4 h-4 mr-2" />
+                      Block Visitor
+                    </button>
+                  ) : (
+                    <button className="flex items-center px-3 py-2 text-sm font-medium text-red-400 bg-red-25 rounded-lg cursor-not-allowed">
+                      <UserX className="w-4 h-4 mr-2" />
+                      Visitor Blocked
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="flex items-center space-x-2 mt-4">
+                {tags.map((tag: any) => (
+                  <span
+                    key={tag._id}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                   >
+                    {tag.name}
+                    <button
+                      onClick={() => handleTagDelete(tag._id)}
+                      className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-blue-200 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                {addTag ? (
+                  <div className="flex items-center space-x-2">
                     <input
-                      type="checkbox"
-                      checked={isAIChat}
-                      onChange={handleToggle}
-                      style={{
-                        opacity: 0,
-                        width: 0,
-                        height: 0,
+                      type="text"
+                      placeholder="Tag name"
+                      value={inputAddTag}
+                      onChange={(e) => setInputAddTag(e.target.value)}
+                      className="px-3 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddTagClick()}
+                    />
+                    <button
+                      onClick={handleAddTagClick}
+                      className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleAddTag}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-blue-600 border border-blue-200 hover:bg-blue-50 transition-colors"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Tag
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-6" ref={containerRef}>
+              {conversationMessages.loading ? (
+                <div className="space-y-4">
+                  {[...Array(10)].map((_, index) => (
+                    <div key={index} className={`flex ${index % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                      <div className="max-w-xs">
+                        <Skeleton height={60} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {conversationMessages?.data?.map((item: any, index: any) => (
+                    <div
+                      key={index}
+                      ref={(el) => {
+                        messageRefs.current[index] = el;
+                      }}
+                    >
+                      <Message
+                        messageData={item}
+                        messageIndex={index}
+                        expandedSources={expandedSources}
+                        setExpandedSources={setExpandedSources}
+                        visitorName={conversationMessages?.visitorName}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="bg-white border-t border-gray-200 p-4">
+              <div className="flex space-x-2 mb-4">
+                {openConversationStatus === "open" && (
+                  <button
+                    onClick={() => setIsNoteActive(false)}
+                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      !isNoteActive
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Chat
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => setIsNoteActive(true)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    isNoteActive
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <StickyNote className="w-4 h-4 mr-2" />
+                  Note
+                </button>
+              </div>
+
+              <div className="flex items-end space-x-3">
+                <div className="flex-1">
+                  {isNoteActive || openConversationStatus === "close" || isAIChat ? (
+                    <input
+                      type="text"
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      placeholder="Enter note here..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddNote();
+                        }
                       }}
                     />
-                    <span
-                      style={{
-                        position: "absolute",
-                        cursor: "pointer",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: isAIChat ? "#2196F3" : "#ccc",
-                        transition: "0.4s",
-                        borderRadius: "34px",
+                  ) : (
+                    <textarea
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      placeholder="Type a message..."
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleMessageSend();
+                        }
                       }}
-                    ></span>
-                    <span
-                      style={{
-                        position: "absolute",
-                        content: '""',
-                        height: "26px",
-                        width: "26px",
-                        left: isAIChat ? "30px" : "4px",
-                        bottom: "4px",
-                        backgroundColor: "white",
-                        transition: "0.4s",
-                        borderRadius: "50%",
-                      }}
-                    ></span>
-                  </label>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      fontSize: "16px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    <span style={{ color: isAIChat ? "#2196F3" : "#555" }}>
-                      AI Chat
-                    </span>
-                    <span style={{ color: !isAIChat ? "#2196F3" : "#555" }}>
-                      Agent Chat
-                    </span>
-                  </div>
+                    />
+                  )}
                 </div>
-                {openConversationStatus === "open" ?
-                  <button onClick={handleCloseConversation}>
-                    Close Conversation
-                  </button> :
-                  <button>
-                    Conversation Closed
+                
+                <div className="flex space-x-2">
+                  <button className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Mic className="w-5 h-5" />
                   </button>
-                }
+                  
+                  <button
+                    onClick={isNoteActive || openConversationStatus === "close" || isAIChat ? handleAddNote : handleMessageSend}
+                    disabled={!inputMessage.trim()}
+                    className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>):(
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Conversation</h3>
+              <p className="text-sm text-gray-500">This conversation is currently closed or not available.</p>
+            </div>
+          </div>
+          )}
 
-                {openConversationStatus === "open" ?
-                  <button onClick={handleBlockVisitor}>
-                    Block Visitor
-                  </button>
-                  :
-                  <button>
-                    Visitor Blocked
-                  </button>
-                }
 
-                <div className="chat-tagArea d-flex gap-16">
-                  <div className="chat-taglist">
-                    {tags.map((tag: any) => (
-                      <span className="custom-btn small-btn default-btn d-flex gap-2 align-item-center">
-                        {tag.name}
-                        <button type="button" className="plain-btn">
-                          <Image
-                            src={closeSmallImage}
-                            alt=""
-                            onClick={() => handleTagDelete(tag._id)}
-                          />
-                        </button>
-                      </span>
+          {/* Right Sidebar - Details */}
+          <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+            {/* Details Header */}
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Details</h3>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {/* Visitor Details */}
+              <div className="p-6 border-b border-gray-200">
+                <h4 className="text-sm font-medium text-gray-900 mb-4">Visitor Information</h4>
+                <div className="space-y-3">
+                  {visitorDetails && Object.entries(visitorDetails).map(([key, value]: any) => (
+                    <div key={key} className="flex">
+                      <dt className="text-sm text-gray-500 capitalize w-20 flex-shrink-0">{key}:</dt>
+                      <dd className="text-sm text-gray-900 flex-1 break-words">{value}</dd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes Section */}
+              <div className="p-6 border-b border-gray-200">
+                <h4 className="text-sm font-medium text-gray-900 mb-4">Notes</h4>
+                {notesList.length > 0 ? (
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {notesList.map((note: any, index: any) => (
+                      <div 
+                        key={note._id || index} 
+                        className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition-colors"
+                        onClick={() => scrollToMessage(note._id)}
+                      >
+                        <p className="text-sm text-gray-900">{note.message}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+                        </p>
+                      </div>
                     ))}
                   </div>
-                  <div className="dropdown add-dropdown tag-dropdown">
-                    <a
-                      className="btn btn-secondary dropdown-toggle"
-                      href="#"
-                      role="button"
-                      data-bs-toggle="dropdown"
-                      aria-expanded="false"
-                      onClick={handleAddTag}
-                    >
-                      Add Tag
-                    </a>
-
-                    <div>
-                      {addTag && (
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="Add Tag Name"
-                            value={inputAddTag}
-                            onChange={(event) => {
-                              setInputAddTag(event.target.value);
-                            }}
-                          ></input>
-                          <button onClick={handleAddTagClick}>Add</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-gray-500">No notes found</p>
+                )}
               </div>
 
-              <div className="message-section">
-                <div
-                  className="message-chatArea custom-scrollbar"
-                  ref={containerRef}
-                  style={{
-                    overflowY: "auto", // Enable vertical scrolling
-                    overflowX: "hidden",
-                  }}
-                >
-                  {conversationMessages.loading ? (
-                    <>
-                      {[...Array(10)].map((_, index) => (
-                        <p key={index}>
-                          <Skeleton />
+              {/* Previous Conversations */}
+              <div className="p-6">
+                <h4 className="text-sm font-medium text-gray-900 mb-4">Previous Conversations</h4>
+                {oldConversationList.data?.length > 0 ? (
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {oldConversationList.data.map((conversation: any) => (
+                      <div 
+                        key={conversation._id} 
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                          openConversationId === conversation._id 
+                            ? 'bg-blue-50 border border-blue-200' 
+                            : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                        onClick={async () => {
+                          setOpenConversationId(conversation._id);
+                          await openOldConversation(conversation._id, openVisitorName);
+                        }}
+                      >
+                        <h6 className="text-xs font-medium text-gray-700 mb-1">@{openVisitorName}</h6>
+                        <p className="text-sm text-gray-900 truncate">{conversation.message}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
                         </p>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      {conversationMessages?.data?.map(
-                        (item: any, index: any) => (
-                          <div
-                            key={index}
-                            ref={(el) => {
-                              messageRefs.current[index] = el; // Assign ref to each message
-                            }}
-                          >
-                            {/* <Message
-                              key={index}
-                              messageData={item}
-                              messageIndex={index}
-                              expandedSources={expandedSources}
-                              setExpandedSources={setExpandedSources}
-                              visitorName={conversationMessages.visitorName}
-                            /> */}
-
-                            <Message
-                              messageData={item}
-                              messageIndex={index}
-                              expandedSources={expandedSources}
-                              setExpandedSources={setExpandedSources}
-                              visitorName={conversationMessages?.visitorName}
-                            // onEditMessage={(message) => {
-                            // Handle edit message logic
-                            // handelEditMessage(message);
-                            // console.log('Edit message:', message);
-                            // }}
-                            // onDeleteMessage={async(message) => {
-                            // Handle delete message logic
-                            // await handelDeleteMessage(message);
-                            // console.log('Delete message:', message);
-                            // }}
-                            />
-                          </div>
-                        )
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <div className="messgae-answerArea">
-                  <div className="answer-tab">
-                    <ul
-                      className="nav nav-tabs gap-10"
-                      id="myTab"
-                      role="tablist"
-                    >
-                      {openConversationStatus == "open" && (
-                        <li className="nav-item" role="presentation">
-                          <button
-                            className="nav-link active"
-                            id="chat-tab"
-                            data-bs-toggle="tab"
-                            data-bs-target="#chat-tab-pane"
-                            type="button"
-                            role="tab"
-                            aria-controls="chat-tab-pane"
-                            aria-selected="true"
-                            onClick={() => {
-                              setIsNoteActive(false);
-                            }}
-                          >
-                            <Image src={chatMessageIconImage} alt="" /> Chat
-                          </button>
-                        </li>
-                      )}
-                      <li className="nav-item" role="presentation">
-                        <button
-                          className="nav-link"
-                          id="note-tab"
-                          data-bs-toggle="tab"
-                          data-bs-target="#note-tab-pane"
-                          type="button"
-                          role="tab"
-                          aria-controls="note-tab-pane"
-                          aria-selected="true"
-                          onClick={() => setIsNoteActive(true)}
-                        >
-                          <Image src={chatNoteIconImage} alt="" /> Note
-                        </button>
-                      </li>
-                    </ul>
-                    <div className="tab-content" id="myTabContent">
-                      {isNoteActive || openConversationStatus == "close" || isAIChat ? (
-                        <>
-                          <input
-                            type="text"
-                            placeholder="Enter Note Here..."
-                            className="form-control"
-                            value={inputMessage}
-                            onChange={(event) => {
-                              setInputMessage(event.target.value);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                handleAddNote();
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className="custom-btn"
-                            onClick={handleAddNote}
-                          >
-                            <Image src={sendIconImage} alt="" />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          className="tab-pane fade show active"
-                          id="chat-tab-pane"
-                          role="tabpanel"
-                          aria-labelledby="chat-tab"
-                          tabIndex={0}
-                        >
-                          <textarea
-                            className="form-control"
-                            placeholder="Enter text here...."
-                            value={inputMessage}
-                            onChange={(event) => {
-                              setInputMessage(event.target.value);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                handleMessageSend();
-                              }
-                            }}
-                          ></textarea>
-                          <div className="chat-messageBtns">
-                            <div className="d-flex gap-16">
-                              <button
-                                type="button"
-                                className="custom-btn default-btn"
-                              >
-                                <Image src={micIconImage} alt="" />
-                              </button>
-                              <button type="button" className="custom-btn">
-                                <Image src={sendIconImage} alt="" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="chat-detailsArea">
-              <div className="inbox-heading d-flex justify-content-between align-item-center">
-                <div className="top-headbar-heading">Details</div>
-              </div>
-
-              <div className="chat-detailsSec">
-                <div className="chat-detailsBox">
-                  <ul className="list-unstyled mb-0">
-                    {Object.entries(visitorDetails || {}).map(
-                      ([fieldName, value]: any) => (
-                        <li key={fieldName}>
-                          <div className="d-flex">
-                            <div className="chat-detailsTitle">{`${fieldName.charAt(0).toUpperCase() +
-                              fieldName.slice(1)
-                              }:-`}</div>
-                            <div className="">
-                              {value}
-                            </div>
-                          </div>
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-
-                <div className="note-area">
-                  <div className="note-heading">Notes</div>
-                  {notesList.length ? (
-                    <div className="note-listArea custom-scrollbar">
-                      {notesList.map((note: any, index: any) => (
-                        <div className="note-listBox">
-                          <div className="note-listDescribe-area d-flex justify-content-between" key={index}
-                            onClick={() => scrollToMessage(note._id)}>
-                            <p>{note.message}</p>
-                            <span>{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div>No notes Found</div>
-                  )}
-                </div>
-
-                <div className="note-area">
-                  <div className="note-heading">Old Converstion</div>
-                  {oldConversationList.data?.length ? (
-                    <div className="note-listArea custom-scrollbar">
-                      {oldConversationList.data.map((list: any) => (
-                        <div
-                          className="note-listBox"
-                          onClick={async () =>
-                            await openOldConversation(
-                              list.conversation_id,
-                              openVisitorName
-                            )
-                          }
-                        >
-                          <h6>@{openVisitorName}</h6>
-                          <div className="note-listDescribe-area d-flex justify-content-between">
-                            <p>{list.message}</p>
-                            <span>{formatDistanceToNow(new Date(list.createdAt), { addSuffix: true })}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div>No Conversations Found</div>
-                  )}
-                </div>
+                ) : (
+                  <p className="text-sm text-gray-500">No previous conversations</p>
+                )}
               </div>
             </div>
           </div>
-        ) : (
-          <div className="inbox-area">
-            <div className="inbox-heading d-flex justify-content-between align-item-center">
-              <div className="top-headbar-heading">Inbox</div>
-            </div>
-            <div className="justify-content-between align-item-center">
-              <p>No conversation found.</p>
+          </>):(
+            <div className="flex h-screen w-full bg-gray-50 items-center justify-center">
+            <div className="text-center">
+              <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">No Conversations</h2>
+              <p className="text-gray-600">No conversations found. New conversations will appear here.</p>
             </div>
           </div>
-        )}
-      </div>
+          )}
+        </div>
     </>
   );
 }

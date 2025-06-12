@@ -165,11 +165,7 @@ export default function Settings() {
 
   return (
     <div className="main-content">
-      <div className="submenu-sidebar">
-        <ul>
-          <li className="active"><a href="">Settings</a></li>
-        </ul>
-      </div>
+    
 
       <div className="top-headbar">
         <div className="top-headbar-heading">Settings</div>
@@ -272,7 +268,7 @@ export default function Settings() {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="pl-10 w-full rounded-lg border border-gray-300 py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter agent name"
                     />
                   </div>
@@ -288,7 +284,7 @@ export default function Settings() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="pl-10 w-full rounded-lg border border-gray-300 py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="agent@example.com"
                     />
                   </div>
@@ -304,7 +300,7 @@ export default function Settings() {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="pl-10 w-full rounded-lg border border-gray-300 py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Create a password"
                     />
                   </div>
@@ -361,7 +357,7 @@ export default function Settings() {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="pl-10 w-full rounded-lg border border-gray-300 py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="pl-10 w-full rounded-lg border border-gray-300 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter agent name"
                     />
                   </div>
