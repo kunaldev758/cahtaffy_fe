@@ -16,7 +16,7 @@ export function RegistrationForm() {
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
   const [passwordMatch, setPasswordMatch] = useState(true)
 
-  const handleOnSubmit = async (event) => {
+  const handleOnSubmit = async (event:any) => {
     event.preventDefault()
     if (email !== '' && password !== '' && confirmPassword !== '') {
       if (password === confirmPassword) {
@@ -28,27 +28,27 @@ export function RegistrationForm() {
     }
   }
 
-  const handleEmailOnChange = (event) => {
+  const handleEmailOnChange = (event:any) => {
     const email = event.target.value.trim()
     setEmail(email)
     blankValidation(email, password, confirmPassword)
   }
 
-  const handlePasswordOnChange = (event) => {
+  const handlePasswordOnChange = (event:any) => {
     const password = event.target.value.trim()
     setPassword(password)
     blankValidation(email, password, confirmPassword)
     passwordMatchValidation(password, confirmPassword)
   }
 
-  const handleConfirmPasswordOnChange = (event) => {
+  const handleConfirmPasswordOnChange = (event:any) => {
     const confirmPassword = event.target.value.trim()
     setConfirmPassword(confirmPassword)
     blankValidation(email, password, confirmPassword)
     passwordMatchValidation(password, confirmPassword)
   }
 
-  const blankValidation = (email, password, confirmPassword) => {
+  const blankValidation = (email: string, password: string, confirmPassword: string): void => {
     if (email === '' || password === '' || confirmPassword === '') {
       setButtonStatus({ ...buttonStatus, disabled: true })
     } else if (password === confirmPassword) {
@@ -56,7 +56,7 @@ export function RegistrationForm() {
     }
   }
 
-  const passwordMatchValidation = (password, confirmPassword) => {
+  const passwordMatchValidation = (password:any, confirmPassword:any) => {
     if (confirmPassword === '') {
       setPasswordMatch(true)
       return
@@ -71,7 +71,7 @@ export function RegistrationForm() {
     }
   }
 
-  const getPasswordStrength = (password) => {
+  const getPasswordStrength = (password:any) => {
     let strength = 0
     if (password.length >= 8) strength++
     if (/[A-Z]/.test(password)) strength++
