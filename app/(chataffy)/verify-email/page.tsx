@@ -1,4 +1,4 @@
-import Login from '../login/_components/login'
+import { LoginForm } from '../login/_components/login'
 import { Metadata } from 'next'
 import {verifyEmailApi} from '../../_api/login/action'
 
@@ -21,7 +21,7 @@ export default async function Home({
   return (
     <>
     {response.message}
-      <Login />
+      <LoginForm />
     </>
   )
 }
