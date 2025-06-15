@@ -56,6 +56,8 @@ export default function Inbox(Props: any) {
     visitorName: "",
   });
   const [inputMessage, setInputMessage] = useState("");
+  const [wordCount, setWordCount] = useState(0);
+  const MAX_WORDS = 100;
   const [openVisitorId, setOpenVisitorId] = useState<any>(null);
   const [openVisitorName, setOpenVisitorName] = useState<any>(null);
   const [openConversationId, setOpenConversationId] = useState<any>(null);
@@ -120,6 +122,7 @@ export default function Inbox(Props: any) {
     try {
       const socket = socketRef.current;
       if (!socket) return;
+      console.log(ConversationData,"ConversationData")
 
       const visitorId = ConversationData?.visitor?._id;
       setOpenVisitorId(visitorId);
@@ -246,6 +249,7 @@ export default function Inbox(Props: any) {
 
     socket.emit("get-conversation-tags", { conversationId: convId }, (response: any) => {
       if (response && response.success) {
+        console.log(response.tags,"response.tags")
         setTags(response.tags);
       } else {
         console.error("Failed to fetch tags:", response?.error || "Unknown error");
@@ -258,6 +262,11 @@ export default function Inbox(Props: any) {
       const socket = socketRef.current;
       if (!socket || !openConversationId || !inputAddTag.trim()) {
         console.error("Cannot add tag: missing socket, conversation ID, or tag name");
+        return;
+      }
+console.log(tags.length,"tags.length")
+      if (tags.length >= 6) {
+        console.error("Maximum number of tags (6) reached");
         return;
       }
 
@@ -490,7 +499,7 @@ export default function Inbox(Props: any) {
         socket.off("get-close-conversations-list-response", handleCloseConversationsListResponse);
       };
     }
-  }, [status, socketRef.current]);
+  }, [status, socketRef.current,isAIChat]);
 
   const handleOpenConversationsListResponse = async (data: any) => {
     console.log("Open conversations list received:", data);
@@ -687,6 +696,27 @@ export default function Inbox(Props: any) {
     socket.on("ai-response-update", handleAiResponse);
   }, [socketRef.current]);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+    if (words.length <= MAX_WORDS) {
+      setInputMessage(text);
+      setWordCount(words.length);
+    }
+  };
+  useEffect(() => {
+    const openFirstConversation = async () => {
+      if(conversationsList?.data?.length > 0 && status === "open"){
+        console.log(conversationsList?.data[0], "conversationsList?.data[0] hello")
+        await openConversation(conversationsList?.data[0], conversationsList?.data[0]?.visitor?.name, 0)
+      }
+    };
+    
+    openFirstConversation();
+  },[status,conversationsList?.data?.length])
+
+  console.log(openConversationId, "openConversationId the id")
+
   return (
     <>
         <div className="flex h-screen bg-gray-50">
@@ -878,17 +908,27 @@ export default function Inbox(Props: any) {
                 
                 {addTag ? (
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      placeholder="Tag name"
-                      value={inputAddTag}
-                      onChange={(e) => setInputAddTag(e.target.value)}
-                      className="px-3 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddTagClick()}
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Tag name"
+                        value={inputAddTag}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 30) {
+                            setInputAddTag(e.target.value);
+                          }
+                        }}
+                        className="px-3 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddTagClick()}
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                        {inputAddTag.length}/30
+                      </div>
+                    </div>
                     <button
                       onClick={handleAddTagClick}
-                      className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                      disabled={tags.length >= 6}
+                      className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Add
                     </button>
@@ -896,10 +936,11 @@ export default function Inbox(Props: any) {
                 ) : (
                   <button
                     onClick={handleAddTag}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-blue-600 border border-blue-200 hover:bg-blue-50 transition-colors"
+                    disabled={tags.length >= 6}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-blue-600 border border-blue-200 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <Plus className="w-3 h-3 mr-1" />
-                    Add Tag
+                    Add Tag ({tags.length}/6)
                   </button>
                 )}
               </div>
@@ -942,7 +983,7 @@ export default function Inbox(Props: any) {
             {/* Message Input */}
             <div className="bg-white border-t border-gray-200 p-4">
               <div className="flex space-x-2 mb-4">
-                {openConversationStatus === "open" && (
+                {openConversationStatus === "open" && !isAIChat && (
                   <button
                     onClick={() => setIsNoteActive(false)}
                     className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -971,44 +1012,60 @@ export default function Inbox(Props: any) {
 
               <div className="flex items-end space-x-3">
                 <div className="flex-1">
-                  {isNoteActive || openConversationStatus === "close" || isAIChat ? (
-                    <input
-                      type="text"
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      placeholder="Enter note here..."
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddNote();
-                        }
-                      }}
-                    />
+                  {isNoteActive || openConversationStatus === "close" ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={inputMessage}
+                        onChange={handleInputChange}
+                        placeholder="Enter note here..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAddNote();
+                          }
+                        }}
+                      />
+                      <div className="absolute right-2 bottom-2 text-xs text-gray-500">
+                        {wordCount}/{MAX_WORDS} words
+                      </div>
+                    </div>
+                  ) : isAIChat ? (
+                    <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm">
+                      Chat is disabled. Please disable AI Chat to send messages.
+                    </div>
                   ) : (
-                    <textarea
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      placeholder="Type a message..."
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleMessageSend();
-                        }
-                      }}
-                    />
+                    <div className="relative">
+                      <textarea
+                        value={inputMessage}
+                        onChange={handleInputChange}
+                        placeholder="Type a message..."
+                        rows={3}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleMessageSend();
+                          }
+                        }}
+                      />
+                      <div className="absolute right-2 bottom-2 text-xs text-gray-500">
+                        {wordCount}/{MAX_WORDS} words
+                      </div>
+                    </div>
                   )}
                 </div>
                 
                 <div className="flex space-x-2">
-                  <button className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                    <Mic className="w-5 h-5" />
-                  </button>
+                  {!isAIChat && !isNoteActive && openConversationStatus === "open" && (
+                    <button className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                      <Mic className="w-5 h-5" />
+                    </button>
+                  )}
                   
                   <button
-                    onClick={isNoteActive || openConversationStatus === "close" || isAIChat ? handleAddNote : handleMessageSend}
-                    disabled={!inputMessage.trim()}
+                    onClick={isNoteActive || openConversationStatus === "close" ? handleAddNote : handleMessageSend}
+                    disabled={!inputMessage.trim() || (!isNoteActive && isAIChat && openConversationStatus === "open")}
                     className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <Send className="w-5 h-5" />
