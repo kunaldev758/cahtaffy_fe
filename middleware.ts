@@ -18,7 +18,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(baseUrl + 'dashboard');
   }
   const currentUserrole = cookies().get('role')?.value
-if (currentUserrole === 'agent') {
+if (cookies().has('token') && currentUserrole === 'agent') {
   if (agentRoutes.includes(pathname)) {
     // Already on an allowed route, do nothing
     return NextResponse.next();
@@ -30,9 +30,9 @@ if (currentUserrole === 'agent') {
   }
 }
 
-  // if (!cookies().has('token') && !pathname.startsWith('/login')) {
-  //   return NextResponse.redirect(baseUrl + 'login');
-  // }
+  if (!cookies().has('token') && !pathname.startsWith('/login')) {
+    return NextResponse.redirect(baseUrl + 'login');
+  }
 }
 export const config = {
   matcher: [

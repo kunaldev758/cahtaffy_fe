@@ -280,6 +280,7 @@ export default function EnhancedChatWidget({ params } :any) {
       socket.off("visitor-connect-response");
     };
   }, [widgetToken]);
+  console.log(conversationId,"this is conversation id log")
 
   // Fetch visitor IP and location
   useEffect(() => {
@@ -402,7 +403,7 @@ export default function EnhancedChatWidget({ params } :any) {
     if (!socket) return;
 
     socket.emit('close-conversation-visitor', {
-      conversationId: conversationId,
+      conversationId: conversationId ?conversationId:(conversation[0]?.conversation_id),
       status: 'close'
     });
     setConversationStatus('close');
@@ -414,7 +415,7 @@ export default function EnhancedChatWidget({ params } :any) {
 
     socket.emit(
       "conversation-feedback",
-      { conversationId: conversationId, feedback: type },
+      { conversationId: conversationId ?conversationId:(conversation[0]?.conversation_id), feedback: type },
       (response:any) => {
         if (response.success) {
           setFeedback(type);
@@ -452,9 +453,9 @@ export default function EnhancedChatWidget({ params } :any) {
   };
 
   return (
-    <div style={positionStyles} className="font-sans">
+    <div style={positionStyles} className="font-sans ">
       {/* Chat Widget Button */}
-      <div className="relative">
+      <div className="relative ">
         <button
           onClick={toggleWidget}
           className="relative w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 ease-out focus:outline-none focus:ring-4 focus:ring-blue-300 group"
@@ -481,7 +482,7 @@ export default function EnhancedChatWidget({ params } :any) {
       </div>
 
       {/* Chat Window */}
-      {showWidget && (
+      {showWidget &&  (
         <div className={`absolute bottom-16 right-0 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform ${isMinimized ? 'h-16' : 'h-[600px]'
           }`}>
 
@@ -550,134 +551,139 @@ export default function EnhancedChatWidget({ params } :any) {
           {!isMinimized && (
             <>
               {/* Messages Area or Pre-Chat Form */}
-              <div className="flex-1 p-4 h-96 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
-                {visitorExists || (!visitorExists &&  !(themeSettings as any)?.isPreChatFormEnabled)? (
-                  <div className="space-y-4">
-                    {conversation.map((item:any, key:any) => (
-                      <div key={key}>
-                        {/* Agent/System/Bot messages */}
-                        {(item.sender_type === 'system' || item.sender_type === 'bot' ||
-                          (item.sender_type === 'agent' && item.is_note === "false") ||
-                          (item.sender_type === 'assistant' && item.is_note === "false")) && (
-                            <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
-                              {themeSettings?.showLogo && (
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                                  style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                                  {themeSettings?.logo ? (
-                                    <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
-                                  ) : (
-                                    <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
-                                  )}
+              {
+                conversationStatus==='open' && (
+                  <div className="flex-1 p-4 h-96 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
+                  {visitorExists || (!visitorExists &&  !(themeSettings as any)?.isPreChatFormEnabled)? (
+                    <div className="space-y-4">
+                      {conversation.map((item:any, key:any) => (
+                        <div key={key}>
+                          {/* Agent/System/Bot messages */}
+                          {(item.sender_type === 'system' || item.sender_type === 'bot' ||
+                            (item.sender_type === 'agent' && item.is_note === "false") ||
+                            (item.sender_type === 'assistant' && item.is_note === "false")) && (
+                              <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
+                                {themeSettings?.showLogo && (
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                                    style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                                    {themeSettings?.logo ? (
+                                      <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                    ) : (
+                                      <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                                    )}
+                                  </div>
+                                )}
+  
+                                <div className="flex-1 max-w-xs">
+                                  <div
+                                    className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
+                                    style={{
+                                      backgroundColor: getThemeColor(2, '#f1f5f9'),
+                                      color: getThemeColor(3, '#1e293b')
+                                    }}
+                                  >
+                                    <div dangerouslySetInnerHTML={{ __html: item.message }} />
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1 ml-2">
+                                    {item.createdAt && formatTime(item.createdAt)}
+                                  </div>
                                 </div>
-                              )}
-
-                              <div className="flex-1 max-w-xs">
+                              </div>
+                            )}
+  
+                          {/* Visitor messages */}
+                          {item.sender_type === 'visitor' && (
+                            <div className="flex justify-end animate-in slide-in-from-right duration-300">
+                              <div className="max-w-xs">
                                 <div
-                                  className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
+                                  className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm"
                                   style={{
-                                    backgroundColor: getThemeColor(2, '#f1f5f9'),
-                                    color: getThemeColor(3, '#1e293b')
+                                    backgroundColor: getThemeColor(4, '#3b82f6'),
+                                    color: getThemeColor(5, '#ffffff')
                                   }}
                                 >
                                   <div dangerouslySetInnerHTML={{ __html: item.message }} />
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1 ml-2">
-                                  {item.createdAt && formatTime(item.createdAt)}
+                                <div className="text-xs text-gray-500 mt-1 mr-2 text-right">
+                                  {item.createdAt ? (
+                                    formatTime(item.createdAt)
+                                  ) : (
+                                    <span className="flex items-center justify-end space-x-1">
+                                      <Clock className="w-3 h-3" />
+                                      <span>Sending...</span>
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
                           )}
-
-                        {/* Visitor messages */}
-                        {item.sender_type === 'visitor' && (
-                          <div className="flex justify-end animate-in slide-in-from-right duration-300">
-                            <div className="max-w-xs">
-                              <div
-                                className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm"
-                                style={{
-                                  backgroundColor: getThemeColor(4, '#3b82f6'),
-                                  color: getThemeColor(5, '#ffffff')
-                                }}
-                              >
-                                <div dangerouslySetInnerHTML={{ __html: item.message }} />
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1 mr-2 text-right">
-                                {item.createdAt ? (
-                                  formatTime(item.createdAt)
-                                ) : (
-                                  <span className="flex items-center justify-end space-x-1">
-                                    <Clock className="w-3 h-3" />
-                                    <span>Sending...</span>
-                                  </span>
-                                )}
-                              </div>
+                        </div>
+                      ))}
+  
+                      {/* Typing indicator */}
+                      {isTyping && (
+                        <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
+                          {themeSettings?.showLogo && (
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                              style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                              {themeSettings?.logo ? (
+                                <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
+                              ) : (
+                                <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                              )}
+                            </div>
+                          )}
+  
+                          <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Typing indicator */}
-                    {isTyping && (
-                      <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
-                        {themeSettings?.showLogo && (
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                            {themeSettings?.logo ? (
-                              <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
-                            ) : (
-                              <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
-                            )}
-                          </div>
-                        )}
-
-                        <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          </div>
                         </div>
-                      </div>
-                    )}
-                    <div ref={chatBottomRef} />
-                  </div>
-                ) : (
-                  // Enhanced Pre-chat form with validation
-                  <div className="space-y-4">
-                    <div className="text-center mb-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">Welcome! 👋</h3>
-                      <p className="text-gray-600 text-sm">Please fill out the form below to start chatting.</p>
-                    </div>
-
-                    {fields?.map((field:any) => (
-                      <FormField
-                        key={field._id}
-                        field={field}
-                        value={formData[field.value] || ''}
-                        onChange={(value:any) => handleFormFieldChange(field.value, value)}
-                        error={formErrors[field.value]}
-                      />
-                    ))}
-
-                    <button
-                      type="button"
-                      onClick={handleSubmitVisitorDetails}
-                      disabled={isSubmittingForm}
-                      className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {isSubmittingForm ? (
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Starting...</span>
-                        </div>
-                      ) : (
-                        'Start Conversation'
                       )}
-                    </button>
-                  </div>
-                )}
-              </div>
+                      <div ref={chatBottomRef} />
+                    </div>
+                  ) : (
+                    // Enhanced Pre-chat form with validation
+                    <div className="space-y-4">
+                      <div className="text-center mb-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Welcome! 👋</h3>
+                        <p className="text-gray-600 text-sm">Please fill out the form below to start chatting.</p>
+                      </div>
+  
+                      {fields?.map((field:any) => (
+                        <FormField
+                          key={field._id}
+                          field={field}
+                          value={formData[field.value] || ''}
+                          onChange={(value:any) => handleFormFieldChange(field.value, value)}
+                          error={formErrors[field.value]}
+                        />
+                      ))}
+  
+                      <button
+                        type="button"
+                        onClick={handleSubmitVisitorDetails}
+                        disabled={isSubmittingForm}
+                        className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      >
+                        {isSubmittingForm ? (
+                          <div className="flex items-center justify-center space-x-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Starting...</span>
+                          </div>
+                        ) : (
+                          'Start Conversation'
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                )
+              }
+           
 
               {/* Input Area - Only show when conversation is active */}
               {(visitorExists || (!visitorExists &&  !themeSettings?.isPreChatFormEnabled))&& (

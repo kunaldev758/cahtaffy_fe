@@ -29,6 +29,33 @@ export default function EmbeddingCode() {
     })
   }, [])
 
+  const fallbackCopyToClipboard = (text: string) => {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    
+    // Avoid scrolling to bottom of page in MS Edge
+    textArea.style.top = '0'
+    textArea.style.left = '0'
+    textArea.style.position = 'fixed'
+    textArea.style.opacity = '0'
+    
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+    
+    try {
+      const successful = document.execCommand('copy')
+      if (successful) {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }
+    } catch (err) {
+      console.error('Failed to copy text: ', err)
+    }
+    
+    document.body.removeChild(textArea)
+  }
+
   return (
     <>
       {loading ? 'Loading...' :
@@ -39,9 +66,21 @@ export default function EmbeddingCode() {
           <div className="flex justify-end">
             <button
               onClick={() => {
-                navigator.clipboard.writeText(widgetCode)
-                setCopied(true)
-                setTimeout(() => setCopied(false), 1500)
+                // Try using the Clipboard API first
+                if (navigator.clipboard && window.isSecureContext) {
+                  navigator.clipboard.writeText(widgetCode)
+                    .then(() => {
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 1500)
+                    })
+                    .catch(() => {
+                      // Fallback to execCommand if clipboard API fails
+                      fallbackCopyToClipboard(widgetCode)
+                    })
+                } else {
+                  // Fallback for non-secure contexts
+                  fallbackCopyToClipboard(widgetCode)
+                }
               }}
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
             >

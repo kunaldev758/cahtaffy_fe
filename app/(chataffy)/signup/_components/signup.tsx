@@ -1,9 +1,9 @@
-
 // Registration Component
 'use client'
 import { useState } from 'react';
 import { registrationApi } from '../../../_api/login/action'
 import { toast } from 'react-toastify'
+import Link from 'next/link'
 
 import { CheckCircleIcon, EyeIcon, EyeOffIcon, ScanEyeIcon, XCircleIcon } from 'lucide-react'
 
@@ -23,7 +23,11 @@ export function RegistrationForm() {
         setButtonStatus({ loading: true, disabled: true })
         const response = await registrationApi(email, password)
         setButtonStatus({ loading: false, disabled: false })
+        if(response?.status_code == 200){
+        toast.success(response.message)
+        }else{
         toast.error(response.message)
+        }
       }
     }
   }
@@ -253,9 +257,9 @@ export function RegistrationForm() {
             {/* Additional Links */}
             <div className="text-center">
               <span className="text-sm text-gray-600">Already have an account? </span>
-              <a href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
                 Sign in
-              </a>
+              </Link>
             </div>
           </form>
         </div>

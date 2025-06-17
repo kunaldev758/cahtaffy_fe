@@ -36,10 +36,12 @@ import {
   getConversationMessages,
   getOldConversationMessages,
 } from "@/app/_api/dashboard/action";
+import { useSearchParams } from "next/navigation";
 
 export default function Inbox(Props: any) {
+  const searchParams:any = useSearchParams()
+  const currentConversationId:any= searchParams.get('conversationId')
   const [expandedSources, setExpandedSources] = useState<null | number>(null);
-  const [credit, setCredit] = useState({ used: 0, total: 0 });
   const [isConversationAvailable, setIsConversationAvailable] = useState(true);
   const [conversationsList, setConversationsList] = useState<any>({
     data: [],
@@ -60,7 +62,7 @@ export default function Inbox(Props: any) {
   const MAX_WORDS = 100;
   const [openVisitorId, setOpenVisitorId] = useState<any>(null);
   const [openVisitorName, setOpenVisitorName] = useState<any>(null);
-  const [openConversationId, setOpenConversationId] = useState<any>(null);
+  const [openConversationId, setOpenConversationId] = useState<any>(currentConversationId ?? null);
   const [isNoteActive, setIsNoteActive] = useState<boolean>(false);
   const [notesList, setNotesList] = useState<any>([]);
   const [oldConversationList, setOldConversationList] = useState<any>({
@@ -122,7 +124,6 @@ export default function Inbox(Props: any) {
     try {
       const socket = socketRef.current;
       if (!socket) return;
-      console.log(ConversationData,"ConversationData")
 
       const visitorId = ConversationData?.visitor?._id;
       setOpenVisitorId(visitorId);
@@ -131,7 +132,7 @@ export default function Inbox(Props: any) {
       const data = await getConversationMessages(visitorId);
       if (data) {
         const conversationId = data.chatMessages[0]?.conversation_id;
-
+        history.pushState(null, '', `?conversationId=${conversationId}`);
         setConversationMessages({
           data: data.chatMessages,
           loading: false,
@@ -706,7 +707,10 @@ console.log(tags.length,"tags.length")
   };
   useEffect(() => {
     const openFirstConversation = async () => {
-      if(conversationsList?.data?.length > 0 && status === "open"){
+      if(currentConversationId){
+        let conv = await conversationsList?.data.find((con:any) => con._id === currentConversationId)
+        await openConversation(conv, conv?.visitor?.name, 0)
+      }else if(conversationsList?.data?.length > 0 && status === "open"){
         console.log(conversationsList?.data[0], "conversationsList?.data[0] hello")
         await openConversation(conversationsList?.data[0], conversationsList?.data[0]?.visitor?.name, 0)
       }
@@ -714,6 +718,31 @@ console.log(tags.length,"tags.length")
     
     openFirstConversation();
   },[status,conversationsList?.data?.length])
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    if (openConversationId && conversationsList?.data) {
+      const hasNewMessages = conversationsList.data.some(
+        (conv:any) => conv._id === openConversationId && conv.newMessage >= 1
+      );
+      
+      if (hasNewMessages) {
+        setConversationsList((prev: any) => ({
+          ...prev,
+          data: prev.data?.map((d: any) =>
+            d._id === openConversationId ? { ...d, newMessage: 0 } : d
+          ),
+        }));
+        socket.emit("message-seen", { conversationId:openConversationId }, (seenResponse: any) => {
+          if (seenResponse && !seenResponse.success) {
+            console.error("Failed to mark messages as seen:", seenResponse.error);
+          }
+        });
+      }
+    }
+  }, [openConversationId, conversationsList?.data,socketRef.current]);
+
 
   console.log(openConversationId, "openConversationId the id")
 
@@ -810,7 +839,7 @@ console.log(tags.length,"tags.length")
                               {conversation?.visitor?.lastMessage || conversation?.lastMessage}
                             </p>
                             
-                            {conversation.newMessage > 0 && (
+                            {conversation.newMessage > 0 && conversation._id != openConversationId && (
                               <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full mt-1">
                                 {conversation.newMessage}
                               </span>
