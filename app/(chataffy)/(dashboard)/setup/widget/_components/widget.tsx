@@ -423,11 +423,9 @@ const validateFile = (file:any) => {
 };
 
 const uploadLogoFunc = async (formData:any,userId:any) => {
-  console.log('Uploading logo');
-  // if (!userId) {
-  //   throw new Error('User ID is required for logo upload');
-  // }
-  console.log(userId,"this is userId")
+  if (!userId) {
+    throw new Error('User ID is required for logo upload');
+  }
   await uploadLogo(formData, userId);
   return new Promise(resolve => setTimeout(resolve, 1000));
 };
@@ -442,6 +440,7 @@ export default function EnhancedWidgetSettings() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
   const [fileValidationErrors, setFileValidationErrors] = useState([]);
+  const [originalSettings, setOriginalSettings] = useState(state);
 
   useEffect(() => {
     // Ensure this code runs only on the client side
@@ -514,6 +513,7 @@ export default function EnhancedWidgetSettings() {
     try {
       setIsLoading(true);
       await updateThemeSettings({ themeSettings });
+      setOriginalSettings(state); // Update originalSettings after successful save
       // Show success message
     } catch (error) {
       setError('Failed to save widget settings. Please try again.' as any);
@@ -523,23 +523,22 @@ export default function EnhancedWidgetSettings() {
   };
 
 
-  useEffect(()=>{
-    async function fetchData(){
-      if(userId){
-        console.log(userId,"userId this is the user id")
-     const data =  await getThemeSettings(userId);
-     console.log(data,"theme data")
-     if (data) {
-      dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
-    }
-    if(data?.data?.logo){
-      setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.data?.logo}`);
-    }
-  }
-    //  setThemeData(data);
+  useEffect(() => {
+    async function fetchData() {
+      if (userId) {
+        const data = await getThemeSettings(userId);
+        if (data) {
+          dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
+          setOriginalSettings({ ...state, ...data.data });
+        }
+        if (data?.data?.logo) {
+          setSelectedLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.data?.logo}`);
+        }
+      }
+      //  setThemeData(data);
     }
     fetchData()
-  },[userId])
+  }, [userId])
 
   // Color field labels
   const colorFieldLabels = {
@@ -550,6 +549,9 @@ export default function EnhancedWidgetSettings() {
     'ai_bubble': 'AI Message Background',
     'ai_bubble_text': 'AI Message Text'
   };
+
+  // Check if settings have changed
+  const isChanged = JSON.stringify(state) !== JSON.stringify(originalSettings);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -916,7 +918,7 @@ export default function EnhancedWidgetSettings() {
             <div className="flex justify-end">
               <button
                 onClick={handleSaveSettings}
-                disabled={isLoading}
+                disabled={isLoading || !isChanged}
                 className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Save className="w-4 h-4" />

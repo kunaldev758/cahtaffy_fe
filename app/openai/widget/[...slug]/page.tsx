@@ -182,6 +182,8 @@ export default function EnhancedChatWidget({ params } :any) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const chatBottomRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -261,6 +263,10 @@ export default function EnhancedChatWidget({ params } :any) {
       widgetToken
     });
 
+    socket.emit('visitor-ip',{
+      ip:visitorIp
+    })
+
     socket.on("visitor-connect-response", (data) => {
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
@@ -279,8 +285,7 @@ export default function EnhancedChatWidget({ params } :any) {
     return () => {
       socket.off("visitor-connect-response");
     };
-  }, [widgetToken]);
-  console.log(conversationId,"this is conversation id log")
+  }, [widgetToken,visitorIp]);
 
   // Fetch visitor IP and location
   useEffect(() => {
@@ -300,6 +305,7 @@ export default function EnhancedChatWidget({ params } :any) {
     fetchVisitorDetails();
 
     socket.on("visitor-is-blocked", () => {
+      setIsBlocked(true);
       setConversationStatus('close');
     })
 
@@ -452,6 +458,17 @@ export default function EnhancedChatWidget({ params } :any) {
     zIndex: 1000
   };
 
+  useEffect(() => {
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
+
   return (
     <div style={positionStyles} className="font-sans ">
       {/* Chat Widget Button */}
@@ -485,6 +502,13 @@ export default function EnhancedChatWidget({ params } :any) {
       {showWidget &&  (
         <div className={`absolute bottom-16 right-0 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform ${isMinimized ? 'h-16' : 'h-[600px]'
           }`}>
+
+          {/* No Internet Banner */}
+          {!isOnline && (
+            <div className="bg-red-100 text-red-700 text-center py-2 font-semibold">
+              No internet connection. Chat is disabled.
+            </div>
+          )}
 
           {/* Header */}
           <div
@@ -549,245 +573,253 @@ export default function EnhancedChatWidget({ params } :any) {
 
           {/* Body - Only show when not minimized */}
           {!isMinimized && (
-            <>
-              {/* Messages Area or Pre-Chat Form */}
-              {
-                conversationStatus==='open' && (
-                  <div className="flex-1 p-4 h-96 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
-                  {visitorExists || (!visitorExists &&  !(themeSettings as any)?.isPreChatFormEnabled)? (
-                    <div className="space-y-4">
-                      {conversation.map((item:any, key:any) => (
-                        <div key={key}>
-                          {/* Agent/System/Bot messages */}
-                          {(item.sender_type === 'system' || item.sender_type === 'bot' ||
-                            (item.sender_type === 'agent' && item.is_note === "false") ||
-                            (item.sender_type === 'assistant' && item.is_note === "false")) && (
-                              <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
-                                {themeSettings?.showLogo && (
-                                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                                    style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                                    {themeSettings?.logo ? (
-                                      <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
-                                    ) : (
-                                      <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
-                                    )}
+            isBlocked ? (
+              <div className="flex flex-col items-center justify-center h-full p-8">
+                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">You are blocked</h3>
+                <p className="text-gray-600 text-center">You have been blocked from using this chat. If you believe this is a mistake, please contact support.</p>
+              </div>
+            ) : (
+              <>
+                {/* Messages Area or Pre-Chat Form */}
+                {
+                  conversationStatus==='open' && (
+                    <div className="flex-1 p-4 h-96 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
+                    {visitorExists || (!visitorExists &&  !(themeSettings as any)?.isPreChatFormEnabled)? (
+                      <div className="space-y-4">
+                        {conversation.map((item:any, key:any) => (
+                          <div key={key}>
+                            {/* Agent/System/Bot messages */}
+                            {(item.sender_type === 'system' || item.sender_type === 'bot' ||
+                              (item.sender_type === 'agent' && item.is_note === "false") ||
+                              (item.sender_type === 'assistant' && item.is_note === "false")) && (
+                                <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
+                                  {themeSettings?.showLogo && (
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                                      style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                                      {themeSettings?.logo ? (
+                                        <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                      ) : (
+                                        <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                                      )}
+                                    </div>
+                                  )}
+                
+                                  <div className="flex-1 max-w-xs">
+                                    <div
+                                      className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
+                                      style={{
+                                        backgroundColor: getThemeColor(2, '#f1f5f9'),
+                                        color: getThemeColor(3, '#1e293b')
+                                      }}
+                                    >
+                                      <div dangerouslySetInnerHTML={{ __html: item.message }} />
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1 ml-2">
+                                      {item.createdAt && formatTime(item.createdAt)}
+                                    </div>
                                   </div>
-                                )}
-  
-                                <div className="flex-1 max-w-xs">
+                                </div>
+                              )}
+                
+                            {/* Visitor messages */}
+                            {item.sender_type === 'visitor' && (
+                              <div className="flex justify-end animate-in slide-in-from-right duration-300">
+                                <div className="max-w-xs">
                                   <div
-                                    className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
+                                    className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm"
                                     style={{
-                                      backgroundColor: getThemeColor(2, '#f1f5f9'),
-                                      color: getThemeColor(3, '#1e293b')
+                                      backgroundColor: getThemeColor(4, '#3b82f6'),
+                                      color: getThemeColor(5, '#ffffff')
                                     }}
                                   >
                                     <div dangerouslySetInnerHTML={{ __html: item.message }} />
                                   </div>
-                                  <div className="text-xs text-gray-500 mt-1 ml-2">
-                                    {item.createdAt && formatTime(item.createdAt)}
+                                  <div className="text-xs text-gray-500 mt-1 mr-2 text-right">
+                                    {item.createdAt ? (
+                                      formatTime(item.createdAt)
+                                    ) : (
+                                      <span className="flex items-center justify-end space-x-1">
+                                        <Clock className="w-3 h-3" />
+                                        <span>Sending...</span>
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             )}
-  
-                          {/* Visitor messages */}
-                          {item.sender_type === 'visitor' && (
-                            <div className="flex justify-end animate-in slide-in-from-right duration-300">
-                              <div className="max-w-xs">
-                                <div
-                                  className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm"
-                                  style={{
-                                    backgroundColor: getThemeColor(4, '#3b82f6'),
-                                    color: getThemeColor(5, '#ffffff')
-                                  }}
-                                >
-                                  <div dangerouslySetInnerHTML={{ __html: item.message }} />
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1 mr-2 text-right">
-                                  {item.createdAt ? (
-                                    formatTime(item.createdAt)
-                                  ) : (
-                                    <span className="flex items-center justify-end space-x-1">
-                                      <Clock className="w-3 h-3" />
-                                      <span>Sending...</span>
-                                    </span>
-                                  )}
-                                </div>
+                          </div>
+                        ))}
+                
+                        {/* Typing indicator */}
+                        {isTyping && (
+                          <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
+                            {themeSettings?.showLogo && (
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                                style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                                {themeSettings?.logo ? (
+                                  <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                ) : (
+                                  <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                                )}
+                              </div>
+                            )}
+                
+                            <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
-  
-                      {/* Typing indicator */}
-                      {isTyping && (
-                        <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
-                          {themeSettings?.showLogo && (
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                              style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                              {themeSettings?.logo ? (
-                                <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
-                              ) : (
-                                <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
-                              )}
-                            </div>
-                          )}
-  
-                          <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                            </div>
                           </div>
-                        </div>
-                      )}
-                      <div ref={chatBottomRef} />
-                    </div>
-                  ) : (
-                    // Enhanced Pre-chat form with validation
-                    <div className="space-y-4">
-                      <div className="text-center mb-6">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Welcome! 👋</h3>
-                        <p className="text-gray-600 text-sm">Please fill out the form below to start chatting.</p>
-                      </div>
-  
-                      {fields?.map((field:any) => (
-                        <FormField
-                          key={field._id}
-                          field={field}
-                          value={formData[field.value] || ''}
-                          onChange={(value:any) => handleFormFieldChange(field.value, value)}
-                          error={formErrors[field.value]}
-                        />
-                      ))}
-  
-                      <button
-                        type="button"
-                        onClick={handleSubmitVisitorDetails}
-                        disabled={isSubmittingForm}
-                        className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                      >
-                        {isSubmittingForm ? (
-                          <div className="flex items-center justify-center space-x-2">
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Starting...</span>
-                          </div>
-                        ) : (
-                          'Start Conversation'
                         )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                )
-              }
-           
-
-              {/* Input Area - Only show when conversation is active */}
-              {(visitorExists || (!visitorExists &&  !themeSettings?.isPreChatFormEnabled))&& (
-                <div className="border-t border-gray-200 bg-white">
-                  {conversationStatus === 'close' ? (
-                    <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <AlertCircle className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Conversation Ended</h3>
-                    <p className="text-gray-600 text-sm mb-6">This conversation has been closed. Thank you for contacting us!</p>
-                    
-                    {/* Feedback buttons */}
-
-                      <div className="space-y-3">
-                        <p className="text-sm text-gray-600">How was your experience?</p>
-                        <div className="flex justify-center space-x-4">
-                          <button
-                            onClick={() => handleFeedback(true)}
-                            disabled={feedback === false}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${feedback === true
-                              ? 'bg-green-500 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-green-500 hover:text-white'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            <ThumbsUp className="w-4 h-4" />
-                            <span className="text-sm">Good</span>
-                          </button>
+                        <div ref={chatBottomRef} />
+                      </div>
+                    ) : (
+                      // Enhanced Pre-chat form with validation
+                      <div className="space-y-4">
+                        <div className="text-center mb-6">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-2">Welcome! 👋</h3>
+                          <p className="text-gray-600 text-sm">Please fill out the form below to start chatting.</p>
+                        </div>
                 
+                        {fields?.map((field:any) => (
+                          <FormField
+                            key={field._id}
+                            field={field}
+                            value={formData[field.value] || ''}
+                            onChange={(value:any) => handleFormFieldChange(field.value, value)}
+                            error={formErrors[field.value]}
+                          />
+                        ))}
+                
+                        <button
+                          type="button"
+                          onClick={handleSubmitVisitorDetails}
+                          disabled={isSubmittingForm}
+                          className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        >
+                          {isSubmittingForm ? (
+                            <div className="flex items-center justify-center space-x-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span>Starting...</span>
+                            </div>
+                          ) : (
+                            'Start Conversation'
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  )
+                }
+             
+
+                {/* Input Area - Only show when conversation is active */}
+                {(visitorExists || (!visitorExists &&  !themeSettings?.isPreChatFormEnabled))&& (
+                  <div className="border-t border-gray-200 bg-white">
+                    {conversationStatus === 'close' ? (
+                      <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertCircle className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">Conversation Ended</h3>
+                      <p className="text-gray-600 text-sm mb-6">This conversation has been closed. Thank you for contacting us!</p>
+                      
+                      {/* Feedback buttons */}
+
+                        <div className="space-y-3">
+                          <p className="text-sm text-gray-600">How was your experience?</p>
+                          <div className="flex justify-center space-x-4">
+                            <button
+                              onClick={() => handleFeedback(true)}
+                              disabled={feedback === false}
+                              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${feedback === true
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-green-500 hover:text-white'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                              <ThumbsUp className="w-4 h-4" />
+                              <span className="text-sm">Good</span>
+                            </button>
+                  
+                            <button
+                              onClick={() => handleFeedback(false)}
+                              disabled={feedback === true}
+                              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${feedback === false
+                                ? 'bg-red-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-red-500 hover:text-white'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                              <ThumbsDown className="w-4 h-4" />
+                              <span className="text-sm">Poor</span>
+                            </button>
+                          </div>
+                          {feedback !== null && (
+                            <p className="text-xs text-green-600 mt-2">Thank you for your feedback!</p>
+                          )}
+                        </div>
+
+                    </div>
+                    ) : (
+                      <div className="p-4">
+                        <div className="flex items-end space-x-3">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              placeholder="Type your message..."
+                              value={inputMessage}
+                              onChange={handleInputChange}
+                              onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
+                              disabled={isTyping || !isOnline}
+                            />
+                          </div>
+
                           <button
-                            onClick={() => handleFeedback(false)}
-                            disabled={feedback === true}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${feedback === false
-                              ? 'bg-red-500 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-red-500 hover:text-white'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            onClick={handleMessageSend}
+                            disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline}
+                            className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
                           >
-                            <ThumbsDown className="w-4 h-4" />
-                            <span className="text-sm">Poor</span>
+                            <Send className="w-5 h-5" />
                           </button>
                         </div>
-                        {feedback !== null && (
-                          <p className="text-xs text-green-600 mt-2">Thank you for your feedback!</p>
+
+                        {error && (
+                          <div className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>{error}</span>
+                          </div>
                         )}
-                      </div>
 
+                        <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
+                          <span>
+                            {inputMessage.trim().split(/\s+/).filter(word => word.length > 0).length}/100 words
+                          </span>
+
+                          <button
+                            onClick={handleCloseConversation}
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                          >
+                            End conversation
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* White Label Footer */}
+                    {!themeSettings?.showWhiteLabel && (
+                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                        <div className="text-xs text-gray-500 text-center">
+                          Powered by <span className="font-semibold text-blue-600">Chataffy</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  ) : (
-                    <div className="p-4">
-                      <div className="flex items-end space-x-3">
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            placeholder="Type your message..."
-                            value={inputMessage}
-                            onChange={handleInputChange}
-                            onKeyDown={(e) => e.key === 'Enter' && handleMessageSend()}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
-                          disabled={isTyping}
-                          />
-                        </div>
-
-                        <button
-                          onClick={handleMessageSend}
-                          disabled={!inputMessage.trim() || Boolean(error) || isTyping}
-                          className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
-                        >
-                          <Send className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      {error && (
-                        <div className="mt-2 text-sm text-red-600 flex items-center space-x-1">
-                          <AlertCircle className="w-4 h-4" />
-                          <span>{error}</span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
-                        <span>
-                          {inputMessage.trim().split(/\s+/).filter(word => word.length > 0).length}/100 words
-                        </span>
-
-                        <button
-                          onClick={handleCloseConversation}
-                          className="text-red-500 hover:text-red-700 transition-colors"
-                        >
-                          End conversation
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* White Label Footer */}
-                  {!themeSettings?.showWhiteLabel && (
-                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
-                      <div className="text-xs text-gray-500 text-center">
-                        Powered by <span className="font-semibold text-blue-600">Chataffy</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+                )}
+              </>
+            )
           )}
         </div>
       )}

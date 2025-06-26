@@ -16,6 +16,7 @@ export default function BasicInfoForm(Props:any) {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [originalInfo, setOriginalInfo] = useState(basicInfo);
 
   const fetchBasicInfo = async () => {
     setIsLoading(true);
@@ -23,6 +24,7 @@ export default function BasicInfoForm(Props:any) {
       const response = await getBasicInfoApi(basicInfo);
       if (response && response.status_code === 200) {
         setBasicInfo(response.data);
+        setOriginalInfo(response.data);
       }
     } catch (error) {
       toast.error("Failed to fetch basic information");
@@ -99,6 +101,7 @@ export default function BasicInfoForm(Props:any) {
       }
       toast.success(response.message);
       setErrors({});
+      setOriginalInfo(basicInfo);
     } catch (error) {
       toast.error("Error");
     } finally {
@@ -133,6 +136,9 @@ export default function BasicInfoForm(Props:any) {
       [name]: error
     });
   };
+
+  // Check if form has changed
+  const isChanged = JSON.stringify(basicInfo) !== JSON.stringify(originalInfo);
 
   if (isLoading) {
     return (
@@ -308,9 +314,9 @@ export default function BasicInfoForm(Props:any) {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isChanged}
                 className={`px-8 py-3 rounded-lg font-semibold text-white transition-all duration-200 flex items-center space-x-2 ${
-                  isSubmitting
+                  isSubmitting || !isChanged
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-md hover:shadow-lg'
                 }`}

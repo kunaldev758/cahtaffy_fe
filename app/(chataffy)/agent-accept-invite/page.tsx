@@ -32,6 +32,6 @@ export default function AgentAcceptInvite() {
 
 
     }, [token])
-    return <h1>hello</h1>
+    return <h1>Welcome! You are being redirected to login Page</h1>
 
 }
