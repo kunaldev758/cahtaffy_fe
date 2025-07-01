@@ -184,6 +184,7 @@ export default function EnhancedChatWidget({ params } :any) {
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [socketError, setSocketError] = useState(false);
 
   const chatBottomRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -206,23 +207,37 @@ export default function EnhancedChatWidget({ params } :any) {
       storedVisitorId = uuidv4();
       localStorage.setItem('visitorId', storedVisitorId);
     }
-    console.log(storedVisitorId,"storedVisitorId")
 
-    // Initialize socket connection - REPLACE THIS ENTIRE SECTION
-    const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-      query: {
-        widgetId,
-        widgetAuthToken: widgetToken,
-        visitorId: localStorage.getItem('visitorId'),
-      },
-      transports: ["websocket", "polling"],
-    });
+    let socketInstance:any;
+    try {
+      socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`,
+        {
+          query: {
+            widgetId,
+            widgetAuthToken: widgetToken,
+            visitorId: localStorage.getItem('visitorId'),
+          },
+          transports: ["websocket", "polling"],
+        }
+      );
 
-    socketRef.current = socketInstance;
+      socketInstance.on('connect_error', (err:any) => {
+        setSocketError(true);
+      });
+      socketInstance.on('error', (err:any) => {
+        setSocketError(true);
+      });
+      socketInstance.on('disconnect', (reason:any) => {
+        if (reason !== 'io client disconnect') setSocketError(true);
+      });
 
-    // Cleanup on unmount
+      socketRef.current = socketInstance;
+    } catch (e) {
+      setSocketError(true);
+    }
+
     return () => {
-      socketInstance.disconnect();
+      socketInstance?.disconnect();
       socketRef.current = null;
     };
   }, [widgetId, widgetToken]);
@@ -573,7 +588,13 @@ export default function EnhancedChatWidget({ params } :any) {
 
           {/* Body - Only show when not minimized */}
           {!isMinimized && (
-            isBlocked ? (
+            socketError ? (
+              <div className="flex flex-col items-center justify-center h-full p-8">
+                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h3>
+                <p className="text-gray-600 text-center">We couldn't connect to the chat service. Please try again later.</p>
+              </div>
+            ) : isBlocked ? (
               <div className="flex flex-col items-center justify-center h-full p-8">
                 <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">You are blocked</h3>

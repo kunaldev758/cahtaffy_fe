@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getBasicInfoApi, setBasicInfoApi } from "@/app/_api/dashboard/action";
 import { toast } from 'react-toastify';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 export default function BasicInfoForm(Props:any) {
   const [basicInfo, setBasicInfo] = useState({
@@ -17,6 +18,7 @@ export default function BasicInfoForm(Props:any) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [originalInfo, setOriginalInfo] = useState(basicInfo);
+  const [country, setCountry] = useState('IN');
 
   const fetchBasicInfo = async () => {
     setIsLoading(true);
@@ -49,6 +51,7 @@ export default function BasicInfoForm(Props:any) {
       case 'organisation':
         if (!value.trim()) return 'Organisation name is required';
         if (value.trim().length < 2) return 'Organisation name must be at least 2 characters';
+        if (value.trim().length > 50) return 'Organisation name must not exceed 50 characters';
         return '';
         
       case 'fallbackMessage':
@@ -65,9 +68,8 @@ export default function BasicInfoForm(Props:any) {
         
       case 'phone':
         if (!value.trim()) return 'Phone number is required';
-        const phonePattern = /^[\+]?[1-9][\d]{0,15}$/;
-        if (!phonePattern.test(value.replace(/[\s\-\(\)]/g, ''))) {
-          return 'Please enter a valid phone number';
+        if (!isValidPhoneNumber(value, country as any)) {
+          return 'Please enter a valid phone number for the selected country';
         }
         return '';
         
@@ -201,12 +203,21 @@ export default function BasicInfoForm(Props:any) {
                   value={basicInfo.organisation}
                   onChange={handleChange}
                   onBlur={handleBlur}
+                  maxLength={50}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
                     (errors as any).organisation 
                       ? 'border-red-500 bg-red-50' 
                       : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
                   }`}
                 />
+                {(basicInfo.organisation && basicInfo.organisation.length > 50) && (
+                  <p className="text-red-500 text-sm flex items-center mt-1">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Organisation Name must not exceed 50 characters
+                  </p>
+                )}
                 {(errors as any).organisation && (
                   <p className="text-red-500 text-sm flex items-center mt-1">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -250,6 +261,23 @@ export default function BasicInfoForm(Props:any) {
                 <label className="block text-sm font-semibold text-gray-700">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
+                <select
+                  value={country}
+                  onChange={e => setCountry(e.target.value)}
+                  className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 mb-2"
+                >
+                  <option value="US">United States</option>
+                  <option value="IN">India</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="CA">Canada</option>
+                  <option value="AU">Australia</option>
+                  <option value="DE">Germany</option>
+                  <option value="FR">France</option>
+                  <option value="PK">Pakistan</option>
+                  <option value="BD">Bangladesh</option>
+                  <option value="NG">Nigeria</option>
+                  {/* Add more countries as needed */}
+                </select>
                 <input
                   type="tel"
                   name="phone"
