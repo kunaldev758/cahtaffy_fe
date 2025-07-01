@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { useSocket } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
+import Link from 'next/link'
 
 
 export function LoginForm() {
@@ -149,9 +150,9 @@ export function LoginForm() {
             
               <div className="text-sm">
                 <span className="text-gray-600">Don't have an account? </span>
-                <a href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+                <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
                   Sign up
-                </a>
+                </Link>
               </div>
             </div>
           </form>
