@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   
 }
 
-import Inbox from './_components/inbox'
+import Inbox from './_components/Inbox'
 
 export default function Home() {
   const token = cookies().get('token')?.value ?? ''

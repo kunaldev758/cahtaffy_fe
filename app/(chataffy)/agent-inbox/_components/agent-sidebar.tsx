@@ -1,7 +1,7 @@
 // app/agent-inbox/_components/agent-sidebar.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare,
@@ -36,24 +36,20 @@ export default function AgentSidebar() {
   
   const router = useRouter();
 
-  // Get agent data from localStorage
-  const getAgentData = (): Agent | null => {
-    try {
-      const agentData = localStorage.getItem('agent');
-      return agentData ? JSON.parse(agentData) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const [agent, setAgent] = useState<Agent | null>(getAgentData());
+  const [agent, setAgent] = useState<Agent | null>(null);
   const [editForm, setEditForm] = useState({
-    name: agent?.name || '',
-    email: agent?.email || '',
+    name: '',
+    email: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Only read from localStorage on the client
+  useEffect(() => {
+    const agentData = localStorage.getItem('agent');
+    setAgent(agentData ? JSON.parse(agentData) : null);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -177,6 +173,11 @@ export default function AgentSidebar() {
       }
     }
   ];
+
+  // Render nothing until agent is loaded
+  if (agent === null) {
+    return null;
+  }
 
   return (
     <>
