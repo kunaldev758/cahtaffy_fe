@@ -30,7 +30,7 @@ if (cookies().has('token') && currentUserrole === 'agent') {
   }
 }
 
-  if (!cookies().has('token') && !pathname.startsWith('/login')) {
+  if (!cookies().has('token') && !pathname.startsWith('/login') && !pathname.startsWith('/agent-login')) {
     return NextResponse.redirect(baseUrl + 'login');
   }
 }
