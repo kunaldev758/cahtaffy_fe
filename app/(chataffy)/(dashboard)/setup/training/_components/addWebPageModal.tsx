@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState,useEffect } from 'react'
 import { Modal } from 'react-bootstrap'
 import { openaiWebPageScrapeApi } from '@/app/_api/dashboard/action'
 import { toast } from 'react-toastify';
 import { useRouter } from 'next/navigation'
+import { getClientData } from '@/app/_api/dashboard/action'
 
 export default function Home(Props: any) {
   const router = useRouter()
@@ -12,6 +13,22 @@ export default function Home(Props: any) {
   const [url, setUrl] = useState('')
   const [urls, setUrls] = useState('')
   const [buttonLoading, setButtonLoading] = useState(false)
+  const [client,setClient] = useState(null) as any;
+
+  useEffect(() => {
+    const fetchClientData = async () => {
+      try {
+        const clientData = await getClientData();
+        if (clientData) {
+          setClient(clientData.client);
+        }
+      } catch (error) {
+        console.error("Error fetching client data:", error);
+      }
+    };
+    fetchClientData();
+  }, []);
+
 
   const handleButtonOnClick = async () => {
     let sitemap = (toggle == true ? urls : url)
@@ -25,10 +42,20 @@ export default function Home(Props: any) {
       return false
     }
 
+    
     setButtonLoading(true)
-    const response: any = await openaiWebPageScrapeApi(sitemap)
-    if (response == 'error')
+
+    let response: any = null
+    if(toggle == true){
+       response = await openaiWebPageScrapeApi(sitemap,true)
+    } else{
+       response = await openaiWebPageScrapeApi(sitemap,false)
+    }
+    // const response: any = await openaiWebPageScrapeApi(sitemap)
+    if (response==null || response == 'error'){
+      setButtonLoading(false)
       router.push('/login')
+    }
     setButtonLoading(false)
     Props.onHide()
     toast.success(response.message)
@@ -43,13 +70,22 @@ export default function Home(Props: any) {
       </Modal.Header>
       <Modal.Body>
         <div className="new-webPage-modalArea">
-          <h4>Enter the URL of your external support content</h4>
-          <p>Top-level domains will give the best results (e.g. https://chataffy.com rather than https://chataffy.com/home)</p>
-          <div className="input-box mt-20">
-            <input type="text" placeholder="https://chataffy.com" className="form-control" disabled={toggle} value={url} onChange={(event) => {
-              setUrl(event.target.value)
-            }} />
-          </div>
+          {/* <h4>Enter the URL of your external support content</h4> */}
+          {client && client?.isSitemapAdded <= 0 ? (
+            <div>
+              <h4>Enter the URL of your external support content</h4>
+              <p>Top-level domains will give the best results (e.g. https://chataffy.com rather than https://chataffy.com/home)</p>
+              <div className="input-box mt-20">
+                <input type="text" placeholder="https://chataffy.com" className="form-control" disabled={toggle} value={url} onChange={(event) => {
+                  setUrl(event.target.value)
+                }} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p>One sitemap already added you can't add another try adding URls manually below</p>
+            </div>
+          )}
 
           <div className="contnet-specific-urlArea">
             <div className="specific-urlHeading">

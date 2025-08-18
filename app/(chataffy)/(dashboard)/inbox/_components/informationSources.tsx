@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 
-import ContentModal from '@/app/(chataffy)/(dashboard)/setup/training/_components/contentModal'
+// import ContentModal from '@/app/(chataffy)/(dashboard)/setup/training/_components/contentModal'
 
 export default function InformationSources(props: any) {
   const [informationSources, setInformationSources] = useState<any>({ data: [], loading: true});
@@ -33,7 +33,7 @@ export default function InformationSources(props: any) {
 
   return (
     <>
-      {props.trainingListIds.map((item: any, index: any) => (
+      {/* {props.trainingListIds.map((item: any, index: any) => (
         <div key={index}>
           {contentShowModal===item && <ContentModal show={contentShowModal===item} handleClose={() => { setContentShowModal("") }} id={item}/>}
         </div>
@@ -54,7 +54,7 @@ export default function InformationSources(props: any) {
                     ))}
                   </>
         }
-      </div>
+      </div> */}
     </>
     )
 }

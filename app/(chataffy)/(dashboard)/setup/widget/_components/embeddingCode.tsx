@@ -19,7 +19,6 @@ export default function EmbeddingCode() {
       if(data=='error'){
         router.push('/login')
       }
-      console.log(data,"data this is the data of the widget token")
       setLoading(false)
       if (data.status_code == 200) {
         setWidgetId(data.data.widgetId)

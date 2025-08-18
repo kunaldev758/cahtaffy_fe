@@ -124,11 +124,11 @@ export default function Settings() {
       errors.email = 'Please enter a valid email address'
     }
 
-    if (!isEdit && !formData.password) {
-      errors.password = 'Password is required'
-    } else if (!isEdit && formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters'
-    }
+    // if (!isEdit && !formData.password) {
+    //   errors.password = 'Password is required'
+    // } else if (!isEdit && formData.password.length < 6) {
+    //   errors.password = 'Password must be at least 6 characters'
+    // }
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -153,12 +153,17 @@ export default function Settings() {
     
     setIsSubmitting(true)
     try {
-      await createAgent(formData)
+      const response = await createAgent(formData);
+      if (response.upgradeSuggested) {
+        // Show the error message
+        alert(response.message);
+      }else{
       toast.success('Agent added successfully')
       setShowAddModal(false)
-      setFormData({ name: '', email: '', password: '' })
+      setFormData({ name: '', email: '' ,password:''})
       setFormErrors({})
       fetchAgents()
+      }
     } catch (error: any) {
       toast.error('Failed to add agent')
       console.error('Error adding agent:', error)
@@ -508,7 +513,7 @@ export default function Settings() {
                   )}
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Password</label>
                   <div className="relative">
                     <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
@@ -526,7 +531,7 @@ export default function Settings() {
                   {formErrors.password && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
                   )}
-                </div>
+                </div> */}
 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button

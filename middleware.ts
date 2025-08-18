@@ -1,41 +1,55 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const appUrl: any = process.env.NEXT_PUBLIC_APP_URL;
 
-  // Make sure appUrl ends with a slash for consistency
-  const baseUrl = appUrl.endsWith('/') ? appUrl : appUrl + '/';
+  const baseUrl = appUrl.endsWith("/") ? appUrl : appUrl + "/";
 
-  const agentRoutes = [
-    '/agent-inbox',
-    '/agent-login'
-  ]
+  const cookieStore = cookies();
+  const hasToken = cookieStore.has("token");
+  const currentUserRole = cookieStore.get("role")?.value;
 
-  if (cookies().has('token') && pathname.startsWith('/login')) {
-    return NextResponse.redirect(baseUrl + 'dashboard');
-  }
-  const currentUserrole = cookies().get('role')?.value
-if (cookies().has('token') && currentUserrole === 'agent') {
-  if (agentRoutes.includes(pathname)) {
-    // Already on an allowed route, do nothing
-    return NextResponse.next();
-  } else {
-    const redirectUrl = baseUrl + 'agent-inbox';
-    if (pathname !== '/agent-inbox') {
-      return NextResponse.redirect(redirectUrl);
+  const publicRoutes = ["/login", "/agent-login", "/agent-accept-invite"];
+  const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
+  const visitorAllowedPrefix = "/openai/widget";
+
+  // 🚫 Not logged in
+  if (!hasToken) {
+    // allow only login/agent-login/accept-invite/widget
+    if (
+      publicRoutes.includes(pathname) ||
+      pathname.startsWith(visitorAllowedPrefix)
+    ) {
+      return NextResponse.next();
     }
+    return NextResponse.redirect(baseUrl + "login");
   }
+
+  // ✅ Logged in
+  if (currentUserRole === "agent") {
+    if (agentRoutes.includes(pathname)) {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(baseUrl + "agent-login");
+  }
+
+  if (currentUserRole === "client") {
+    // client can access everything
+    return NextResponse.next();
+  }
+
+  // If role is missing/invalid but token exists → treat as visitor
+  if (pathname.startsWith(visitorAllowedPrefix)) {
+    return NextResponse.next();
+  }
+
+  return NextResponse.redirect(baseUrl + "login");
 }
 
-  if (!cookies().has('token') && !pathname.startsWith('/login') && !pathname.startsWith('/agent-login') &&  !pathname.startsWith('/agent-accept-invite')) {
-    return NextResponse.redirect(baseUrl + 'login');
-  }
-}
 export const config = {
   matcher: [
-    '/((?!api|favicon.ico|verify-email|signup|widget|openai/widget|tensorflow/widget|_next|images).*)',
+    "/((?!api|favicon.ico|verify-email|signup|widget|openai/widget|tensorflow/widget|_next|images).*)",
   ],
 };

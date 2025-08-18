@@ -79,7 +79,7 @@ async function getFetchData(endpoint,params=null) {
   });
 }
   const data = await response.json();
-  if(data.status_code==401){
+  if(data?.status_code==401){
     // cookies().delete('token')
     return 'error'
   }
@@ -89,8 +89,14 @@ async function getFetchData(endpoint,params=null) {
 
 
 
-export async function openaiWebPageScrapeApi(sitemap) {
-  return await fetchData('openaiScrape', { sitemap });
+export async function openaiWebPageScrapeApi(sitemap,isNotSitemap) {
+  if(isNotSitemap){
+    const url = sitemap;
+    return await fetchData('openaiScrape', { url });
+  }else{
+    const sitemapUrl = sitemap;
+    return await fetchData('openaiScrape', { sitemapUrl });
+  }
 }
 
 export async function openaiCreateSnippet(formData) {
@@ -170,6 +176,7 @@ export async function updateThemeSettings(themeSettings) {
 
 export async function logoutApi() {
   cookies().delete('token')
+  cookies().delete('role')
   return await fetchData('logout');
 }
 
@@ -207,4 +214,31 @@ export async function updateAgentStatus(id, isActive) {
 
 export async function agentAcceptInviteVerify(token) {
   return await fetchDatawithoutToken(`/agents/accept-invite/${token}`);
+}
+
+
+export async function getDataField(id) {
+  return await getFetchData(`/getDataField/${id}`);
+}
+
+export async function getClientData() {
+  const data = await fetchData('client');
+  return data;
+}
+
+export async function continueScrapping() {
+  const data = await fetchData('continueAfterUpgrade');
+  return data;
+}
+
+export async function upgradePlan(newPlan) {
+  return await fetchData(`upgradePlan`, { newPlan });
+}
+
+export async function capturePayment(orderID,plan,billing_cycle) {
+  return await fetchData(`paypal/capture-payment`,{orderID, plan, billing_cycle})
+}
+
+export async function createOrder(value,currency,plan_name,billing_cycle) {
+  return await fetchData(`paypal/create-order`,{value,currency,plan_name,billing_cycle})
 }

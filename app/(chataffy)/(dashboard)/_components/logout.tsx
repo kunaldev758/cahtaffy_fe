@@ -10,6 +10,7 @@ export default function Home() {
 
   return (<><button style={{ border: 'none' }} onClick={async () => {
     await logoutApi()
+    localStorage.clear();
     router.replace('/login')
   }}>Logout</button></>)
 }

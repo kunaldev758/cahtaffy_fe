@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const axios = require('axios');
 require('./_components/widgetcss.css');
+// require('../../../../public/audio/notification.mp3')
 
 // Field validation helpers
 const validateField = (field:any, value:any) => {
@@ -185,6 +186,7 @@ export default function EnhancedChatWidget({ params } :any) {
   const [isOnline, setIsOnline] = useState(true);
   const [isBlocked, setIsBlocked] = useState(false);
   const [socketError, setSocketError] = useState(false);
+  const [botVisible,setBotVisible] = useState(true);
 
   const chatBottomRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -252,6 +254,17 @@ export default function EnhancedChatWidget({ params } :any) {
         setConversationId(data.chatMessage[0]?.conversationId);
       }
       setConversation((prev: any[]) => [...prev, data.chatMessage]);
+
+      // Play sound when a new message comes
+
+      try {
+        const audio = new Audio("/audio/notification.mp3"); // ✅ Correct path
+        data.chatMessage.sender_type != 'visitor' && audio.play().catch((err) => {
+          console.error("Failed to play notification sound", err);
+        });
+      } catch (e) {
+        console.error("Audio play error", e);
+      }
     });
 
     socket.on("visitor-blocked", handleCloseConversationClient);
@@ -297,8 +310,14 @@ export default function EnhancedChatWidget({ params } :any) {
       }
     });
 
+    socket.on("visitor-connect-response-upgrade",()=>{
+      console.log("event emmited for upgrade")
+      setBotVisible(false);
+    });
+
     return () => {
       socket.off("visitor-connect-response");
+      socket.off("visitor-connect-response-upgrade");
     };
   }, [widgetToken,visitorIp]);
 
@@ -485,6 +504,8 @@ export default function EnhancedChatWidget({ params } :any) {
   }, []);
 
   return (
+    <>
+    {botVisible?
     <div style={positionStyles} className="font-sans ">
       {/* Chat Widget Button */}
       <div className="relative ">
@@ -893,6 +914,9 @@ export default function EnhancedChatWidget({ params } :any) {
           animation-name: slide-in-from-right;
         }
       `}</style>
-    </div>
+    </div>:
+    <></>
+      }
+    </>
   );
 }
