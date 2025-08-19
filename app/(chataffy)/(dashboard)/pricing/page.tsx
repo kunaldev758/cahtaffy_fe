@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, ArrowLeft, Shield, CreditCard, Clock, Star } from 'lucide-react';
 import {createOrder,capturePayment} from '../../../_api/dashboard/action';
+import { getPlans } from '../../../_api/dashboard/action';
 
 // Checkout Page Component
 const CheckoutPage = ({ selectedPlan, billingCycle = 'monthly', onBack, onSuccess, onError }:any) => {
@@ -371,9 +372,9 @@ const PaymentFlow = () => {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const response = await fetch('http://localhost:9000/api/available');
-        const data = await response.json();
-        
+        // const response = await fetch('http://localhost:9000/api/available');
+        // const data = await response.json();
+        const data = await getPlans()
         if (data.success) {
           setPlans(data.data);
         } else {

@@ -311,7 +311,7 @@ export default function EnhancedTrainingPage() {
       socket.emit('get-training-list-count')
       socket.emit('get-training-list', { 
         skip: 0, 
-        limit: 10,
+        limit: 1000,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
@@ -386,7 +386,7 @@ export default function EnhancedTrainingPage() {
       socket.emit('get-training-list-count')
       socket.emit('get-training-list', { 
         skip: 0, 
-        limit: 10,
+        limit: 1000,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
@@ -405,7 +405,7 @@ export default function EnhancedTrainingPage() {
     if (socket) {
       socket.emit('get-training-list', { 
         skip: 0,
-        limit: 10,
+        limit: 1000,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })

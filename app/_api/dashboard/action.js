@@ -221,6 +221,10 @@ export async function getDataField(id) {
   return await getFetchData(`/getDataField/${id}`);
 }
 
+export async function getPlans() {
+  return await getFetchData(`/available`);
+}
+
 export async function getClientData() {
   const data = await fetchData('client');
   return data;
