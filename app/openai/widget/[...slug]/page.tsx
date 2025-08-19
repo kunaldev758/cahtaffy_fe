@@ -258,7 +258,7 @@ export default function EnhancedChatWidget({ params } :any) {
       // Play sound when a new message comes
 
       try {
-        const audio = new Audio("/audio/notification.mp3"); // ✅ Correct path
+        const audio = new Audio("@/audio/notification.mp3"); // ✅ Correct path
         data.chatMessage.sender_type != 'visitor' && audio.play().catch((err) => {
           console.error("Failed to play notification sound", err);
         });
