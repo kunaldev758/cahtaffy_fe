@@ -32,7 +32,7 @@ const CheckoutPage = ({ selectedPlan, billingCycle = 'monthly', onBack, onSucces
     }
 
     const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'YOUR_PAYPAL_CLIENT_ID'}&currency=USD&intent=capture`;
+    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&currency=USD&intent=capture`;
     script.onload = () => setPaypalLoaded(true);
     script.onerror = () => setError('Failed to load PayPal SDK');
     document.body.appendChild(script);
@@ -415,7 +415,7 @@ const PaymentFlow = () => {
 
   const handleContinueToDashboard = () => {
     // Redirect to dashboard or wherever you want
-    window.location.href = '/dashboard';
+    window.location.href = process.env.NEXT_PUBLIC_APP_URL+'dashboard';
   };
 
   // Updated Pricing Page with checkout integration

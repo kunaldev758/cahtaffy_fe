@@ -185,7 +185,7 @@ const ChataffyWebsite = () => {
               <button onClick={() => scrollToSection('about')} className="text-gray-700 hover:text-gray-900">About</button>
               <button onClick={() => scrollToSection('contact')} className="text-gray-700 hover:text-gray-900">Contact</button>
               <button 
-                onClick={() => window.location.href = '/signup'} 
+                onClick={() => window.location.href = process.env.NEXT_PUBLIC_APP_URL+'signup'} 
                 className={`${theme.primary} ${theme.primaryHover} text-white px-4 py-2 rounded-lg transition-colors`}
               >
                 Get Started
