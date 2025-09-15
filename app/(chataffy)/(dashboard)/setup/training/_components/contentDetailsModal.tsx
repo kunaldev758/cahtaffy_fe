@@ -13,6 +13,7 @@ interface ContentData {
   _id: string
   title: string
   content: string
+  fileContent: string
   type: number
   trainingStatus: number
   dataSize: number
@@ -229,9 +230,15 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
               </CardHeader>
               <CardContent>
                 <div className="bg-gray-50 p-4 rounded-lg border max-h-96 overflow-y-auto">
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
-                    {contentData.content}
-                  </pre>
+                  {(() => {
+                    const rawContent = contentData.content ? contentData.content : contentData?.fileContent || ''
+                    const looksLikeHtml = typeof rawContent === 'string' && /<[^>]+>/i.test(rawContent.trim())
+                    return looksLikeHtml ? (
+                      <div className="text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: rawContent }} />
+                    ) : (
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">{rawContent}</pre>
+                    )
+                  })()}
                 </div>
               </CardContent>
             </Card>

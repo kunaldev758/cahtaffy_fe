@@ -187,9 +187,32 @@ export default function EnhancedChatWidget({ params } :any) {
   const [isBlocked, setIsBlocked] = useState(false);
   const [socketError, setSocketError] = useState(false);
   const [botVisible,setBotVisible] = useState(true);
+  const [isUnavailableMode, setIsUnavailableMode] = useState(false);
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactNote, setContactNote] = useState('');
+  const [isSubmittingUnavailable, setIsSubmittingUnavailable] = useState(false);
+  const [unavailableSubmitted, setUnavailableSubmitted] = useState(false);
+  const [unavailableError, setUnavailableError] = useState('');
+  const noReplyTimerRef = useRef<any>(null);
+  const NO_REPLY_MS = 5 * 60 * 1000; // 5 minutes
 
   const chatBottomRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
+
+  const clearNoReplyTimer = () => {
+    if (noReplyTimerRef.current) {
+      clearTimeout(noReplyTimerRef.current);
+      noReplyTimerRef.current = null;
+    }
+  };
+
+  const startNoReplyTimer = () => {
+    clearNoReplyTimer();
+    noReplyTimerRef.current = setTimeout(() => {
+      setIsUnavailableMode(true);
+      setShowWidget(true);
+    }, NO_REPLY_MS);
+  };
 
   // Extract widget params
   const widgetId = params?.slug?.[0] || 'demo-widget';
@@ -255,6 +278,13 @@ export default function EnhancedChatWidget({ params } :any) {
       }
       setConversation((prev: any[]) => [...prev, data.chatMessage]);
 
+      // Manage no-reply timeout: start on visitor message, clear on any reply
+      if (data?.chatMessage?.sender_type === 'visitor') {
+        startNoReplyTimer();
+      } else {
+        clearNoReplyTimer();
+      }
+
       // Play sound when a new message comes
 
       try {
@@ -274,6 +304,7 @@ export default function EnhancedChatWidget({ params } :any) {
       socket.off("conversation-append-message");
       socket.off("visitor-blocked");
       socket.off("visitor-conversation-close");
+      clearNoReplyTimer();
     }
   }, [socketRef.current]);
 
@@ -312,7 +343,8 @@ export default function EnhancedChatWidget({ params } :any) {
 
     socket.on("visitor-connect-response-upgrade",()=>{
       console.log("event emmited for upgrade")
-      setBotVisible(false);
+      setIsUnavailableMode(true);
+      setShowWidget(true);
     });
 
     return () => {
@@ -320,6 +352,32 @@ export default function EnhancedChatWidget({ params } :any) {
       socket.off("visitor-connect-response-upgrade");
     };
   }, [widgetToken,visitorIp]);
+
+  const handleSubmitUnavailableContact = async () => {
+    setUnavailableError('');
+    if (!contactEmail || !/^([^\s@]+)@([^\s@]+)\.[^\s@]+$/.test(contactEmail)) {
+      setUnavailableError('Please enter a valid email address.');
+      return;
+    }
+    setIsSubmittingUnavailable(true);
+    try {
+      const socket = socketRef.current;
+      socket?.emit('save-visitor-details', {
+        location: visitorLocation,
+        ip: visitorIp,
+        visitorDetails: {
+          email: contactEmail,
+          note: contactNote,
+          reason: 'unavailable'
+        }
+      });
+      setUnavailableSubmitted(true);
+    } catch (e) {
+      setUnavailableError('Failed to submit. Please try again.');
+    } finally {
+      setIsSubmittingUnavailable(false);
+    }
+  };
 
   // Fetch visitor IP and location
   useEffect(() => {
@@ -411,6 +469,8 @@ export default function EnhancedChatWidget({ params } :any) {
     setIsTyping(true);
     socket?.emit("visitor-send-message", messageData);
     setInputMessage('');
+    // Start the no-reply timer immediately after sending a visitor message
+    startNoReplyTimer();
   };
 
   const handleSubmitVisitorDetails = async () => {
@@ -621,6 +681,58 @@ export default function EnhancedChatWidget({ params } :any) {
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">You are blocked</h3>
                 <p className="text-gray-600 text-center">You have been blocked from using this chat. If you believe this is a mistake, please contact support.</p>
               </div>
+            ) : isUnavailableMode ? (
+              <div className="flex flex-col h-full">
+                <div className="flex-1 p-6 overflow-y-auto">
+                  <div className="max-w-sm mx-auto">
+                    <div className="text-center mb-6">
+                      <AlertCircle className="w-10 h-10 text-yellow-500 mx-auto mb-3" />
+                      <h3 className="text-lg font-semibold text-gray-800 mb-1">We’re currently unavailable</h3>
+                      <p className="text-gray-600 text-sm">Please leave your email and we’ll get back to you.</p>
+                    </div>
+                    {unavailableSubmitted ? (
+                      <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-4 text-sm text-center">
+                        Thank you! We’ve received your details and will contact you soon.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                          <input
+                            type="email"
+                            value={contactEmail}
+                            onChange={(e)=> setContactEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${unavailableError? 'border-red-500 bg-red-50':'border-gray-300'}`}
+                          />
+                          {unavailableError && <p className="text-red-600 text-xs mt-1">{unavailableError}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Message (optional)</label>
+                          <textarea
+                            rows={3}
+                            value={contactNote}
+                            onChange={(e)=> setContactNote(e.target.value)}
+                            placeholder="Share any details..."
+                            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors border-gray-300 resize-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </div>
+              {!unavailableSubmitted && (
+                <div className="border-t border-gray-200 p-4 bg-white">
+                  <button
+                    onClick={handleSubmitUnavailableContact}
+                    disabled={isSubmittingUnavailable}
+                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingUnavailable? 'Sending...':'Send'}
+                  </button>
+                </div>
+              )}
+            </div>
             ) : (
               <>
                 {/* Messages Area or Pre-Chat Form */}

@@ -190,6 +190,18 @@ const ChataffyWebsite = () => {
               >
                 Get Started
               </button>
+              <button 
+                onClick={() => window.location.href = process.env.NEXT_PUBLIC_APP_URL+'login'} 
+                className={`${theme.primary} ${theme.primaryHover} text-white px-4 py-2 rounded-lg transition-colors`}
+              >
+                SignIn as User
+              </button>
+              <button 
+                onClick={() => window.location.href = process.env.NEXT_PUBLIC_APP_URL+'agent-login'} 
+                className={`${theme.primary} ${theme.primaryHover} text-white px-4 py-2 rounded-lg transition-colors`}
+              >
+                SignIn as Agent
+              </button>
             </div>
 
             {/* Mobile menu button */}
