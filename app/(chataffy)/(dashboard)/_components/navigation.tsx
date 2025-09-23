@@ -142,7 +142,7 @@ export default function IntegratedSidebar() {
         </Link>
 
         {/* Settings with Sub-menu */}
-        <div>
+        {/* <div>
           <button
             onClick={() => setSettingsExpanded(!settingsExpanded)}
             className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
@@ -165,7 +165,7 @@ export default function IntegratedSidebar() {
             )}
           </button>
           
-          {/* Settings Sub-menu */}
+          Settings Sub-menu
           <div className={`overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="pl-8 py-2 space-y-1">
               <Link
@@ -181,7 +181,7 @@ export default function IntegratedSidebar() {
             </div>
           </div>
 
-          {/* SPricing Page */}
+          SPricing Page
           <div className={`overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="pl-8 py-2 space-y-1">
               <Link
@@ -196,7 +196,39 @@ export default function IntegratedSidebar() {
               </Link>
             </div>
           </div>
-        </div>
+        </div> */}
+
+
+        <div className={`overflow-hidden transition-all duration-300 max-h-40 opacity-100`}>
+            <div className="pl-8 py-2 space-y-1">
+              <Link
+                href="/settings"
+                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
+                  pathname === '/settings'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                Agent Settings
+              </Link>
+            </div>
+          </div>
+
+
+        <div className={`overflow-hidden transition-all duration-300 max-h-40 opacity-100`}>
+            <div className="pl-8 py-2 space-y-1">
+              <Link
+                href="/pricing"
+                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
+                  pathname === '/pricing'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                Pricing
+              </Link>
+            </div>
+          </div>
 
         {/* Profile */}
         {/* <Link

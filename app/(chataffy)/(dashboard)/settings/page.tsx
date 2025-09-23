@@ -5,6 +5,7 @@ import Image from 'next/image'
 import closeBtnImage from '@/images/close-btn.svg'
 import { X, User, Mail, Lock, Pencil, Trash, Plus, Search, Filter, MoreVertical, UserCheck, UserX, Shield, Clock } from "lucide-react";
 import { toast } from 'react-toastify'
+import {useSocket} from '@/app/socketContext'
 import 'react-toastify/dist/ReactToastify.css'
 import {
   getAllAgents,
@@ -71,6 +72,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 }
 
 export default function Settings() {
+  const { socket } = useSocket();
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -86,7 +88,7 @@ export default function Settings() {
     password: ''
   })
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-
+  
   // Fetch agents
   const fetchAgents = async () => {
     try {
@@ -202,6 +204,7 @@ export default function Settings() {
 
   // Handle delete agent
   const handleDeleteAgent = async (id: any) => {
+    socket?.emit('agent-deleted',{id});
     console.log('handleDeleteAgent called with agent:', id);
 
     if (!id) {

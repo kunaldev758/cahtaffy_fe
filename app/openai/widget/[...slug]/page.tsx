@@ -194,7 +194,7 @@ export default function EnhancedChatWidget({ params } :any) {
   const [unavailableSubmitted, setUnavailableSubmitted] = useState(false);
   const [unavailableError, setUnavailableError] = useState('');
   const noReplyTimerRef = useRef<any>(null);
-  const NO_REPLY_MS = 5 * 60 * 1000; // 5 minutes
+  const NO_REPLY_MS = 2 * 60 * 1000; // 2 minutes
 
   const chatBottomRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);

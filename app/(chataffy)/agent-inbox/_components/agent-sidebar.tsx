@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { toggleActiveStatus, updateAgent } from "@/app/_api/dashboard/action";
+import { useSocket } from "@/app/socketContext";
 
 interface Agent {
   id: string;
@@ -27,6 +28,7 @@ interface Agent {
 }
 
 export default function AgentSidebar() {
+  const { socket } = useSocket();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -61,6 +63,11 @@ export default function AgentSidebar() {
       console.error('Logout error:', error);
     }
   };
+
+  useEffect(()=>{
+    console.log("agent deleted")
+    socket?.on('agent-deleted-success',handleLogout)
+  },[socket])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
