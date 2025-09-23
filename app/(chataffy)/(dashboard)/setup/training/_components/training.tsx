@@ -41,7 +41,9 @@ import {
   HelpCircle,
   Globe,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 
 // Types
@@ -102,10 +104,23 @@ export default function EnhancedTrainingPage() {
 
   // Data states
   const [clientData, setClientData] = useState<ClientData | null>(null)
-  const [trainingList, setTrainingList] = useState<{ data: TrainingItem[], loading: boolean }>({ 
+  const [trainingList, setTrainingList] = useState<{ 
+    data: TrainingItem[], 
+    loading: boolean,
+    totalCount: number,
+    currentPage: number,
+    totalPages: number
+  }>({ 
     data: [], 
-    loading: true 
+    loading: true,
+    totalCount: 0,
+    currentPage: 1,
+    totalPages: 0
   })
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(20) // You can make this configurable if needed
 
   // Filter states
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>("all")
@@ -179,6 +194,23 @@ export default function EnhancedTrainingPage() {
   const handleViewContent = (item: TrainingItem) => {
     setSelectedItemId(item._id)
     setShowContentModal(true)
+  }
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < trainingList.totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
   }
 
   // Column definitions
@@ -310,8 +342,8 @@ export default function EnhancedTrainingPage() {
     socket.on('client-connect-response', function () {
       socket.emit('get-training-list-count')
       socket.emit('get-training-list', { 
-        skip: 0, 
-        limit: 1000,
+        skip: (currentPage - 1) * pageSize, 
+        limit: pageSize,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
@@ -338,7 +370,16 @@ export default function EnhancedTrainingPage() {
         type: item.type,
       })) || []
       
-      setTrainingList({ data: transformedData, loading: false })
+      const totalCount = data?.data?.pagination?.total || 0;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      
+      setTrainingList({ 
+        data: transformedData, 
+        loading: false,
+        totalCount,
+        currentPage,
+        totalPages
+      })
     })
 
     socket.on('show-continue-scrapping-button',function({data}:any) {
@@ -385,8 +426,8 @@ export default function EnhancedTrainingPage() {
       // Refresh data after training events
       socket.emit('get-training-list-count')
       socket.emit('get-training-list', { 
-        skip: 0, 
-        limit: 1000,
+        skip: (currentPage - 1) * pageSize, 
+        limit: pageSize,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
@@ -404,13 +445,13 @@ export default function EnhancedTrainingPage() {
   useEffect(() => {
     if (socket) {
       socket.emit('get-training-list', { 
-        skip: 0,
-        limit: 1000,
+        skip: (currentPage - 1) * pageSize,
+        limit: pageSize,
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter 
       })
     }
-  }, [sourceTypeFilter, actionTypeFilter, socket])
+  }, [sourceTypeFilter, actionTypeFilter, currentPage, socket])
 
   // Calculate totals and percentages
   const totalItems = clientData ? (clientData.pagesAdded.total + clientData.filesAdded + clientData.faqsAdded) : 0
@@ -420,6 +461,7 @@ export default function EnhancedTrainingPage() {
 
   const trainingStatus = clientData ? getTrainingStatusMessage(clientData.dataTrainingStatus) : null
 
+  console.log(trainingList.data,"trainingList.data")
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -740,12 +782,89 @@ export default function EnhancedTrainingPage() {
                 </Button>
               </div>
             ) : (
-              <DataTable 
-                columns={columns} 
-                data={trainingList.data}
-                searchKey="title"
-                searchPlaceholder="Search training data..."
-              />
+              <>
+                <DataTable 
+                  columns={columns} 
+                  data={trainingList.data}
+                  searchKey="title"
+                  searchPlaceholder="Search training data..."
+                  showPagination={false}
+                  // manualPagination={true}
+                />
+                {/* Pagination Controls */}
+                {trainingList.totalPages > 1 && (
+                  <div className="flex items-center justify-between space-x-2 py-4">
+                    <div className="flex items-center space-x-2">
+                      <p className="text-sm font-medium">
+                        Showing {((currentPage - 1) * pageSize) + 1} to{' '}
+                        {Math.min(currentPage * pageSize, trainingList.totalCount)} of{' '}
+                        {trainingList.totalCount} results
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrevPage}
+                        disabled={currentPage <= 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      
+                      {/* Page Numbers */}
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, trainingList.totalPages) }, (_, i) => {
+                          const pageNumber = i + 1;
+                          if (trainingList.totalPages <= 5) {
+                            return (
+                              <Button
+                                key={pageNumber}
+                                variant={currentPage === pageNumber ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handlePageChange(pageNumber)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {pageNumber}
+                              </Button>
+                            );
+                          } else {
+                            // More complex pagination logic for many pages
+                            let displayPage;
+                            if (i === 0) displayPage = 1;
+                            else if (i === 4) displayPage = trainingList.totalPages;
+                            else if (currentPage <= 3) displayPage = i + 1;
+                            else if (currentPage >= trainingList.totalPages - 2) displayPage = trainingList.totalPages - 4 + i;
+                            else displayPage = currentPage - 2 + i;
+                            
+                            return (
+                              <Button
+                                key={i}
+                                variant={currentPage === displayPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handlePageChange(displayPage)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {displayPage}
+                              </Button>
+                            );
+                          }
+                        })}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextPage}
+                        disabled={currentPage >= trainingList.totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

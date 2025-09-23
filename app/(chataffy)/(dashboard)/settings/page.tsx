@@ -5,6 +5,7 @@ import Image from 'next/image'
 import closeBtnImage from '@/images/close-btn.svg'
 import { X, User, Mail, Lock, Pencil, Trash, Plus, Search, Filter, MoreVertical, UserCheck, UserX, Shield, Clock } from "lucide-react";
 import { toast } from 'react-toastify'
+import {useSocket} from '@/app/socketContext'
 import 'react-toastify/dist/ReactToastify.css'
 import {
   getAllAgents,
@@ -71,6 +72,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 }
 
 export default function Settings() {
+  const { socket } = useSocket();
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -85,7 +87,8 @@ export default function Settings() {
     email: '',
     password: ''
   })
-
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  
   // Fetch agents
   const fetchAgents = async () => {
     try {
@@ -179,9 +182,10 @@ export default function Settings() {
 
     setIsSubmitting(true)
     try {
+      console.log(localStorage.getItem('token'),"this is token")
       const updateData: UpdateAgentData = {
         name: formData.name,
-        email: formData.email
+        // email: formData.email
       }
       await updateAgent(selectedAgent._id, updateData)
       toast.success('Agent updated successfully')
@@ -200,6 +204,7 @@ export default function Settings() {
 
   // Handle delete agent
   const handleDeleteAgent = async (id: any) => {
+    socket?.emit('agent-deleted',{id});
     console.log('handleDeleteAgent called with agent:', id);
 
     if (!id) {
@@ -207,8 +212,6 @@ export default function Settings() {
       toast.error('Invalid agent ID');
       return;
     }
-
-    if (!confirm('Are you sure you want to delete this agent?')) return;
 
     try {
       console.log('Attempting to delete agent with ID:', id);
@@ -219,6 +222,7 @@ export default function Settings() {
         toast.error('Unauthorized: Please login again');
         return;
       }
+      // await localStorage.removeItem('token')
       toast.success('Agent deleted successfully');
       fetchAgents();
     } catch (error: any) {
@@ -432,7 +436,7 @@ export default function Settings() {
                                 Edit
                               </button>
                               <button
-                                onClick={() => handleDeleteAgent(agent._id)}
+                                onClick={() => setConfirmDeleteId(agent._id)}
                                 className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                               >
                                 <Trash size={14} className="mr-1" />
@@ -604,7 +608,7 @@ export default function Settings() {
                   )}
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
                   <div className="relative">
                     <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
@@ -622,7 +626,7 @@ export default function Settings() {
                   {formErrors.email && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
                   )}
-                </div>
+                </div> */}
 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
@@ -648,6 +652,51 @@ export default function Settings() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {confirmDeleteId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scaleIn">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Trash size={20} className="text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Delete Agent</h3>
+                    <p className="text-sm text-slate-500">This action cannot be undone.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <p className="text-slate-700">Are you sure you want to delete this agent?</p>
+                <div className="flex justify-end space-x-3 pt-6">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => { if (confirmDeleteId) { await handleDeleteAgent(confirmDeleteId); setConfirmDeleteId(null); } }}
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

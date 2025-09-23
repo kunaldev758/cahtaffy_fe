@@ -11,7 +11,7 @@ export default function EmbeddingCode() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
-  const widgetCode = `${process.env.NEXT_PUBLIC_APP_URL}openai/widget/${widgetId}/${widgetToken}`
+  const widgetCode = `<script src="${process.env.NEXT_PUBLIC_APP_URL}openai/widget/${widgetId}/${widgetToken}"></script>`
 
 
   useEffect(() => {

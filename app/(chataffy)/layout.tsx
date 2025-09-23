@@ -4,6 +4,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import '@/app/fonts.css'
 import '@/app/globals.css'
 import { ToastContainer, toast } from 'react-toastify';
+import { SocketProvider } from '../socketContext';
 
 // import { Inter } from 'next/font/google'
 
@@ -21,8 +22,10 @@ export default function DashboardLayout({
   return (
     <>
     {/* <div className={inter.className}> */}
+    <SocketProvider>
       {children}
       <ToastContainer />
+      </SocketProvider>
     {/* </div> */}
 
     </>

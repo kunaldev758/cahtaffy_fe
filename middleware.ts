@@ -16,6 +16,10 @@ export function middleware(request: NextRequest) {
   const visitorAllowedPrefix = "/openai/widget";
 
   // 🚫 Not logged in
+  if(pathname == "/"){
+    return NextResponse.next();
+  }
+
   if (!hasToken) {
     // allow only login/agent-login/accept-invite/widget
     if (
@@ -24,7 +28,7 @@ export function middleware(request: NextRequest) {
     ) {
       return NextResponse.next();
     }
-    return NextResponse.redirect(baseUrl + "login");
+    return NextResponse.redirect(baseUrl);
   }
 
   // ✅ Logged in
@@ -45,7 +49,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return NextResponse.redirect(baseUrl + "login");
+  return NextResponse.redirect(baseUrl);
 }
 
 export const config = {

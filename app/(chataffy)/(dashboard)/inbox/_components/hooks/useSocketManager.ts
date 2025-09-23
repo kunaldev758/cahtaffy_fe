@@ -1,6 +1,8 @@
 // hooks/useSocketManager.ts
 import { useRef, useEffect, useCallback } from "react";
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client';
+
+import { useSocket } from "@/app/socketContext"
 
 interface SocketManagerProps {
   // State setters
@@ -21,7 +23,7 @@ interface SocketManagerProps {
   openVisitorId: string | null;
   isAIChat: boolean;
 }
-
+// const { socket } = useSocket();
 export const useSocketManager = ({
   setConversationMessages,
   setConversationsList,
@@ -38,42 +40,12 @@ export const useSocketManager = ({
   openVisitorId,
   isAIChat,
 }: SocketManagerProps) => {
-  const socketRef = useRef<Socket | null>(null);
-
-  // Socket initialization
-  const initializeSocket = useCallback(() => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-    }
-
-    try {
-      const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-        query: {
-          token: localStorage.getItem('token'),
-        },
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
-
-      socketInstance.on("connect", () => {
-        console.log("Socket connected successfully");
-      });
-
-      socketInstance.on("connect_error", (error) => {
-        console.error("Socket connection error:", error);
-      });
-
-      socketRef.current = socketInstance;
-    } catch (error) {
-      console.error("Error initializing socket:", error);
-    }
-  }, []);
+  const { socket } = useSocket();
 
   // Socket event handlers
   const setupMessageHandlers = useCallback(() => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     const handleAppendMessage = (data: any) => {
@@ -148,7 +120,8 @@ export const useSocketManager = ({
   }, [status, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus]);
 
   const setupConversationListHandlers = useCallback(() => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     const handleOpenConversationsListResponse = async (data: any) => {
@@ -207,7 +180,8 @@ export const useSocketManager = ({
   }, [status, openConversationId, setConversationsList, setIsConversationAvailable, setOpenConversationId]);
 
   const setupTagsHandler = useCallback(() => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     const getConvTags = (data: any) => {
@@ -228,7 +202,8 @@ export const useSocketManager = ({
 
   // Socket emission functions
   const emitGetConversationsList = useCallback(() => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     const userId = localStorage.getItem("userId");
@@ -240,7 +215,8 @@ export const useSocketManager = ({
   }, [status]);
 
   const emitJoinConversation = useCallback((conversationId: string, callback?: (response: any) => void) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit("set-conversation-id", { conversationId }, (response: any) => {
@@ -264,21 +240,24 @@ export const useSocketManager = ({
   }, []);
 
   const emitSendMessage = useCallback((messageData: { message: string; visitorId: string }, callback?: (response: any) => void) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit("client-send-message", messageData, callback);
   }, []);
 
   const emitSendNote = useCallback((noteData: { message: string; visitorId: string; conversationId: string }) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit("client-send-add-note", noteData);
   }, []);
 
   const emitGetConversationTags = useCallback((conversationId?: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     const convId = conversationId || openConversationId;
 
     if (!socket || !convId) {
@@ -297,7 +276,8 @@ export const useSocketManager = ({
   }, [openConversationId, setTags]);
 
   const emitAddTag = useCallback((tagName: string, conversationId: string, callback?: (response: any) => void) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
@@ -316,7 +296,8 @@ export const useSocketManager = ({
   }, [emitGetConversationTags]);
 
   const emitDeleteTag = useCallback((tagId: string, conversationId: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
@@ -334,7 +315,8 @@ export const useSocketManager = ({
   }, [emitGetConversationTags]);
 
   const emitCloseConversation = useCallback((conversationId: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
@@ -352,7 +334,8 @@ export const useSocketManager = ({
   }, [setOpenConversationStatus]);
 
   const emitBlockVisitor = useCallback((visitorId: string, conversationId: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
@@ -370,7 +353,8 @@ export const useSocketManager = ({
   }, [setOpenConversationStatus]);
 
   const emitSearchConversations = useCallback((query: string, status: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
@@ -387,14 +371,16 @@ export const useSocketManager = ({
   }, [setSearchConversationsList]);
 
   const emitCloseAIResponse = useCallback((conversationId: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit("close-ai-response", { conversationId });
   }, []);
 
   const emitGetAllNotes = useCallback((conversationId: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
@@ -411,7 +397,8 @@ export const useSocketManager = ({
   }, [setNotesList]);
 
   const emitGetVisitorOldConversations = useCallback((visitorId: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
@@ -431,7 +418,8 @@ export const useSocketManager = ({
   }, [setOldConversationList]);
 
   const emitMarkMessagesSeen = useCallback((conversationId: string) => {
-    const socket = socketRef.current;
+    // const socket = socketRef.current;
+    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit("message-seen", { conversationId }, (seenResponse: any) => {
@@ -442,16 +430,16 @@ export const useSocketManager = ({
   }, []);
 
   // Initialize socket on mount
-  useEffect(() => {
-    initializeSocket();
+  // useEffect(() => {
+    // initializeSocket();
 
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [initializeSocket]);
+  //   return () => {
+  //     if (socketRef.current) {
+  //       socketRef.current.disconnect();
+  //       socketRef.current = null;
+  //     }
+  //   };
+  // }, [initializeSocket]);
 
   // Setup event handlers
   useEffect(() => {
@@ -486,8 +474,9 @@ export const useSocketManager = ({
   }, [openConversationId, openVisitorId, emitGetAllNotes, emitGetConversationTags, emitGetVisitorOldConversations, setNotesList]);
 
   return {
-    socketRef,
+    // socketRef,
     // Emit functions
+    socket,
     emitJoinConversation,
     emitSendMessage,
     emitSendNote,

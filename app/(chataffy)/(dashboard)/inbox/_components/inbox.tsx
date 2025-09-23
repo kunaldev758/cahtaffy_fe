@@ -60,7 +60,8 @@ export default function Inbox(Props: any) {
 
   // Initialize socket manager
   const {
-    socketRef,
+    // socketRef,
+    // socket,
     emitJoinConversation,
     emitSendMessage,
     emitSendNote,
