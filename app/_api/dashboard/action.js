@@ -246,3 +246,8 @@ export async function capturePayment(orderID,plan,billing_cycle) {
 export async function createOrder(value,currency,plan_name,billing_cycle) {
   return await fetchData(`paypal/create-order`,{value,currency,plan_name,billing_cycle})
 }
+
+export async function sendEmailForOfflineChat(visitorDetails, contactNote,userId) {
+  return await fetchDatawithoutToken(`sendEmailForOfflineChat`, { message:contactNote,visitorDetails:visitorDetails ,userId:userId});
+}
+

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { io, Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid";
+import { sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
 
 const axios = require('axios');
 require('./_components/widgetcss.css');
@@ -193,6 +194,7 @@ export default function EnhancedChatWidget({ params } :any) {
   const [isSubmittingUnavailable, setIsSubmittingUnavailable] = useState(false);
   const [unavailableSubmitted, setUnavailableSubmitted] = useState(false);
   const [unavailableError, setUnavailableError] = useState('');
+  const [userId,setUserId] = useState(null);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -339,6 +341,9 @@ export default function EnhancedChatWidget({ params } :any) {
       if (data?.chatMessages?.length > 1) {
         setVisitorExists(true);
       }
+      if(data?.themeSettings?.userId){
+        setUserId(data.themeSettings.userId)
+      }
     });
 
     socket.on("visitor-connect-response-upgrade",()=>{
@@ -360,18 +365,23 @@ export default function EnhancedChatWidget({ params } :any) {
       return;
     }
     setIsSubmittingUnavailable(true);
-    try {
-      const socket = socketRef.current;
-      socket?.emit('save-visitor-details', {
-        location: visitorLocation,
-        ip: visitorIp,
-        visitorDetails: {
+    try { 
+        let visitorDetails ={
           email: contactEmail,
-          note: contactNote,
+          location: visitorLocation,
+          ip: visitorIp,
           reason: 'unavailable'
         }
-      });
+        sendEmailForOfflineChat(visitorDetails,contactNote,userId);
       setUnavailableSubmitted(true);
+
+      const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit('close-conversation-visitor', {
+      conversationId: conversationId ?conversationId:(conversation[0]?.conversation_id),
+      status: 'close'
+    });
     } catch (e) {
       setUnavailableError('Failed to submit. Please try again.');
     } finally {
@@ -634,8 +644,8 @@ export default function EnhancedChatWidget({ params } :any) {
                     {(themeSettings as any)?.titleBar || "Support"}
                   </h3>
                   <div className="flex items-center space-x-2 text-xs opacity-90">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span>Online</span>
+                    {/* <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span>Online</span> */}
                   </div>
                 </div>
               </div>
@@ -717,11 +727,19 @@ export default function EnhancedChatWidget({ params } :any) {
                             className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors border-gray-300 resize-none"
                           />
                         </div>
+                        <button
+                    onClick={handleSubmitUnavailableContact}
+                    disabled={isSubmittingUnavailable}
+                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingUnavailable? 'Sending...':'Send'}
+                  </button>
+
                       </div>
                     )}
                 </div>
               </div>
-              {!unavailableSubmitted && (
+              {/* {!unavailableSubmitted && (
                 <div className="border-t border-gray-200 p-4 bg-white">
                   <button
                     onClick={handleSubmitUnavailableContact}
@@ -731,7 +749,7 @@ export default function EnhancedChatWidget({ params } :any) {
                     {isSubmittingUnavailable? 'Sending...':'Send'}
                   </button>
                 </div>
-              )}
+              )} */}
             </div>
             ) : (
               <>
