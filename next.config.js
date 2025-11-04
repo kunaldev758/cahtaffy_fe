@@ -15,7 +15,24 @@ const nextConfig = {
     },
   },
   images: {
-    domains: ['localhost','34.213.132.47'], // Add 'localhost' to allowed domains
+    domains: ['localhost','34.213.132.47','cdn11.bigcommerce.com'], // Add BC CDN for storefront assets
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors https://*.bigcommerce.com https://store-*.mybigcommerce.com;",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer-when-downgrade",
+          },
+        ],
+      },
+    ];
   },
 }
 

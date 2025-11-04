@@ -9,11 +9,13 @@ export function middleware(request: NextRequest) {
 
   const cookieStore = cookies();
   const hasToken = cookieStore.has("token");
+  const hasBcStore = cookieStore.has("bc_store_hash");
   const currentUserRole = cookieStore.get("role")?.value;
 
   const publicRoutes = ["/login", "/agent-login", "/agent-accept-invite"];
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
   const visitorAllowedPrefix = "/openai/widget";
+  const isBcLoad = request.nextUrl.searchParams.has("signed_payload_jwt");
 
   // 🚫 Not logged in
   if(pathname == "/"){
@@ -24,7 +26,9 @@ export function middleware(request: NextRequest) {
     // allow only login/agent-login/accept-invite/widget
     if (
       publicRoutes.includes(pathname) ||
-      pathname.startsWith(visitorAllowedPrefix)
+      pathname.startsWith(visitorAllowedPrefix) ||
+      hasBcStore ||
+      isBcLoad
     ) {
       return NextResponse.next();
     }
