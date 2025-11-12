@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { CheckCircle, XCircle, Clock, AlertCircle, FileText, Globe, MessageSquare, File, Zap } from 'lucide-react'
-import DOMPurify from "isomorphic-dompurify";
+// import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from 'sanitize-html'
 import { getDataField } from '../../../../../_api/dashboard/action'
 
 interface ContentData {
@@ -265,12 +266,19 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
                       typeof rawContent === "string" && /<[^>]+>/i.test(rawContent.trim());
 
                     if (looksLikeHtml) {
-                      const sanitizedHTML = DOMPurify.sanitize(
-                        rawContent.replaceAll(
-                          "<a ",
-                          '<a target="_blank" rel="noopener noreferrer" '
-                        )
-                      );
+                      const sanitizedHTML = sanitizeHtml(rawContent, {
+                        allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
+                        allowedAttributes: {
+                          a: ["href", "name", "target", "rel"],
+                          img: ["src", "alt"],
+                        },
+                        transformTags: {
+                          a: sanitizeHtml.simpleTransform("a", {
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                          }),
+                        },
+                      });
 
                       return (
                         <div
