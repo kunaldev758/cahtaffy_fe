@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { CheckCircle, XCircle, Clock, AlertCircle, FileText, Globe, MessageSquare, File, Zap } from 'lucide-react'
-import {getDataField} from '../../../../../_api/dashboard/action'
+import DOMPurify from "isomorphic-dompurify";
+import { getDataField } from '../../../../../_api/dashboard/action'
 
 interface ContentData {
   _id: string
@@ -20,7 +21,7 @@ interface ContentData {
   lastEdit: string
   createdAt: string
   webPage?: {
-    url:string
+    url: string
   }
 }
 
@@ -159,9 +160,35 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
                 <CardContent className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Title</label>
-                    <p className="text-sm text-gray-900 mt-1">{contentData.title?contentData.title:contentData?.webPage?.url}</p>
+                    {/* <p className="text-sm text-gray-900 mt-1">{contentData.title?contentData.title:contentData?.webPage?.url}</p> */}
+                    <p className="text-sm text-gray-900 mt-1">
+                      {contentData.title ? (
+                        contentData.title
+                      ) : (
+                        <a
+                          href={contentData?.webPage?.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          {contentData?.webPage?.url}
+                          <span>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="inline w-4 h-4 ml-1"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                            </svg>
+                          </span>
+                        </a>
+                      )}
+                    </p>
                   </div>
-                  
+
                   <div>
                     <label className="text-sm font-medium text-gray-600">Type</label>
                     <div className="mt-1">
@@ -231,13 +258,33 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
               <CardContent>
                 <div className="bg-gray-50 p-4 rounded-lg border max-h-96 overflow-y-auto">
                   {(() => {
-                    const rawContent = contentData.content ? contentData.content : contentData?.fileContent || ''
-                    const looksLikeHtml = typeof rawContent === 'string' && /<[^>]+>/i.test(rawContent.trim())
-                    return looksLikeHtml ? (
-                      <div className="text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: rawContent }} />
-                    ) : (
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">{rawContent}</pre>
-                    )
+                    const rawContent =
+                      contentData.content || contentData?.fileContent || "";
+
+                    const looksLikeHtml =
+                      typeof rawContent === "string" && /<[^>]+>/i.test(rawContent.trim());
+
+                    if (looksLikeHtml) {
+                      const sanitizedHTML = DOMPurify.sanitize(
+                        rawContent.replaceAll(
+                          "<a ",
+                          '<a target="_blank" rel="noopener noreferrer" '
+                        )
+                      );
+
+                      return (
+                        <div
+                          className="text-sm text-gray-800 [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800"
+                          dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
+                        />
+                      );
+                    }
+
+                    return (
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+                        {rawContent}
+                      </pre>
+                    );
                   })()}
                 </div>
               </CardContent>

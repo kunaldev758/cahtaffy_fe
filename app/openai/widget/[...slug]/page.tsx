@@ -153,12 +153,12 @@ const FormField = ({ field, value, onChange, error }: { field: any; value: any; 
           {error}
         </p>
       )}
-      {!error && field.validation?.minLength && (
+      {/* {!error && field.validation?.minLength && (
         <p className="text-gray-500 text-xs mt-1">
           {field.validation.minLength > 0 && `Minimum ${field.validation.minLength} characters`}
           {field.validation.maxLength && field.validation.maxLength < 255 && ` • Maximum ${field.validation.maxLength} characters`}
         </p>
-      )}
+      )} */}
     </div>
   );
 };
@@ -785,8 +785,15 @@ export default function EnhancedChatWidget({ params } :any) {
                                         color: getThemeColor(3, '#1e293b')
                                       }}
                                     >
-                                      <div dangerouslySetInnerHTML={{ __html: item.message }} />
-                                    </div>
+                                      <div
+                                        dangerouslySetInnerHTML={{
+                                          __html: item.message.replace(
+                                            /<a\b([^>]*)>/gi,
+                                            '<a$1 target="_blank" rel="noopener noreferrer">'
+                                          )
+                                        }}
+                                      />
+                                      </div>
                                     <div className="text-xs text-gray-500 mt-1 ml-2">
                                       {item.createdAt && formatTime(item.createdAt)}
                                     </div>

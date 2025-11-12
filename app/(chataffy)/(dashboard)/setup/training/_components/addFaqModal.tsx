@@ -29,6 +29,8 @@ export default function Home(Props: any) {
     const response: any = await openaiCreateFaq(title, content)
     setButtonLoading(false)
     Props.onHide()
+    setTitle('')
+    setContent('')
     toast.success(response.message)
 
   }
@@ -83,7 +85,9 @@ export default function Home(Props: any) {
       </Modal.Body>
       <Modal.Footer className="flex justify-content-space-between">
         <button type="button" className="custom-btn default-btn" onClick={() => {
-          Props.onHide()
+          Props.onHide();
+          setTitle('');
+          setContent('');
         }}>Cancel</button>
         <button type="button" className="custom-btn" onClick={handleButtonOnClick} disabled={buttonLoading}>
           {buttonLoading ?

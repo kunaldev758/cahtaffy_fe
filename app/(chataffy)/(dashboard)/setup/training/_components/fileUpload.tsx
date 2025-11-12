@@ -50,7 +50,7 @@ export const FileUpload = ({ onFileChange }: { onFileChange: (file: File | null)
         Drop your file here, or <label htmlFor="file" className="upload-browse">browse</label>
       </div>
       <div className="upload-filePera">Only DOC, DOCX, PDF, TXT files are allowed.</div>
-      {file && <div>{file.name}</div>}
+      {file && <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{file.name}</div>}
       <input
         id="file"
         type="file"

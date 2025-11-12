@@ -63,6 +63,26 @@ export async function registrationApi(email, password, role = 'client') {
 
 
 
+export async function googleOAuthExchange(googleToken) {
+  // Expecting backend to validate googleToken (access_token or id_token) and return app token
+  const response = await fetch(`${process.env.API_HOST}oauth/google`, {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: googleToken })
+  })
+
+  const result = await response.json()
+  if (result?.status_code === 200 && result?.token) {
+    cookies().set({ name: 'token', value: result.token, httpOnly: true })
+    cookies().set({ name: 'role', value: "client", httpOnly: true })
+  }
+  return result
+}
+
+
+
+
 export async function verifyEmailApi(token) {
   const response = await fetch(`${process.env.API_HOST}verifyEmail`, {
     method: 'POST',

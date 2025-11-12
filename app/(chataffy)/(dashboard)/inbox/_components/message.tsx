@@ -218,7 +218,25 @@ const Message = ({
               >
                 <span className="relative flex items-center">
                   {/* {renderMessageMenu()} */}
-                  <div className="ml-2" dangerouslySetInnerHTML={{ __html: messageData.message }} />
+                  <div
+                    className="ml-2"
+                    dangerouslySetInnerHTML={{
+                      __html: messageData.message?.replace(
+                        /<a\s+([^>]*href=['"][^'"]+['"][^>]*)>/gi,
+                        (match, p1) => {
+                          // If target or rel already set, don't duplicate
+                          let newAttrs = p1;
+                          if (!/\btarget=/i.test(newAttrs)) {
+                            newAttrs += ' target="_blank"';
+                          }
+                          if (!/\brel=/i.test(newAttrs)) {
+                            newAttrs += ' rel="noopener noreferrer"';
+                          }
+                          return `<a ${newAttrs}>`;
+                        }
+                      ),
+                    }}
+                  />
                 </span>
                 {/* <div className="absolute top-2 right-2">
                   {renderMessageMenu()}
@@ -258,7 +276,27 @@ const Message = ({
             </div>
             <div className="chat-messageArea d-flex flex-column align-items-start">
               <div className="chat-messageBox relative">
-                <div dangerouslySetInnerHTML={{ __html: messageData.message }} />
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: messageData.message
+                      ? messageData.message.replace(
+                          /<a\b([^>]*)>/gi,
+                          (match, attrs) => {
+                            // Ensure target="_blank" is present
+                            let newAttrs = attrs;
+                            if (!/\btarget=(_blank|"_blank"|'_blank')/i.test(attrs)) {
+                              newAttrs += ' target="_blank"';
+                            }
+                            // Ensure rel="noopener noreferrer" is present
+                            if (!/\brel=("[^"]*"|'[^']*'|[^\s>]*)/i.test(attrs)) {
+                              newAttrs += ' rel="noopener noreferrer"';
+                            }
+                            return `<a${newAttrs}>`;
+                          }
+                        )
+                      : "",
+                  }}
+                />
                 {/* <div className="absolute top-2 right-2">
                   {renderMessageMenu()}
                 </div> */}

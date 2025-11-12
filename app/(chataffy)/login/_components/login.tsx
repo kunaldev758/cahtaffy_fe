@@ -2,12 +2,13 @@
 // Login Component
 'use client'
 import { useState, useEffect } from 'react'
-import { loginApi } from '../../../_api/login/action'
+import { loginApi, googleOAuthExchange } from '../../../_api/login/action'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { useSocket } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import Link from 'next/link'
+import { useGoogleLogin } from '@react-oauth/google'
 
 
 export function LoginForm() {
@@ -18,6 +19,8 @@ export function LoginForm() {
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
   const router = useRouter()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   const handleOnSubmit = async (event:any) => {
     event.preventDefault()
@@ -62,6 +65,39 @@ export function LoginForm() {
     }
   }
 
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse: any) => {
+      try {
+        setGoogleLoading(true)
+        const response = await googleOAuthExchange(tokenResponse?.access_token);
+        // console.log(response,"this is the response !");
+        setGoogleLoading(false);
+        if (response?.status_code === 200) {
+          toast.success('Signed in with Google')
+          // router.replace((appUrl?.endsWith('/') ? appUrl : appUrl + '/') + 'dashboard')
+          router.replace(appUrl + 'dashboard')
+          if (response.token) {
+            localStorage.setItem('token', response.token)
+          }
+          if (response.userId) {
+            localStorage.setItem('userId', response.userId)
+            handleSocketEvent(response.userId)
+          }
+        } else {
+          toast.error(response?.message || 'Google login failed')
+        }
+      } catch (e: any) {
+        setGoogleLoading(false)
+        toast.error('Google login failed')
+      }
+    },
+    onError: () => {
+      setGoogleLoading(false)
+      toast.error('Google sign-in was cancelled or failed')
+    },
+    scope: 'openid email profile'
+  })
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -78,6 +114,36 @@ export function LoginForm() {
 
         {/* Form */}
         <div className="bg-white py-8 px-6 shadow-xl rounded-2xl">
+          {/* Social auth */}
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => {
+                if (!googleClientId) {
+                  toast.error('Google Client ID not configured')
+                  return
+                }
+                if (!googleLoading) googleLogin()
+              }}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
+              disabled={googleLoading}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5">
+                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12   c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.64,6.053,29.082,4,24,4C12.955,4,4,12.955,4,24   c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,13,24,13c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657   C33.64,6.053,29.082,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                <path fill="#4CAF50" d="M24,44c5.164,0,9.86-1.977,13.409-5.197l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946   l-6.522,5.026C9.5,39.556,16.227,44,24,44z" />
+                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.793,2.238-2.231,4.166-4.094,5.565c0,0,0.001,0,0.001,0l6.19,5.238   c-0.438,0.4,6.6-4.826,6.6-14.803C44,22.659,43.862,21.35,43.611,20.083z" />
+              </svg>
+              {googleLoading ? 'Connecting…' : 'Continue with Google'}
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px bg-gray-200 w-full" />
+              <span className="text-xs text-gray-500">or</span>
+              <div className="h-px bg-gray-200 w-full" />
+            </div>
+          </div>
+
           <form onSubmit={handleOnSubmit} className="space-y-6">
             {/* Email Field */}
             <div>
