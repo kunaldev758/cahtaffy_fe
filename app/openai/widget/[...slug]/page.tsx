@@ -324,10 +324,6 @@ export default function EnhancedChatWidget({ params } :any) {
       widgetToken
     });
 
-    socket.emit('visitor-ip',{
-      ip:visitorIp
-    })
-
     socket.on("visitor-connect-response", (data) => {
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
@@ -356,7 +352,17 @@ export default function EnhancedChatWidget({ params } :any) {
       socket.off("visitor-connect-response");
       socket.off("visitor-connect-response-upgrade");
     };
-  }, [widgetToken,visitorIp]);
+  }, [widgetToken]);
+
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit('visitor-ip',{
+      ip:visitorIp
+    })
+  }, [visitorIp]);
 
   const handleSubmitUnavailableContact = async () => {
     setUnavailableError('');

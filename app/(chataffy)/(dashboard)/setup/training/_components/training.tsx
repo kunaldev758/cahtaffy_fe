@@ -395,10 +395,10 @@ export default function EnhancedTrainingPage() {
         setClientData(client)
         
         // Handle different training states
-        if (client.dataTrainingStatus === 1) {
+        if (client.dataTrainingStatus === 1 && clientData?.dataTrainingStatus !== 1) {
           // setShowProgressTracker(true)
           toast.info('Training started...')
-        } else if (client.dataTrainingStatus === 0) {
+        } else if (client.dataTrainingStatus === 0 && clientData?.dataTrainingStatus !== 0) {
           // setShowProgressTracker(false)
           if (message) {
             // if (message.includes('error') || message.includes('failed')) {
