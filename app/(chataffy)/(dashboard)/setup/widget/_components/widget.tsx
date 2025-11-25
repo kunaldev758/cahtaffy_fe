@@ -37,7 +37,7 @@ const ALLOWED_FILE_TYPES = ['jpg', 'jpeg', 'png'];
 
 // Initial state with enhanced structure
 const initialState = {
-  logo: null,
+  logo: '/images/widget/human-avatar.png',
   titleBar: "Support Chat",
   welcomeMessage: "👋 Hi there! How can I help?",
   showLogo: true,
@@ -435,7 +435,7 @@ const uploadLogoFunc = async (formData:any,userId:any) => {
 export default function EnhancedWidgetSettings() {
   const [userId, setUserId] = useState<string | null>(null);
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [selectedLogo, setSelectedLogo] = useState('/api/placeholder/40/40');
+  const [selectedLogo, setSelectedLogo] = useState('/images/widget/human-avatar.png');
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);

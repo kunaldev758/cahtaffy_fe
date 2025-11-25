@@ -3,7 +3,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'react-toastify/dist/ReactToastify.css';
 import '@/app/fonts.css'
 import '@/app/globals.css'
-import { ToastContainer, toast } from 'react-toastify';
 import { SocketProvider } from '../socketContext';
 import { GoogleOAuthProvider } from '@react-oauth/google'
 
@@ -32,7 +31,6 @@ export default function DashboardLayout({
       ) : (
         children
       )}
-      <ToastContainer />
       </SocketProvider>
     {/* </div> */}
 

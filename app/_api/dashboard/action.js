@@ -117,8 +117,8 @@ export async function openaiCreateSnippet(formData) {
   return data
 }
 
-export async function openaiCreateFaq(question, answer) {
-  return await fetchData('openaiCreateFaq', { question, answer });
+export async function openaiCreateFaq(faqs) {
+  return await fetchData('openaiCreateFaq', { faqs });
 }
 
 export async function openaiToggleActiveStatus(id) {

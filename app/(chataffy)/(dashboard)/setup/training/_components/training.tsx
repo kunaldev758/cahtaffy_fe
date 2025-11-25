@@ -83,6 +83,21 @@ interface ClientData {
   planExpiry: Date | null
   billingCycle: string
   totalAmountPaid: number
+  scrapingStartTime?: string | Date
+}
+
+interface ScrapingProgress {
+  percentage: number
+  processed: number
+  total: number
+  elapsedTime: string
+  elapsedSeconds: number
+  estimatedTimeRemaining: string | null
+  estimatedSecondsRemaining: number | null
+  isProcessing: boolean
+  phase?: 'scraping' | 'training'
+  stoppedReason?: string
+  error?: boolean
 }
 
 interface ErrorItem {
@@ -129,6 +144,7 @@ export default function EnhancedTrainingPage() {
   // Progress and error states
   const [showContinueScrapping,setShowContinueScrapping] =useState(false)
   const [errors, setErrors] = useState<ErrorItem[]>([])
+  const [scrapingProgress, setScrapingProgress] = useState<ScrapingProgress | null>(null)
 
   // Helper functions
   const addError = (message: string, type: 'error' | 'warning' = 'error', source?: string) => {
@@ -388,28 +404,49 @@ export default function EnhancedTrainingPage() {
     })
 
     // Main training event handler - handles all training-related updates
-    socket.on('training-event', function({ client, message }: { client?: ClientData, message?: string }) {
-      console.log('Training event received:', { client, message })
+    socket.on('training-event', function({ client, message, scrapingProgress: progress }: { client?: ClientData, message?: string, scrapingProgress?: ScrapingProgress }) {
+      console.log('Training event received:', { client, message, scrapingProgress: progress })
+      
+      // Handle scraping progress updates
+      if (progress) {
+        setScrapingProgress(progress)
+        
+        // Clear progress when processing is complete and not in error state
+        if (!progress.isProcessing && progress.percentage === 100 && !progress.error && !progress.stoppedReason) {
+          setTimeout(() => {
+            setScrapingProgress(null)
+          }, 5000) // Clear after 5 seconds
+        }
+        
+        // Handle stopped states
+        // if (progress.stoppedReason === 'storage_limit_exceeded') {
+        //   addError('Storage limit exceeded. Scraping stopped. Upgrade your plan to continue.', 'warning', 'Storage')
+        // }
+        
+        // Handle error states
+        if (progress.error) {
+          addError('An error occurred during scraping/training.', 'error', 'Scraping')
+        }
+      } else if (client?.dataTrainingStatus === 0) {
+        // Clear progress when training status is 0 and no progress is provided
+        setScrapingProgress(null)
+      }
       
       if (client) {
-        setClientData(client)
-        
-        // Handle different training states
-        if (client.dataTrainingStatus === 1 && clientData?.dataTrainingStatus !== 1) {
-          // setShowProgressTracker(true)
-          toast.info('Training started...')
-        } else if (client.dataTrainingStatus === 0 && clientData?.dataTrainingStatus !== 0) {
-          // setShowProgressTracker(false)
-          if (message) {
-            // if (message.includes('error') || message.includes('failed')) {
-            toast.error(message)
-            addError(message, 'error', 'Training')
-          }
-          else {
-            toast.success('Training completed successfully!')
-          }
+          if (client.dataTrainingStatus === 1 && clientData?.dataTrainingStatus !== 1 && clientData?.dataTrainingStatus !== null && progress == undefined) {
+            toast.info('Training started...')
+          } else if (client.dataTrainingStatus === 0 && clientData?.dataTrainingStatus !== 0 && clientData?.dataTrainingStatus !== null) {
+            // Clear progress when training completes
+            setScrapingProgress(null)
 
-        }
+            if (message) {
+              toast.error(message)
+              addError(message, 'error', 'Training')
+            }
+            else {
+              toast.success('Training completed successfully!')
+            }
+          }
 
         // Handle upgrade plan status alerts
         if (client.upgradePlanStatus) {
@@ -417,6 +454,7 @@ export default function EnhancedTrainingPage() {
             addError('Storage limit exceeded. Please upgrade your plan to continue.', 'warning', 'Storage')
           }
         }
+        setClientData(client)
       }
 
       if (message) {
@@ -534,19 +572,91 @@ export default function EnhancedTrainingPage() {
 
   {showContinueScrapping && (
         <div className="mx-6 mt-4 space-y-2">
-          {/* {clientData.upgradePlanStatus.storageLimitExceeded && ( */}
-            <Alert className="border-orange-200 bg-orange-50">
-              <Zap className="h-4 w-4" />
-              <AlertDescription>
+          <Alert className="border-orange-200 bg-orange-50">
+            <Zap className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex items-center justify-between">
+                <span>Continue your scrapping Some Pages are still left to train.</span>
+                <Button size="sm" variant="outline" onClick={handleContinueScrapping}>
+                  Continue Scrapping
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* Scraping Progress Tracker */}
+      {scrapingProgress && (
+        <div className="mx-6 mt-4">
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardContent className="p-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span>Continue your scrapping Some Pages are still left to train.</span>
-                  <Button size="sm" variant="outline" onClick={handleContinueScrapping}>
-                    Continue Scrapping
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {scrapingProgress.phase === 'training' ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        <h3 className="text-sm font-semibold text-blue-900">Training Phase</h3>
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-4 h-4 text-blue-600" />
+                        <h3 className="text-sm font-semibold text-blue-900">Scraping Progress</h3>
+                      </>
+                    )}
+                    {scrapingProgress.stoppedReason && (
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs">
+                        Stopped
+                      </Badge>
+                    )}
+                    {scrapingProgress.error && (
+                      <Badge variant="secondary" className="bg-red-100 text-red-800 text-xs">
+                        Error
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-sm font-medium text-blue-900">
+                    {scrapingProgress.percentage}%
+                  </div>
                 </div>
-              </AlertDescription>
-            </Alert>
-          {/* )} */}
+                
+                <Progress 
+                  value={scrapingProgress.percentage} 
+                  className="h-2"
+                />
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <span className="text-gray-600">Processed:</span>
+                    <span className="ml-1 font-medium text-gray-900">
+                      {scrapingProgress.processed} / {scrapingProgress.total}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Elapsed:</span>
+                    <span className="ml-1 font-medium text-gray-900">
+                      {scrapingProgress.elapsedTime}
+                    </span>
+                  </div>
+                  {scrapingProgress.estimatedTimeRemaining && (
+                    <div>
+                      <span className="text-gray-600">Remaining:</span>
+                      <span className="ml-1 font-medium text-gray-900">
+                        {scrapingProgress.estimatedTimeRemaining}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-gray-600">Status:</span>
+                    <span className="ml-1 font-medium text-gray-900">
+                      {scrapingProgress.isProcessing ? 'Processing' : 'Complete'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
