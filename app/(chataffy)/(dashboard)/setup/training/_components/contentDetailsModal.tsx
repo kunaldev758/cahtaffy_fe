@@ -176,7 +176,8 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
                           {contentData?.webPage?.url}
                           <span className="inline-flex">
                             <Image
-                              src="/images/external-link-square-arrow.svg"
+                              // src="/images/external-link-square-arrow.svg"
+                              src={`${process.env.NEXT_PUBLIC_APP_URL}images/external-link-square-arrow.svg`}
                               alt="Open in new tab"
                               width={16}
                               height={16}
