@@ -603,7 +603,7 @@ export default function EnhancedWidgetSettings() {
                       onClick={() => (document.getElementById('logoUpload') as any).click()}
                     >
                       {selectedLogo ? (
-                        <img src={selectedLogo} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
+                        <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
                       ) : (
                         <Upload className="w-6 h-6 text-gray-400" />
                       )}
@@ -970,7 +970,7 @@ export default function EnhancedWidgetSettings() {
                         <div className="flex items-center space-x-3">
                           {state.showLogo && (
                             <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                              <img src={selectedLogo} alt="Logo" className="w-6 h-6 rounded-full" />
+                              <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-6 h-6 rounded-full" />
                             </div>
                           )}
                           <div>

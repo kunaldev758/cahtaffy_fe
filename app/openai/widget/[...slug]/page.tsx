@@ -641,7 +641,7 @@ export default function EnhancedChatWidget({ params } :any) {
                       <img src={clientLogo} alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
                       // <User className="w-5 h-5 text-white" />
-                      <img src={selectedLogo} alt="Logo" className="w-10 h-10 text-white" />
+                      <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-10 h-10 text-white" />
                     )}
                   </div>
                 )}
