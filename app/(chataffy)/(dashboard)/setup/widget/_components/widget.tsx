@@ -605,7 +605,7 @@ export default function EnhancedWidgetSettings() {
                       {selectedLogo =="images/widget/human-avatar.png" ? (
                         <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
                       ) : (
-                        <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
+                        <img src={selectedLogo} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
                       )}
                     </div>
                     <div className="flex-1">
@@ -973,7 +973,7 @@ export default function EnhancedWidgetSettings() {
                               {selectedLogo =="images/widget/human-avatar.png" ? (
                                 <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-6 h-6 rounded-full" />
                               ) : (
-                                <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-6 h-6 rounded-full" />
+                                <img src={selectedLogo} alt="Logo" className="w-6 h-6 rounded-full" />
                               )}
                             </div>
                           )}
