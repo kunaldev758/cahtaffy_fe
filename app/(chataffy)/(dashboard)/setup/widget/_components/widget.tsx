@@ -602,10 +602,10 @@ export default function EnhancedWidgetSettings() {
                       className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-300"
                       onClick={() => (document.getElementById('logoUpload') as any).click()}
                     >
-                      {selectedLogo ? (
+                      {selectedLogo =="images/widget/human-avatar.png" ? (
                         <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
                       ) : (
-                        <Upload className="w-6 h-6 text-gray-400" />
+                        <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-12 h-12 rounded-lg object-cover" />
                       )}
                     </div>
                     <div className="flex-1">
@@ -970,7 +970,11 @@ export default function EnhancedWidgetSettings() {
                         <div className="flex items-center space-x-3">
                           {state.showLogo && (
                             <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                              <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-6 h-6 rounded-full" />
+                              {selectedLogo =="images/widget/human-avatar.png" ? (
+                                <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-6 h-6 rounded-full" />
+                              ) : (
+                                <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-6 h-6 rounded-full" />
+                              )}
                             </div>
                           )}
                           <div>
