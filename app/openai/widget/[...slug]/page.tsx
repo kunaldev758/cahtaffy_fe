@@ -179,7 +179,7 @@ export default function EnhancedChatWidget({ params } :any) {
   const [showWidget, setShowWidget] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [clientLogo, setClientLogo] = useState('/api/placeholder/40/40');
-  const [selectedLogo, setSelectedLogo] = useState('/images/widget/human-avatar.png');
+  const [selectedLogo, setSelectedLogo] = useState('images/widget/human-avatar.png');
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
@@ -641,7 +641,7 @@ export default function EnhancedChatWidget({ params } :any) {
                       <img src={clientLogo} alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
                       // <User className="w-5 h-5 text-white" />
-                      <img src={`${process.env.NEXT_PUBLIC_FILE_HOST}${selectedLogo}`} alt="Logo" className="w-10 h-10 text-white" />
+                      <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-10 h-10 text-white" />
                     )}
                   </div>
                 )}
