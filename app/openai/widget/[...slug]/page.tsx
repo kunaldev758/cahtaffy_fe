@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   X,
   Send,
@@ -13,7 +13,8 @@ import {
   CheckCircle,
   AlertCircle,
   Bot,
-  ArrowDown
+  ArrowDown,
+  Mic
 } from "lucide-react";
 import { io, Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid";
@@ -182,6 +183,9 @@ export default function EnhancedChatWidget({ params } :any) {
   const [selectedLogo, setSelectedLogo] = useState('images/widget/human-avatar.png');
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(true);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
@@ -201,6 +205,10 @@ export default function EnhancedChatWidget({ params } :any) {
 
   const chatBottomRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
+  const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
+  const voiceButtonDisabled = !isRecording && (!isOnline || isTyping);
 
   const clearNoReplyTimer = () => {
     if (noReplyTimerRef.current) {
@@ -437,18 +445,22 @@ export default function EnhancedChatWidget({ params } :any) {
     return sanitized.replace(/[^\w\s.,!?'"-]/g, '');
   };
 
-  const handleInputChange = (e:any) => {
-    const text = e.target.value;
-    const wordCount = text.trim().split(/\s+/).filter((word:any) => word.length > 0).length;
-
-    if (wordCount > 100) {
-      setError('Message cannot exceed 100 words');
-      const truncatedText = text.split(/\s+/).slice(0, 100).join(' ');
-      setInputMessage(truncatedText);
-    } else {
-      setError('');
-      setInputMessage(text);
+  const limitMessageWords = (text: string) => {
+    const safeText = text || '';
+    const words = safeText.trim().split(/\s+/).filter((word) => word.length > 0);
+    if (words.length > 1000) {
+      return {
+        value: words.slice(0, 100).join(' '),
+        error: 'Message cannot exceed 1000 words'
+      };
     }
+    return { value: safeText, error: '' };
+  };
+
+  const handleInputChange = (e:any) => {
+    const { value, error: limitError } = limitMessageWords(e.target.value);
+    setError(limitError);
+    setInputMessage(value);
   };
 
   const handleFormFieldChange = (fieldName:any, value:any) => {
@@ -488,6 +500,35 @@ export default function EnhancedChatWidget({ params } :any) {
     setInputMessage('');
     // Start the no-reply timer immediately after sending a visitor message
     startNoReplyTimer();
+  };
+
+  const toggleRecording = () => {
+    const recognition = recognitionRef.current;
+    if (
+      !recognition ||
+      !isSpeechSupported ||
+      !isOnline ||
+      isTyping ||
+      !chatInputAvailable ||
+      conversationStatus === 'close'
+    ) {
+      return;
+    }
+
+    if (isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    setSpeechError(null);
+    try {
+      recognition.start();
+      setIsRecording(true);
+    } catch (err) {
+      setSpeechError('Unable to access microphone. Please try again.');
+      setIsRecording(false);
+    }
   };
 
   const handleSubmitVisitorDetails = async () => {
@@ -577,6 +618,54 @@ export default function EnhancedChatWidget({ params } :any) {
     return () => {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const SpeechRecognitionConstructor =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionConstructor) {
+      setIsSpeechSupported(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognitionConstructor();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event?.results?.[0]?.[0]?.transcript?.trim();
+      if (!transcript) {
+        return;
+      }
+      setInputMessage((prev: string) => {
+        const combined = prev ? `${prev.trim()} ${transcript}`.trim() : transcript;
+        const { value, error: limitError } = limitMessageWords(combined);
+        setError(limitError);
+        return value;
+      });
+    };
+
+    recognition.onerror = (event: any) => {
+      setSpeechError(event.error);
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.stop();
+      recognitionRef.current = null;
     };
   }, []);
 
@@ -905,7 +994,7 @@ export default function EnhancedChatWidget({ params } :any) {
              
 
                 {/* Input Area - Only show when conversation is active */}
-                {(visitorExists || (!visitorExists &&  !themeSettings?.isPreChatFormEnabled))&& (
+                {chatInputAvailable && (
                   <div className="border-t border-gray-200 bg-white">
                     {conversationStatus === 'close' ? (
                       <div className="text-center py-8">
@@ -965,19 +1054,60 @@ export default function EnhancedChatWidget({ params } :any) {
                             />
                           </div>
 
-                          <button
-                            onClick={handleMessageSend}
-                            disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline}
-                            className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
-                          >
-                            <Send className="w-5 h-5" />
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            {shouldRenderVoiceButton && (
+                              <button
+                                onClick={toggleRecording}
+                                disabled={voiceButtonDisabled}
+                                title={
+                                  !isOnline
+                                    ? 'Voice capture is disabled while offline.'
+                                    : isTyping && !isRecording
+                                      ? 'Please wait for the previous message to send.'
+                                      : isRecording
+                                        ? 'Stop recording'
+                                        : 'Start recording'
+                                }
+                                className={`p-3 rounded-lg transition-colors ${
+                                  isRecording
+                                    ? 'bg-red-100 text-red-600'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <Mic className="w-5 h-5" />
+                              </button>
+                            )}
+
+                            <button
+                              onClick={handleMessageSend}
+                              disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline}
+                              className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
+                            >
+                              <Send className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
 
                         {error && (
                           <div className="mt-2 text-sm text-red-600 flex items-center space-x-1">
                             <AlertCircle className="w-4 h-4" />
                             <span>{error}</span>
+                          </div>
+                        )}
+                        {speechError && (
+                          <div className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>
+                              {speechError === 'not-allowed'
+                                ? 'Microphone access was denied. Please enable it in your browser settings.'
+                                : speechError}
+                            </span>
+                          </div>
+                        )}
+                        {isRecording && (
+                          <div className="mt-2 text-xs text-blue-600 flex items-center space-x-1">
+                            <Mic className="w-3 h-3" />
+                            <span>Listening... speak now and tap the mic to stop.</span>
                           </div>
                         )}
 

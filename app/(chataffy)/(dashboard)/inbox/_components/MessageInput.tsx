@@ -1,6 +1,6 @@
 "use client";
 import { Send, Mic, MessageCircle, StickyNote } from "lucide-react";
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface MessageInputProps {
   inputMessage: string;
@@ -28,6 +28,31 @@ export default function MessageInput({
   setIsNoteActive,
 }: MessageInputProps) {
   const [isOnline, setIsOnline] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(true);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  const appendTranscript = useCallback(
+    (transcript: string) => {
+      const cleanTranscript = transcript.trim();
+      if (!cleanTranscript) {
+        return;
+      }
+      const nextValue = inputMessage
+        ? `${inputMessage.trim()} ${cleanTranscript}`.trim()
+        : cleanTranscript;
+
+      const syntheticEvent = {
+        target: { value: nextValue },
+        currentTarget: { value: nextValue },
+      } as React.ChangeEvent<HTMLTextAreaElement>;
+
+      onInputChange(syntheticEvent);
+    },
+    [inputMessage, onInputChange],
+  );
+
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
     window.addEventListener('online', updateOnlineStatus);
@@ -38,6 +63,75 @@ export default function MessageInput({
       window.removeEventListener('offline', updateOnlineStatus);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const SpeechRecognitionConstructor =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionConstructor) {
+      setIsSpeechSupported(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognitionConstructor();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      appendTranscript(transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      setSpeechError(event.error);
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.stop();
+      recognitionRef.current = null;
+    };
+  }, [appendTranscript]);
+
+  const toggleRecording = () => {
+    if (!recognitionRef.current || !isSpeechSupported) {
+      return;
+    }
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+      return;
+    }
+    setSpeechError(null);
+    try {
+      recognitionRef.current.start();
+      setIsRecording(true);
+    } catch (err) {
+      setSpeechError("Unable to access microphone. Please try again.");
+      setIsRecording(false);
+    }
+  };
+
+  const allowsVoiceForChat =
+    !isNoteActive && openConversationStatus === "open" && !isAIChat;
+  const allowsVoiceForNotes = isNoteActive || openConversationStatus === "close";
+  const allowVoiceCapture = allowsVoiceForChat || allowsVoiceForNotes;
+  const showVoiceButton = isSpeechSupported && allowVoiceCapture;
+  const voiceDisabled = !isOnline || !allowVoiceCapture;
+  const sendDisabled =
+    !inputMessage.trim() ||
+    (!isNoteActive && isAIChat && openConversationStatus === "open") ||
+    !isOnline;
   return (
     <div className="bg-white border-t border-gray-200 p-4">
       {/* No Internet Banner */}
@@ -123,21 +217,50 @@ export default function MessageInput({
         </div>
         
         <div className="flex space-x-2">
-          {!isAIChat && !isNoteActive && openConversationStatus === "open" && (
-            <button className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+          {showVoiceButton && (
+            <button
+              onClick={toggleRecording}
+              disabled={voiceDisabled}
+              title={
+                !isSpeechSupported
+                  ? "Voice capture is not supported in this browser."
+                  : allowsVoiceForNotes
+                    ? "Use your voice to add a note."
+                    : isRecording
+                      ? "Stop recording"
+                      : "Start recording"
+              }
+              className={`p-3 rounded-lg transition-colors ${
+                isRecording
+                  ? "bg-red-100 text-red-600"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
               <Mic className="w-5 h-5" />
             </button>
           )}
           
           <button
             onClick={isNoteActive || openConversationStatus === "close" ? onAddNote : onMessageSend}
-            disabled={!inputMessage.trim() || (!isNoteActive && isAIChat && openConversationStatus === "open") || !isOnline}
+            disabled={sendDisabled}
             className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
       </div>
+      {speechError && (
+        <div className="mt-2 text-xs text-red-600">
+          {speechError === "not-allowed"
+            ? "Microphone access was denied. Please enable it in your browser settings."
+            : speechError}
+        </div>
+      )}
+      {isRecording && (
+        <div className="mt-2 text-xs text-blue-600">
+          Listening... speak your command and tap the mic to stop.
+        </div>
+      )}
     </div>
   );
 }
