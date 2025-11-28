@@ -11,11 +11,18 @@ const nextConfig = {
   basePath,
   experimental: {
     serverActions: {
-        allowedOrigins: ["shopify.favseo.com","localhost:9001","127.0.0.1:9001","34.213.132.47"],
+        allowedOrigins: [
+          "shopify.favseo.com",
+          "localhost:9001",
+          "127.0.0.1:9001",
+          "34.213.132.47",
+          "chataffy.com",
+          "www.chataffy.com"
+        ],
     },
   },
   images: {
-    domains: ['localhost','34.213.132.47'], // Add 'localhost' to allowed domains
+    domains: ['localhost','34.213.132.47','chataffy.com','www.chataffy.com'], // Add 'localhost' to allowed domains
   },
 }
 

@@ -9,6 +9,7 @@ import { useSocket } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useGoogleLogin } from '@react-oauth/google'
+const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
 
 export function LoginForm() {
@@ -28,7 +29,8 @@ export function LoginForm() {
       const response = await loginApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
       if (response?.status_code == 200) {
-        router.replace('/dashboard')
+        router.replace(appUrl + 'dashboard')
+        // router.replace('/dashboard')
         localStorage.setItem('token', response.token);
         localStorage.setItem('userId', response.userId);
         handleSocketEvent(response.userId)
@@ -73,7 +75,8 @@ export function LoginForm() {
         setGoogleLoading(false);
         if (response?.status_code === 200) {
           toast.success('Signed in with Google')
-          router.replace('/dashboard')
+          router.replace(appUrl + 'dashboard')
+          // router.replace('/dashboard')
           if (response.token) {
             localStorage.setItem('token', response.token)
           }

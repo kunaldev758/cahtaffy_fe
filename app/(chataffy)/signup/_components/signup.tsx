@@ -10,6 +10,7 @@ import { CheckCircleIcon, EyeIcon, EyeOffIcon, ScanEyeIcon, XCircleIcon } from '
 import { useGoogleLogin } from '@react-oauth/google'
 import { useRouter } from 'next/navigation'
 import { useSocket } from "../../../socketContext";
+const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
 export function RegistrationForm() {
   const { socket } = useSocket();
@@ -43,7 +44,8 @@ export function RegistrationForm() {
         setGoogleLoading(false)
         if (response?.status_code === 200) {
           toast.success('Signed up with Google')
-          router.replace('/dashboard')
+          router.replace(appUrl + 'dashboard')
+          // router.replace('/dashboard')
 
           if (response.token) {
             localStorage.setItem('token', response.token)
