@@ -22,8 +22,6 @@ export function RegistrationForm() {
   const [passwordMatch, setPasswordMatch] = useState(true)
 
   const router = useRouter()
-  const appUrl: any = process.env.NEXT_PUBLIC_APP_URL
-
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -45,7 +43,7 @@ export function RegistrationForm() {
         setGoogleLoading(false)
         if (response?.status_code === 200) {
           toast.success('Signed up with Google')
-          router.replace(appUrl + 'dashboard')
+          router.replace('/dashboard')
 
           if (response.token) {
             localStorage.setItem('token', response.token)

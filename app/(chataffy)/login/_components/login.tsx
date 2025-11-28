@@ -18,7 +18,6 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
   const router = useRouter()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -29,7 +28,7 @@ export function LoginForm() {
       const response = await loginApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
       if (response?.status_code == 200) {
-        router.replace(appUrl + 'dashboard')
+        router.replace('/dashboard')
         localStorage.setItem('token', response.token);
         localStorage.setItem('userId', response.userId);
         handleSocketEvent(response.userId)
@@ -74,8 +73,7 @@ export function LoginForm() {
         setGoogleLoading(false);
         if (response?.status_code === 200) {
           toast.success('Signed in with Google')
-          // router.replace((appUrl?.endsWith('/') ? appUrl : appUrl + '/') + 'dashboard')
-          router.replace(appUrl + 'dashboard')
+          router.replace('/dashboard')
           if (response.token) {
             localStorage.setItem('token', response.token)
           }
