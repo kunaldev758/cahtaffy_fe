@@ -206,6 +206,8 @@ export default function EnhancedChatWidget({ params } :any) {
   const chatBottomRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
   const recognitionRef = useRef<any>(null);
+  const isManualStopRef = useRef<boolean>(false);
+  const shouldBeRecordingRef = useRef<boolean>(false);
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
   const voiceButtonDisabled = !isRecording && (!isOnline || isTyping);
@@ -502,6 +504,30 @@ export default function EnhancedChatWidget({ params } :any) {
     startNoReplyTimer();
   };
 
+  const stopRecording = () => {
+    const recognition = recognitionRef.current;
+    if (recognition && isRecording) {
+      isManualStopRef.current = true;
+      shouldBeRecordingRef.current = false;
+      recognition.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleRecordingConfirm = () => {
+    stopRecording();
+    // The transcript will be in inputMessage, so we can send it
+    if (inputMessage.trim()) {
+      handleMessageSend();
+    }
+  };
+
+  const handleRecordingCancel = () => {
+    stopRecording();
+    setInputMessage('');
+    setSpeechError(null);
+  };
+
   const toggleRecording = () => {
     const recognition = recognitionRef.current;
     if (
@@ -522,12 +548,15 @@ export default function EnhancedChatWidget({ params } :any) {
     }
 
     setSpeechError(null);
+    isManualStopRef.current = false; // Reset manual stop flag
+    shouldBeRecordingRef.current = true; // Set intended recording state
     try {
       recognition.start();
       setIsRecording(true);
     } catch (err) {
       setSpeechError('Unable to access microphone. Please try again.');
       setIsRecording(false);
+      shouldBeRecordingRef.current = false;
     }
   };
 
@@ -638,6 +667,7 @@ export default function EnhancedChatWidget({ params } :any) {
     recognition.lang = 'en-US';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    recognition.continuous = true; // Keep listening continuously
 
     recognition.onresult = (event: any) => {
       const transcript = event?.results?.[0]?.[0]?.transcript?.trim();
@@ -653,12 +683,38 @@ export default function EnhancedChatWidget({ params } :any) {
     };
 
     recognition.onerror = (event: any) => {
-      setSpeechError(event.error);
+      const error = event.error;
+      // Only stop on critical errors, not on "no-speech" which is normal in continuous mode
+      if (error === 'no-speech' || error === 'audio-capture') {
+        // These are non-critical, don't stop recording
+        return;
+      }
+      // For other errors, stop recording
+      setSpeechError(error);
       setIsRecording(false);
+      isManualStopRef.current = false; // Reset since it's an error, not manual
+      shouldBeRecordingRef.current = false;
     };
 
     recognition.onend = () => {
-      setIsRecording(false);
+      // Only restart if we should still be recording and it wasn't manually stopped
+      if (shouldBeRecordingRef.current && !isManualStopRef.current && recognitionRef.current) {
+        try {
+          // Keep recording state true and restart
+          recognition.start();
+          // Ensure isRecording stays true during restart
+          setIsRecording(true);
+        } catch (err) {
+          // If restart fails, stop recording
+          setIsRecording(false);
+          shouldBeRecordingRef.current = false;
+        }
+      } else {
+        // Manual stop or shouldn't be recording - set to false
+        setIsRecording(false);
+        isManualStopRef.current = false;
+        shouldBeRecordingRef.current = false;
+      }
     };
 
     recognitionRef.current = recognition;
@@ -1055,36 +1111,49 @@ export default function EnhancedChatWidget({ params } :any) {
                           </div>
 
                           <div className="flex items-center space-x-2">
-                            {shouldRenderVoiceButton && (
+                            {shouldRenderVoiceButton && !isRecording && (
                               <button
                                 onClick={toggleRecording}
                                 disabled={voiceButtonDisabled}
                                 title={
                                   !isOnline
                                     ? 'Voice capture is disabled while offline.'
-                                    : isTyping && !isRecording
+                                    : isTyping
                                       ? 'Please wait for the previous message to send.'
-                                      : isRecording
-                                        ? 'Stop recording'
-                                        : 'Start recording'
+                                      : 'Start recording'
                                 }
-                                className={`p-3 rounded-lg transition-colors ${
-                                  isRecording
-                                    ? 'bg-red-100 text-red-600'
-                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                                }`}
+                                className="p-3 rounded-lg transition-colors text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                               >
                                 <Mic className="w-5 h-5" />
                               </button>
                             )}
 
-                            <button
-                              onClick={handleMessageSend}
-                              disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline}
-                              className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
-                            >
-                              <Send className="w-5 h-5" />
-                            </button>
+                            {isRecording ? (
+                              <>
+                                <button
+                                  onClick={handleRecordingCancel}
+                                  title="Cancel recording"
+                                  className="p-3 rounded-lg transition-colors text-gray-500 hover:text-red-600 hover:bg-red-50"
+                                >
+                                  <X className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={handleRecordingConfirm}
+                                  title="Confirm and send"
+                                  className="p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                                >
+                                  <CheckCircle className="w-5 h-5" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={handleMessageSend}
+                                disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline}
+                                className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
+                              >
+                                <Send className="w-5 h-5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
