@@ -702,19 +702,19 @@ export default function EnhancedChatWidget({ params } :any) {
 
       {/* Chat Window */}
       {showWidget &&  (
-        <div className={`absolute bottom-16 right-0 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform ${isMinimized ? 'h-16' : 'h-[600px]'
+        <div className={`absolute bottom-16 right-0 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-16' : 'h-[650px]'
           }`}>
 
           {/* No Internet Banner */}
           {!isOnline && (
-            <div className="bg-red-100 text-red-700 text-center py-2 font-semibold">
+            <div className="bg-red-100 text-red-700 text-center py-2 font-semibold flex-shrink-0">
               No internet connection. Chat is disabled.
             </div>
           )}
 
           {/* Header */}
           <div
-            className="p-4 text-white relative overflow-hidden cursor-pointer"
+            className="p-4 text-white relative overflow-hidden cursor-pointer flex-shrink-0"
             style={{ backgroundColor: getThemeColor(0, '#2563eb') }}
             onClick={() => setIsMinimized(!isMinimized)}
           >
@@ -777,19 +777,19 @@ export default function EnhancedChatWidget({ params } :any) {
           {/* Body - Only show when not minimized */}
           {!isMinimized && (
             socketError ? (
-              <div className="flex flex-col items-center justify-center h-full p-8">
+              <div className="flex flex-col items-center justify-center flex-1 p-8">
                 <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h3>
                 <p className="text-gray-600 text-center">We couldn't connect to the chat service. Please try again later.</p>
               </div>
             ) : isBlocked ? (
-              <div className="flex flex-col items-center justify-center h-full p-8">
+              <div className="flex flex-col items-center justify-center flex-1 p-8">
                 <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">You are blocked</h3>
                 <p className="text-gray-600 text-center">You have been blocked from using this chat. If you believe this is a mistake, please contact support.</p>
               </div>
             ) : isUnavailableMode ? (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col flex-1 min-h-0">
                 <div className="flex-1 p-6 overflow-y-auto">
                   <div className="max-w-sm mx-auto">
                     <div className="text-center mb-6">
@@ -853,7 +853,7 @@ export default function EnhancedChatWidget({ params } :any) {
                 {/* Messages Area or Pre-Chat Form */}
                 {
                   conversationStatus==='open' && (
-                    <div className="flex-1 p-4 h-96 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
+                    <div className="flex-1 p-4 min-h-0 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
                     {visitorExists || (!visitorExists &&  !(themeSettings as any)?.isPreChatFormEnabled)? (
                       <div className="space-y-4">
                         {conversation.map((item:any, key:any) => (
@@ -995,7 +995,7 @@ export default function EnhancedChatWidget({ params } :any) {
 
                 {/* Input Area - Only show when conversation is active */}
                 {chatInputAvailable && (
-                  <div className="border-t border-gray-200 bg-white">
+                  <div className="border-t border-gray-200 bg-white flex-shrink-0">
                     {conversationStatus === 'close' ? (
                       <div className="text-center py-8">
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1148,7 +1148,7 @@ export default function EnhancedChatWidget({ params } :any) {
 
                     {/* White Label Footer */}
                     {!themeSettings?.showWhiteLabel && (
-                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex-shrink-0">
                         <div className="text-xs text-gray-500 text-center">
                           Powered by <span className="font-semibold text-blue-600">Chataffy</span>
                         </div>
