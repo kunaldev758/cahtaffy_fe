@@ -532,9 +532,9 @@ export default function EnhancedChatWidget({ params } :any) {
   };
 
   const handleSubmitVisitorDetails = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    // if (!validateForm()) {
+    //   return;
+    // }
 
     setIsSubmittingForm(true);
 
@@ -1105,9 +1105,29 @@ export default function EnhancedChatWidget({ params } :any) {
                           </div>
                         )}
                         {isRecording && (
-                          <div className="mt-2 text-xs text-blue-600 flex items-center space-x-1">
-                            <Mic className="w-3 h-3" />
-                            <span>Listening... speak now and tap the mic to stop.</span>
+                          <div className="mt-3">
+                            <div className="flex items-center justify-center space-x-1 mb-2">
+                              <Mic className="w-4 h-4 text-red-500 animate-pulse" />
+                              <span className="text-xs text-red-600 font-medium">Recording...</span>
+                            </div>
+                            {/* Animated waveform visualization */}
+                            <div className="flex items-end justify-center space-x-1 h-8 bg-red-50 rounded-lg px-4 py-2">
+                              {[...Array(20)].map((_, i) => {
+                                const randomHeight = Math.random() * 60 + 20;
+                                const randomDuration = 0.5 + Math.random() * 0.3;
+                                return (
+                                  <div
+                                    key={i}
+                                    className="waveform-bar bg-red-500 rounded-full"
+                                    style={{
+                                      height: `${randomHeight}%`,
+                                      animation: `waveform ${randomDuration}s ease-in-out infinite`,
+                                      animationDelay: `${i * 0.05}s`
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
 
@@ -1177,6 +1197,20 @@ export default function EnhancedChatWidget({ params } :any) {
             opacity: 1;
             transform: translateX(0);
           }
+        }
+        @keyframes waveform {
+          0%, 100% {
+            transform: scaleY(0.3);
+            opacity: 0.7;
+          }
+          50% {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+        }
+        .waveform-bar {
+          width: 3px;
+          min-height: 4px;
         }
         .animate-in {
           animation-duration: 0.3s;
