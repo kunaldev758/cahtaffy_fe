@@ -202,6 +202,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const currentTranscriptRef = useRef<string>('');
   const lastFinalTranscriptRef = useRef<string>('');
+  const lastDisplayedTextRef = useRef<string>('');
   
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
@@ -562,8 +563,9 @@ export default function EnhancedChatWidget({ params }: any) {
     setInputMessage('');
     setSpeechError(null);
     // setIsTranscribing(false);
-    currentTranscriptRef.current = ''; // Clear transcript on cancel
-    lastFinalTranscriptRef.current = ''; // Clear tracker on cancel
+    currentTranscriptRef.current = '';
+    lastFinalTranscriptRef.current = '';
+    lastDisplayedTextRef.current = '';
   };
 
   const toggleRecording = () => {
@@ -593,9 +595,10 @@ export default function EnhancedChatWidget({ params }: any) {
     isManualStopRef.current = false;
     shouldBeRecordingRef.current = true;
     setRecordingTime(0);
-    currentTranscriptRef.current = ''; // Reset transcript for new recording
-    lastFinalTranscriptRef.current = ''; // Reset last final transcript tracker
-    console.log('🔄 Reset transcript refs for new recording');
+    currentTranscriptRef.current = '';
+    lastFinalTranscriptRef.current = '';
+    lastDisplayedTextRef.current = '';
+    console.log('🔄 Reset all transcript refs for new recording');
     
     try {
       recognition.start();
@@ -730,64 +733,69 @@ export default function EnhancedChatWidget({ params }: any) {
     };
 
     recognition.onresult = (event: any) => {
-      console.log('📝 Recognition result event fired');
-      let fullFinalTranscript = '';
-      let fullInterimTranscript = '';
+      console.log('📝 Recognition result event fired, total results:', event.results.length);
+      
+      let finalText = '';
+      let interimText = '';
 
-      // Loop through ALL results to build complete transcript
+      // Build complete transcript from ALL results
       for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         
         if (event.results[i].isFinal) {
-          fullFinalTranscript += transcript + ' ';
-          console.log(`✅ Final result [${i}]:`, transcript);
+          finalText += transcript + ' ';
+          console.log(`✅ Final [${i}]: "${transcript}"`);
         } else {
-          fullInterimTranscript += transcript;
-          console.log(`⏳ Interim result [${i}]:`, transcript);
+          interimText += transcript;
+          console.log(`⏳ Interim [${i}]: "${transcript}"`);
         }
       }
 
-      // Handle final results
-      if (fullFinalTranscript.trim()) {
-        const newFinalText = fullFinalTranscript.trim();
+      finalText = finalText.trim();
+      interimText = interimText.trim();
+
+      // Update stored transcript if we have new final text
+      if (finalText) {
+        console.log('📋 Complete final text from all results:', finalText);
+        console.log('📋 Previous stored text:', currentTranscriptRef.current);
         
-        // Only update if this is actually NEW final text (not a duplicate)
-        if (newFinalText !== lastFinalTranscriptRef.current) {
-          console.log('🆕 New final text detected');
-          
-          // Check if this new text already contains our previous text
-          // (Mobile browsers include full history in each result)
-          if (currentTranscriptRef.current && newFinalText.includes(currentTranscriptRef.current)) {
-            // New text includes old text, just replace
-            currentTranscriptRef.current = newFinalText;
-            console.log('📱 Mobile mode: Replaced with full history');
-          } else if (currentTranscriptRef.current) {
-            // Desktop mode: append new text
-            currentTranscriptRef.current = `${currentTranscriptRef.current} ${newFinalText}`.trim();
-            console.log('💻 Desktop mode: Appended new text');
-          } else {
-            // First text
-            currentTranscriptRef.current = newFinalText;
-            console.log('🎬 First text');
-          }
-          
-          lastFinalTranscriptRef.current = newFinalText;
-          console.log('💾 Stored in ref:', currentTranscriptRef.current);
-        } else {
-          console.log('⏭️ Skipping duplicate final text');
-        }
+        // Simply store the complete final text
+        // This works for both mobile (which gives complete history) 
+        // and desktop (which we rebuild from all results)
+        currentTranscriptRef.current = finalText;
+        lastFinalTranscriptRef.current = finalText;
+        
+        console.log('💾 Stored:', currentTranscriptRef.current);
       }
 
-      // Display the accumulated final transcript + any interim results
-      const displayText = currentTranscriptRef.current 
-        ? (fullInterimTranscript ? `${currentTranscriptRef.current} ${fullInterimTranscript}`.trim() : currentTranscriptRef.current)
-        : fullInterimTranscript;
+      // Determine what to display
+      let displayText = '';
+      if (currentTranscriptRef.current) {
+        // We have final text
+        if (interimText) {
+          displayText = `${currentTranscriptRef.current} ${interimText}`;
+        } else {
+          displayText = currentTranscriptRef.current;
+        }
+      } else {
+        // Only interim text
+        displayText = interimText;
+      }
+
+      displayText = displayText.trim();
       
-      if (displayText) {
-        console.log('📺 Displaying:', displayText);
+      // Only update if the display text actually changed
+      if (displayText && displayText !== lastDisplayedTextRef.current) {
+        console.log('📺 Display text changed from:', `"${lastDisplayedTextRef.current}"`);
+        console.log('📺 Display text changed to:', `"${displayText}"`);
+        
+        lastDisplayedTextRef.current = displayText;
+        
         const { value, error: limitError } = limitMessageWords(displayText);
         setError(limitError);
         setInputMessage(value);
+      } else {
+        console.log('⏭️ Display text unchanged, skipping update');
       }
     };
 
