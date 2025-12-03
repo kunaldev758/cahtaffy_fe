@@ -754,48 +754,36 @@ export default function EnhancedChatWidget({ params }: any) {
       finalText = finalText.trim();
       interimText = interimText.trim();
 
-      // Update stored transcript if we have new final text
+      console.log('📋 Built final text:', finalText);
+      console.log('📋 Built interim text:', interimText);
+
+      // CRITICAL: Always update currentTranscriptRef with the latest complete text
+      // This ensures we have the most up-to-date transcript when stopping
       if (finalText) {
-        console.log('📋 Complete final text from all results:', finalText);
-        console.log('📋 Previous stored text:', currentTranscriptRef.current);
-        
-        // Simply store the complete final text
-        // This works for both mobile (which gives complete history) 
-        // and desktop (which we rebuild from all results)
         currentTranscriptRef.current = finalText;
-        lastFinalTranscriptRef.current = finalText;
-        
-        console.log('💾 Stored:', currentTranscriptRef.current);
+        console.log('💾 Updated ref to:', currentTranscriptRef.current);
       }
 
-      // Determine what to display
+      // For display: show final + interim
       let displayText = '';
-      if (currentTranscriptRef.current) {
-        // We have final text
-        if (interimText) {
-          displayText = `${currentTranscriptRef.current} ${interimText}`;
-        } else {
-          displayText = currentTranscriptRef.current;
-        }
+      if (finalText) {
+        displayText = interimText ? `${finalText} ${interimText}` : finalText;
       } else {
-        // Only interim text
         displayText = interimText;
       }
 
       displayText = displayText.trim();
       
-      // Only update if the display text actually changed
+      // Only update display if text actually changed
       if (displayText && displayText !== lastDisplayedTextRef.current) {
-        console.log('📺 Display text changed from:', `"${lastDisplayedTextRef.current}"`);
-        console.log('📺 Display text changed to:', `"${displayText}"`);
-        
+        console.log('📺 Updating display to:', `"${displayText}"`);
         lastDisplayedTextRef.current = displayText;
         
         const { value, error: limitError } = limitMessageWords(displayText);
         setError(limitError);
         setInputMessage(value);
       } else {
-        console.log('⏭️ Display text unchanged, skipping update');
+        console.log('⏭️ Display unchanged, skipping');
       }
     };
 
