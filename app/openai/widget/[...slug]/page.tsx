@@ -189,6 +189,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [unavailableError, setUnavailableError] = useState('');
   const [userId, setUserId] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
@@ -199,6 +200,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const shouldBeRecordingRef = useRef<boolean>(false);
   const recordingTimerRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const currentTranscriptRef = useRef<string>('');
   
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
@@ -230,6 +232,13 @@ export default function EnhancedChatWidget({ params }: any) {
       textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
     }
   };
+
+  // Track inputMessage changes for debugging
+  useEffect(() => {
+    if (inputMessage !== '') {
+      console.log('📝 inputMessage changed to:', `"${inputMessage}"`);
+    }
+  }, [inputMessage]);
 
   useEffect(() => {
     adjustTextareaHeight();
@@ -499,9 +508,24 @@ export default function EnhancedChatWidget({ params }: any) {
   const stopRecording = () => {
     const recognition = recognitionRef.current;
     if (recognition && isRecording) {
-      isManualStopRef.current = true;
+      console.log('⏹️ Stopping recording manually');
+      console.log('📋 Transcript at stop:', currentTranscriptRef.current);
+      
+      // CRITICAL: Capture the transcript value NOW before anything else
+      const finalTranscript = currentTranscriptRef.current;
+      console.log('🔒 Captured transcript:', finalTranscript);
+      
+      // Set flags BEFORE stopping recognition
       shouldBeRecordingRef.current = false;
-      recognition.stop();
+      isManualStopRef.current = true;
+      
+      // Stop the recognition
+      try {
+        recognition.stop();
+      } catch (e) {
+        console.error('Error stopping recognition:', e);
+      }
+      
       setIsRecording(false);
       
       if (recordingTimerRef.current) {
@@ -509,13 +533,26 @@ export default function EnhancedChatWidget({ params }: any) {
         recordingTimerRef.current = null;
       }
       setRecordingTime(0);
-    }
-  };
-
-  const handleRecordingConfirm = () => {
-    stopRecording();
-    if (inputMessage.trim()) {
-      handleMessageSend();
+      
+      // Show transcribing loader
+      setIsTranscribing(true);
+      
+      // Set the message AFTER the loader, when the textarea will be rendered
+      setTimeout(() => {
+        console.log('⏰ Transcribing complete, now setting input message');
+        
+        if (finalTranscript) {
+          const { value, error: limitError } = limitMessageWords(finalTranscript);
+          console.log('🔢 Setting value:', `"${value}"`);
+          setError(limitError);
+          setInputMessage(value);
+          console.log('💾 Input message set');
+        }
+        
+        setIsTranscribing(false);
+        isManualStopRef.current = false;
+        console.log('✅ Transcribing complete, textarea should now show:', finalTranscript);
+      }, 1500);
     }
   };
 
@@ -523,9 +560,13 @@ export default function EnhancedChatWidget({ params }: any) {
     stopRecording();
     setInputMessage('');
     setSpeechError(null);
+    // setIsTranscribing(false);
+    currentTranscriptRef.current = ''; // Clear transcript on cancel
   };
 
   const toggleRecording = () => {
+    console.log('🔘 toggleRecording called, currently recording:', isRecording);
+    
     const recognition = recognitionRef.current;
     if (
       !recognition ||
@@ -535,18 +576,23 @@ export default function EnhancedChatWidget({ params }: any) {
       !chatInputAvailable ||
       conversationStatus === 'close'
     ) {
+      console.log('❌ Cannot toggle recording - conditions not met');
       return;
     }
 
     if (isRecording) {
+      console.log('⏸️ Currently recording, calling stopRecording()');
       stopRecording();
       return;
     }
 
+    console.log('▶️ Starting new recording');
     setSpeechError(null);
     isManualStopRef.current = false;
     shouldBeRecordingRef.current = true;
     setRecordingTime(0);
+    currentTranscriptRef.current = ''; // Reset transcript for new recording
+    console.log('🔄 Reset transcript ref for new recording');
     
     try {
       recognition.start();
@@ -556,6 +602,7 @@ export default function EnhancedChatWidget({ params }: any) {
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (err) {
+      console.error('❌ Error starting recording:', err);
       setSpeechError('Unable to access microphone. Please try again.');
       setIsRecording(false);
       shouldBeRecordingRef.current = false;
@@ -672,34 +719,74 @@ export default function EnhancedChatWidget({ params }: any) {
     recognition.maxAlternatives = 1;
     recognition.continuous = true;
 
-    recognition.onresult = (event: any) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
+    recognition.onstart = () => {
+      console.log('🎤 Recognition started');
+      // Don't reset if we're continuing a recording session
+      // Only reset when starting fresh (shouldBeRecordingRef will be true on continue)
+    };
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+    recognition.onresult = (event: any) => {
+      console.log('📝 Recognition result event fired');
+      let fullFinalTranscript = '';
+      let fullInterimTranscript = '';
+
+      // Loop through ALL results from the beginning (not just new ones)
+      for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
+        
         if (event.results[i].isFinal) {
-          finalTranscript += transcript + ' ';
+          fullFinalTranscript += transcript + ' ';
+          console.log(`✅ Final result [${i}]:`, transcript);
         } else {
-          interimTranscript += transcript;
+          fullInterimTranscript += transcript;
+          console.log(`⏳ Interim result [${i}]:`, transcript);
         }
       }
 
-      if (finalTranscript) {
-        setInputMessage((prev: string) => {
-          const combined = prev ? `${prev.trim()} ${finalTranscript}`.trim() : finalTranscript.trim();
-          const { value, error: limitError } = limitMessageWords(combined);
-          setError(limitError);
-          return value;
-        });
+      // Store final results in the ref (accumulate)
+      if (fullFinalTranscript.trim()) {
+        const newTranscript = fullFinalTranscript.trim();
+        
+        // Only append if it's actually new content
+        if (!currentTranscriptRef.current.includes(newTranscript)) {
+          currentTranscriptRef.current = currentTranscriptRef.current 
+            ? `${currentTranscriptRef.current} ${newTranscript}`.trim()
+            : newTranscript;
+        } else {
+          currentTranscriptRef.current = newTranscript;
+        }
+        
+        console.log('💾 Stored in ref:', currentTranscriptRef.current);
+      }
+
+      // Display the accumulated final transcript OR interim results
+      const displayText = currentTranscriptRef.current 
+        ? (fullInterimTranscript ? `${currentTranscriptRef.current} ${fullInterimTranscript}`.trim() : currentTranscriptRef.current)
+        : fullInterimTranscript;
+      
+      if (displayText) {
+        console.log('📺 Displaying:', displayText);
+        const { value, error: limitError } = limitMessageWords(displayText);
+        setError(limitError);
+        setInputMessage(value);
       }
     };
 
     recognition.onerror = (event: any) => {
       const error = event.error;
-      if (error === 'no-speech' || error === 'audio-capture') {
+      console.error('❌ Speech recognition error:', error);
+      
+      if (error === 'no-speech') {
+        console.log('⚠️ No speech detected, but continuing...');
+        return; // Don't stop on no-speech
+      }
+      
+      if (error === 'audio-capture') {
+        console.log('⚠️ Audio capture issue, but continuing...');
         return;
       }
+      
+      // For other errors, stop recording
       setSpeechError(error === 'not-allowed' ? 'Microphone access denied' : 'Voice recognition error');
       setIsRecording(false);
       isManualStopRef.current = false;
@@ -712,11 +799,35 @@ export default function EnhancedChatWidget({ params }: any) {
     };
 
     recognition.onend = () => {
-      if (shouldBeRecordingRef.current && !isManualStopRef.current && recognitionRef.current) {
+      console.log('🛑 Recognition ended');
+      console.log('📋 Final transcript in ref:', currentTranscriptRef.current);
+      console.log('🎯 Manual stop?', isManualStopRef.current);
+      console.log('🔄 Should continue?', shouldBeRecordingRef.current);
+      
+      // Only update the input if this is NOT a manual stop
+      // (manual stop already handled the input in stopRecording)
+      if (currentTranscriptRef.current && !isManualStopRef.current) {
+        console.log('💬 Setting final message:', currentTranscriptRef.current);
+        const { value, error: limitError } = limitMessageWords(currentTranscriptRef.current);
+        setError(limitError);
+        setInputMessage(value);
+      } else if (isManualStopRef.current) {
+        console.log('⏭️ Skipping message update - manual stop already handled it');
+      }
+
+      // Check if we should continue recording (not a manual stop)
+      if (shouldBeRecordingRef.current && !isManualStopRef.current) {
+        console.log('🔄 Restarting recognition (continuous mode)');
         try {
-          recognition.start();
-          setIsRecording(true);
+          // Small delay before restart to ensure clean state
+          setTimeout(() => {
+            if (recognitionRef.current && shouldBeRecordingRef.current && !isManualStopRef.current) {
+              recognition.start();
+              setIsRecording(true);
+            }
+          }, 100);
         } catch (err) {
+          console.error('Failed to restart recognition:', err);
           setIsRecording(false);
           shouldBeRecordingRef.current = false;
           
@@ -726,9 +837,10 @@ export default function EnhancedChatWidget({ params }: any) {
           }
         }
       } else {
+        console.log('✋ Not restarting - user stopped recording');
+        // IMPORTANT: Don't clear the ref here! It's needed for the UI
+        // Only clear the recording state
         setIsRecording(false);
-        isManualStopRef.current = false;
-        shouldBeRecordingRef.current = false;
         
         if (recordingTimerRef.current) {
           clearInterval(recordingTimerRef.current);
@@ -740,7 +852,14 @@ export default function EnhancedChatWidget({ params }: any) {
     recognitionRef.current = recognition;
 
     return () => {
-      recognition.stop();
+      console.log('🧹 Cleaning up recognition');
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch (e) {
+          // Ignore errors on cleanup
+        }
+      }
       recognitionRef.current = null;
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
@@ -1117,132 +1236,155 @@ export default function EnhancedChatWidget({ params }: any) {
                           </div>
                         ) : (
                           <div className="p-4">
-                            {/* Recording UI */}
-                            {isRecording && (
-                              <div className="mb-3 bg-red-50 rounded-xl p-4 border border-red-200">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                                    <span className="text-sm font-medium text-red-700">Recording</span>
+                            {/* Recording UI - Overlay style */}
+                            {isRecording ? (
+                              <div className="space-y-4">
+                                {/* Recording indicator */}
+                                <div className="bg-red-50 rounded-xl p-6 border border-red-100">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                                      <span className="text-sm font-semibold text-red-700">Recording</span>
+                                    </div>
+                                    <span className="text-sm font-mono text-red-600 font-semibold">{formatRecordingTime(recordingTime)}</span>
                                   </div>
-                                  <span className="text-sm font-mono text-red-600">{formatRecordingTime(recordingTime)}</span>
-                                </div>
-                                
-                                {/* Waveform animation */}
-                                <div className="flex items-center justify-center space-x-1 h-12 bg-white rounded-lg mb-3 px-4">
-                                  {[...Array(25)].map((_, i) => {
-                                    const randomHeight = 30 + Math.random() * 60;
-                                    const randomDuration = 0.4 + Math.random() * 0.4;
-                                    return (
-                                      <div
-                                        key={i}
-                                        className="waveform-bar bg-red-500 rounded-full"
-                                        style={{
-                                          height: `${randomHeight}%`,
-                                          animation: `waveform ${randomDuration}s ease-in-out infinite`,
-                                          animationDelay: `${i * 0.03}s`
-                                        }}
-                                      />
-                                    );
-                                  })}
+                                  
+                                  {/* Waveform animation */}
+                                  <div className="flex items-center justify-center space-x-1 h-16 bg-white rounded-lg px-4 shadow-inner">
+                                    {[...Array(30)].map((_, i) => {
+                                      const randomHeight = 20 + Math.random() * 70;
+                                      const randomDuration = 0.3 + Math.random() * 0.5;
+                                      return (
+                                        <div
+                                          key={i}
+                                          className="waveform-bar bg-red-500 rounded-full"
+                                          style={{
+                                            height: `${randomHeight}%`,
+                                            animation: `waveform ${randomDuration}s ease-in-out infinite`,
+                                            animationDelay: `${i * 0.025}s`
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </div>
                                 </div>
 
-                                {/* Action buttons */}
-                                <div className="flex items-center space-x-2">
+                                {/* Cancel button only */}
+                                <div className="flex items-center justify-center">
                                   <button
                                     onClick={handleRecordingCancel}
-                                    className="flex-1 py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                                    className="px-8 py-3 bg-white text-gray-700 font-medium rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-300 shadow-sm"
                                   >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={handleRecordingConfirm}
-                                    className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-lg flex items-center justify-center space-x-2"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                    <span>Send</span>
+                                    Stop
                                   </button>
                                 </div>
                               </div>
-                            )}
-
-                            {/* Input area */}
-                            <div className="flex items-end space-x-2">
-                              <div className="flex-1 relative">
-                                <textarea
-                                  ref={textareaRef}
-                                  placeholder="Type your message..."
-                                  value={inputMessage}
-                                  onChange={handleInputChange}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                      e.preventDefault();
-                                      handleMessageSend();
-                                    }
-                                  }}
-                                  rows={1}
-                                  disabled={isTyping || !isOnline || isRecording}
-                                  className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none overflow-y-auto custom-scrollbar"
-                                  style={{ maxHeight: '120px' }}
-                                />
+                            ) : isTranscribing ? (
+                              /* Transcribing loader */
+                              <div className="space-y-4">
+                                <div className="bg-blue-50 rounded-xl p-8 border border-blue-100">
+                                  <div className="flex flex-col items-center justify-center space-y-4">
+                                    {/* Animated dots loader */}
+                                    <div className="flex space-x-2">
+                                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    </div>
+                                    
+                                    {/* Transcribing text */}
+                                    <div className="text-center">
+                                      <p className="text-sm font-semibold text-blue-700 mb-1">Transcribing...</p>
+                                      <p className="text-xs text-blue-600">Processing your voice message</p>
+                                    </div>
+                                    
+                                    {/* Animated progress bar */}
+                                    <div className="w-full max-w-xs h-1 bg-blue-200 rounded-full overflow-hidden">
+                                      <div className="h-full bg-blue-500 rounded-full animate-progress"></div>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
+                            ) : (
+                              <>
+                                {/* Normal Input area */}
+                                <div className="flex items-end space-x-2">
+                                  <div className="flex-1 relative">
+                                    <textarea
+                                      ref={textareaRef}
+                                      placeholder="Type your message..."
+                                      value={inputMessage}
+                                      onChange={handleInputChange}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                          e.preventDefault();
+                                          handleMessageSend();
+                                        }
+                                      }}
+                                      rows={1}
+                                      disabled={isTyping || !isOnline}
+                                      className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none overflow-y-auto custom-scrollbar"
+                                      style={{ maxHeight: '120px' }}
+                                    />
+                                  </div>
 
-                              <div className="flex items-center space-x-2 pb-1">
-                                {shouldRenderVoiceButton && !isRecording && (
-                                  <button
-                                    onClick={toggleRecording}
-                                    disabled={voiceButtonDisabled}
-                                    title={
-                                      !isOnline
-                                        ? 'Voice capture is disabled while offline.'
-                                        : isTyping
-                                          ? 'Please wait for the previous message to send.'
-                                          : 'Start voice recording'
-                                    }
-                                    className="p-3 rounded-xl transition-all duration-200 text-gray-600 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    <Mic className="w-5 h-5" />
-                                  </button>
+                                  <div className="flex items-center space-x-2 pb-1">
+                                    {shouldRenderVoiceButton && (
+                                      <button
+                                        onClick={toggleRecording}
+                                        disabled={voiceButtonDisabled}
+                                        title={
+                                          !isOnline
+                                            ? 'Voice capture is disabled while offline.'
+                                            : isTyping
+                                              ? 'Please wait for the previous message to send.'
+                                              : 'Start voice recording'
+                                        }
+                                        className="p-3 rounded-xl transition-all duration-200 text-gray-600 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <Mic className="w-5 h-5" />
+                                      </button>
+                                    )}
+
+                                    <button
+                                      onClick={handleMessageSend}
+                                      disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline}
+                                      className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg disabled:transform-none"
+                                    >
+                                      <Send className="w-5 h-5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Error messages */}
+                                {error && (
+                                  <div className="mt-2 text-xs text-red-600 flex items-center space-x-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>{error}</span>
+                                  </div>
+                                )}
+                                {speechError && (
+                                  <div className="mt-2 text-xs text-red-600 flex items-center space-x-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>{speechError}</span>
+                                  </div>
                                 )}
 
-                                <button
-                                  onClick={handleMessageSend}
-                                  disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline || isRecording}
-                                  className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg disabled:transform-none"
-                                >
-                                  <Send className="w-5 h-5" />
-                                </button>
-                              </div>
-                            </div>
+                                {/* Footer info */}
+                                <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
+                                  <span>
+                                    {inputMessage.trim().split(/\s+/).filter(word => word.length > 0).length}/1000 words
+                                  </span>
 
-                            {/* Error messages */}
-                            {error && (
-                              <div className="mt-2 text-xs text-red-600 flex items-center space-x-1">
-                                <AlertCircle className="w-3 h-3" />
-                                <span>{error}</span>
-                              </div>
+                                  <button
+                                    onClick={handleCloseConversation}
+                                    className="text-red-500 hover:text-red-700 transition-colors font-medium flex items-center space-x-1"
+                                  >
+                                    <Phone className="w-3 h-3" />
+                                    <span>End chat</span>
+                                  </button>
+                                </div>
+                              </>
                             )}
-                            {speechError && (
-                              <div className="mt-2 text-xs text-red-600 flex items-center space-x-1">
-                                <AlertCircle className="w-3 h-3" />
-                                <span>{speechError}</span>
-                              </div>
-                            )}
-
-                            {/* Footer info */}
-                            <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
-                              <span>
-                                {inputMessage.trim().split(/\s+/).filter(word => word.length > 0).length}/1000 words
-                              </span>
-
-                              <button
-                                onClick={handleCloseConversation}
-                                className="text-red-500 hover:text-red-700 transition-colors font-medium flex items-center space-x-1"
-                              >
-                                <Phone className="w-3 h-3" />
-                                <span>End chat</span>
-                              </button>
-                            </div>
                           </div>
                         )}
 
@@ -1309,6 +1451,14 @@ export default function EnhancedChatWidget({ params }: any) {
                 opacity: 1;
               }
             }
+            @keyframes progress {
+              0% {
+                width: 0%;
+              }
+              100% {
+                width: 100%;
+              }
+            }
             .waveform-bar {
               width: 2px;
               min-height: 4px;
@@ -1323,6 +1473,9 @@ export default function EnhancedChatWidget({ params }: any) {
             }
             .slide-in-from-right {
               animation-name: slide-in-from-right;
+            }
+            .animate-progress {
+              animation: progress 1.5s ease-in-out;
             }
           `}</style>
         </div>
