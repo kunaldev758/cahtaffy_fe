@@ -743,18 +743,14 @@ export default function EnhancedChatWidget({ params }: any) {
         }
       }
 
-      // Store final results in the ref (accumulate)
+      // Store final results in the ref
+      // IMPORTANT: On mobile, results include full history, so just replace instead of append
       if (fullFinalTranscript.trim()) {
         const newTranscript = fullFinalTranscript.trim();
         
-        // Only append if it's actually new content
-        if (!currentTranscriptRef.current.includes(newTranscript)) {
-          currentTranscriptRef.current = currentTranscriptRef.current 
-            ? `${currentTranscriptRef.current} ${newTranscript}`.trim()
-            : newTranscript;
-        } else {
-          currentTranscriptRef.current = newTranscript;
-        }
+        // Simply replace the ref with the new complete transcript
+        // This prevents duplicates on mobile where results include full history
+        currentTranscriptRef.current = newTranscript;
         
         console.log('💾 Stored in ref:', currentTranscriptRef.current);
       }
