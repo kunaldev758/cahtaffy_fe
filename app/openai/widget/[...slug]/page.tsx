@@ -201,6 +201,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const recordingTimerRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const currentTranscriptRef = useRef<string>('');
+  const lastFinalTranscriptRef = useRef<string>('');
   
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
@@ -562,6 +563,7 @@ export default function EnhancedChatWidget({ params }: any) {
     setSpeechError(null);
     // setIsTranscribing(false);
     currentTranscriptRef.current = ''; // Clear transcript on cancel
+    lastFinalTranscriptRef.current = ''; // Clear tracker on cancel
   };
 
   const toggleRecording = () => {
@@ -592,7 +594,8 @@ export default function EnhancedChatWidget({ params }: any) {
     shouldBeRecordingRef.current = true;
     setRecordingTime(0);
     currentTranscriptRef.current = ''; // Reset transcript for new recording
-    console.log('🔄 Reset transcript ref for new recording');
+    lastFinalTranscriptRef.current = ''; // Reset last final transcript tracker
+    console.log('🔄 Reset transcript refs for new recording');
     
     try {
       recognition.start();
@@ -721,8 +724,9 @@ export default function EnhancedChatWidget({ params }: any) {
 
     recognition.onstart = () => {
       console.log('🎤 Recognition started');
-      // Don't reset if we're continuing a recording session
+      // Don't reset refs if we're continuing a recording session
       // Only reset when starting fresh (shouldBeRecordingRef will be true on continue)
+      // The refs are reset in toggleRecording when starting new
     };
 
     recognition.onresult = (event: any) => {
@@ -730,7 +734,7 @@ export default function EnhancedChatWidget({ params }: any) {
       let fullFinalTranscript = '';
       let fullInterimTranscript = '';
 
-      // Loop through ALL results from the beginning (not just new ones)
+      // Loop through ALL results to build complete transcript
       for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         
@@ -743,19 +747,38 @@ export default function EnhancedChatWidget({ params }: any) {
         }
       }
 
-      // Store final results in the ref
-      // IMPORTANT: On mobile, results include full history, so just replace instead of append
+      // Handle final results
       if (fullFinalTranscript.trim()) {
-        const newTranscript = fullFinalTranscript.trim();
+        const newFinalText = fullFinalTranscript.trim();
         
-        // Simply replace the ref with the new complete transcript
-        // This prevents duplicates on mobile where results include full history
-        currentTranscriptRef.current = newTranscript;
-        
-        console.log('💾 Stored in ref:', currentTranscriptRef.current);
+        // Only update if this is actually NEW final text (not a duplicate)
+        if (newFinalText !== lastFinalTranscriptRef.current) {
+          console.log('🆕 New final text detected');
+          
+          // Check if this new text already contains our previous text
+          // (Mobile browsers include full history in each result)
+          if (currentTranscriptRef.current && newFinalText.includes(currentTranscriptRef.current)) {
+            // New text includes old text, just replace
+            currentTranscriptRef.current = newFinalText;
+            console.log('📱 Mobile mode: Replaced with full history');
+          } else if (currentTranscriptRef.current) {
+            // Desktop mode: append new text
+            currentTranscriptRef.current = `${currentTranscriptRef.current} ${newFinalText}`.trim();
+            console.log('💻 Desktop mode: Appended new text');
+          } else {
+            // First text
+            currentTranscriptRef.current = newFinalText;
+            console.log('🎬 First text');
+          }
+          
+          lastFinalTranscriptRef.current = newFinalText;
+          console.log('💾 Stored in ref:', currentTranscriptRef.current);
+        } else {
+          console.log('⏭️ Skipping duplicate final text');
+        }
       }
 
-      // Display the accumulated final transcript OR interim results
+      // Display the accumulated final transcript + any interim results
       const displayText = currentTranscriptRef.current 
         ? (fullInterimTranscript ? `${currentTranscriptRef.current} ${fullInterimTranscript}`.trim() : currentTranscriptRef.current)
         : fullInterimTranscript;
