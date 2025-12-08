@@ -117,7 +117,10 @@ import { MoreVertical, Edit, Trash2, User, ArrowRightLeft, Users } from 'lucide-
 import { format } from "date-fns";
 import trainingIconImage from '@/images/training-icon.svg';
 import chatSourceIconImage from '@/images/chat-source-icon.svg';
+import defaultImageImport from '@/images/default-image.png';
 import InformationSources from './informationSources';
+
+const defaultImage = (defaultImageImport as any).src || defaultImageImport;
 
 interface MessageData {
   sender_type: string;
@@ -311,7 +314,7 @@ const Message = ({
                       onError={(e) => {
                         // Fallback to default image if image fails to load
                         const target = e.target as HTMLImageElement;
-                        target.src = '/images/default-image.png';
+                        target.src = defaultImage;
                       }}
                     />
                   </div>
@@ -319,7 +322,7 @@ const Message = ({
                   // Show default image if no avatar
                   <div className="agent-avatar-wrapper w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     <Image 
-                      src="/images/default-image.png" 
+                      src={defaultImage} 
                       alt={displayName || 'Agent'} 
                       width={40} 
                       height={40} 

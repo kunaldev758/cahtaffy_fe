@@ -19,6 +19,9 @@ import {
 import { toggleActiveStatus, updateAgent, uploadAgentAvatar } from "@/app/_api/dashboard/action";
 import { useSocket } from "@/app/socketContext";
 import Image from "next/image";
+import defaultImageImport from '@/images/default-image.png';
+
+const defaultImage = (defaultImageImport as any).src || defaultImageImport;
 
 interface Agent {
   id: string;
@@ -65,7 +68,7 @@ export default function AgentSidebar() {
         : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${parsedAgent.avatar}`;
       setAvatarPreview(avatarPath);
     } else {
-      setAvatarPreview('/images/default-image.png');
+      setAvatarPreview(defaultImage);
     }
   }, []);
 
@@ -274,7 +277,7 @@ export default function AgentSidebar() {
             : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`;
           setAvatarPreview(avatarPath);
         } else {
-          setAvatarPreview('/images/default-image.png');
+          setAvatarPreview(defaultImage);
         }
         setShowEditModal(true);
       }
@@ -353,7 +356,7 @@ export default function AgentSidebar() {
                   ? agent.avatar 
                   : agent?.avatar && agent.avatar !== 'null' && agent.avatar.trim() !== ''
                   ? `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`
-                  : '/images/default-image.png'} 
+                  : defaultImage} 
                 alt={agent?.name || 'Agent'} 
                 width={32} 
                 height={32}
@@ -361,7 +364,7 @@ export default function AgentSidebar() {
                 unoptimized
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = '/images/default-image.png';
+                  target.src = defaultImage;
                 }}
               />
             </div>
@@ -428,7 +431,7 @@ export default function AgentSidebar() {
                   <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     {avatarError || !avatarPreview ? (
                       <img 
-                        src="/images/default-image.png" 
+                        src={defaultImage} 
                         alt="Avatar preview" 
                         className="w-20 h-20 object-cover"
                       />
@@ -440,7 +443,7 @@ export default function AgentSidebar() {
                         onError={() => {
                           if (!avatarError) {
                             setAvatarError(true);
-                            setAvatarPreview('/images/default-image.png');
+                            setAvatarPreview(defaultImage);
                           }
                         }}
                       />
