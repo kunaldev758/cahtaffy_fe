@@ -300,7 +300,7 @@ const Message = ({
             <div className={`chatMessage-logo w-10 h-10 !min-w-10 min-h-10 rounded-full overflow-hidden flex items-center justify-center ${isAgentMessage && messageData.agentId ? 'agent-avatar-container' : ''}`}>
               {isAgentMessage && messageData.agentId ? (
                 // Check if avatar exists and is not null/empty
-                messageData.agentId.avatar && messageData.agentId.avatar !== 'null' ? (
+                messageData.agentId.avatar && messageData.agentId.avatar !== 'null' && messageData.agentId.avatar.trim() !== '' ? (
                   <div className="agent-avatar-wrapper w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     <img 
                       src={messageData.agentId.avatar.startsWith('http') 
@@ -309,24 +309,22 @@ const Message = ({
                       alt={displayName || 'Agent'} 
                       className="agent-avatar-img w-10 h-10 object-cover"
                       onError={(e) => {
-                        // Fallback to initial if image fails to load
+                        // Fallback to default image if image fails to load
                         const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent && displayName) {
-                          parent.innerHTML = `<div class="w-10 h-10 rounded-full ${messageData.agentId?.isClient ? 'bg-indigo-500' : 'bg-blue-500'} flex items-center justify-center text-white font-semibold text-sm agent-avatar-initial">${displayName.charAt(0).toUpperCase()}</div>`;
-                        }
+                        target.src = '/images/default-image.png';
                       }}
                     />
                   </div>
-                ) : displayName ? (
-                  // Show initial circle if no avatar but has name
-                  <div className={`agent-avatar-initial w-10 h-10 rounded-full ${messageData.agentId.isClient ? 'bg-indigo-500' : 'bg-blue-500'} flex items-center justify-center text-white font-semibold text-sm`}>
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
                 ) : (
-                  <div className="w-10 h-10 min-w-10 min-h-10 rounded-full overflow-hidden flex items-center justify-center">
-                    <Image src={trainingIconImage} alt="" width={40} height={40} className="w-10 h-10 rounded-full object-contain" style={{ filter: 'brightness(10)' }} />
+                  // Show default image if no avatar
+                  <div className="agent-avatar-wrapper w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                    <Image 
+                      src="/images/default-image.png" 
+                      alt={displayName || 'Agent'} 
+                      width={40} 
+                      height={40} 
+                      className="agent-avatar-img w-10 h-10 object-cover"
+                    />
                   </div>
                 )
               ) : (

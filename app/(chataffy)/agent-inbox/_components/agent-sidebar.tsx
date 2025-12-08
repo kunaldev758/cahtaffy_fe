@@ -40,6 +40,7 @@ export default function AgentSidebar() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   
   const router = useRouter();
 
@@ -57,12 +58,14 @@ export default function AgentSidebar() {
     const agentData = localStorage.getItem('agent');
     const parsedAgent = agentData ? JSON.parse(agentData) : null;
     setAgent(parsedAgent);
-    if (parsedAgent?.avatar) {
+    if (parsedAgent?.avatar && parsedAgent.avatar !== 'null' && parsedAgent.avatar.trim() !== '') {
       // Use full URL if avatar path doesn't start with http
       const avatarPath = parsedAgent.avatar.startsWith('http') 
         ? parsedAgent.avatar 
         : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${parsedAgent.avatar}`;
       setAvatarPreview(avatarPath);
+    } else {
+      setAvatarPreview('/images/default-image.png');
     }
   }, []);
 
@@ -143,6 +146,7 @@ export default function AgentSidebar() {
       setTimeout(() => {
         setShowEditModal(false);
         setSuccess("");
+        setAvatarError(false);
       }, 2000);
 
     } catch (error) {
@@ -177,6 +181,7 @@ export default function AgentSidebar() {
           : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${result.agent.avatar}`;
         setAvatarPreview(avatarPath);
         setAvatarFile(null);
+        setAvatarError(false);
         setSuccess("Avatar uploaded successfully!");
         
         setTimeout(() => {
@@ -209,6 +214,7 @@ export default function AgentSidebar() {
       }
 
       setAvatarFile(file);
+      setAvatarError(false);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
@@ -261,13 +267,14 @@ export default function AgentSidebar() {
           confirmPassword: ''
         } as any);
         setAvatarFile(null);
-        if (agent?.avatar) {
+        setAvatarError(false);
+        if (agent?.avatar && agent.avatar !== 'null' && agent.avatar.trim() !== '') {
           const avatarPath = agent.avatar.startsWith('http') 
             ? agent.avatar 
             : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`;
           setAvatarPreview(avatarPath);
         } else {
-          setAvatarPreview(null);
+          setAvatarPreview('/images/default-image.png');
         }
         setShowEditModal(true);
       }
@@ -340,24 +347,24 @@ export default function AgentSidebar() {
         {/* User Info & Logout */}
         <div className="p-4 border-t border-gray-700">
           <div className="flex items-center space-x-3 mb-4">
-            {agent?.avatar ? (
-              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-600 flex items-center justify-center">
-                <Image 
-                  src={agent.avatar.startsWith('http') 
-                    ? agent.avatar 
-                    : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`} 
-                  alt={agent.name || 'Agent'} 
-                  width={32} 
-                  height={32}
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${agent?.isActive ? 'bg-green-500' : 'bg-gray-500'}`}>
-                <User size={16} />
-              </div>
-            )}
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-600 flex items-center justify-center">
+              <Image 
+                src={agent?.avatar && agent.avatar !== 'null' && agent.avatar.trim() !== '' && agent.avatar.startsWith('http')
+                  ? agent.avatar 
+                  : agent?.avatar && agent.avatar !== 'null' && agent.avatar.trim() !== ''
+                  ? `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`
+                  : '/images/default-image.png'} 
+                alt={agent?.name || 'Agent'} 
+                width={32} 
+                height={32}
+                className="object-cover"
+                unoptimized
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/images/default-image.png';
+                }}
+              />
+            </div>
             {!isCollapsed && (
               <div>
                 <p className="text-sm font-medium">
@@ -388,7 +395,10 @@ export default function AgentSidebar() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Profile</h3>
               <button
-                onClick={() => setShowEditModal(false)}
+                onClick={() => {
+                  setShowEditModal(false);
+                  setAvatarError(false);
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={20} />
@@ -416,16 +426,24 @@ export default function AgentSidebar() {
                 </label>
                 <div className="flex items-center space-x-4">
                   <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                    {avatarPreview ? (
-                      <Image 
-                        src={avatarPreview} 
+                    {avatarError || !avatarPreview ? (
+                      <img 
+                        src="/images/default-image.png" 
                         alt="Avatar preview" 
-                        width={80} 
-                        height={80}
-                        className="object-cover"
+                        className="w-20 h-20 object-cover"
                       />
                     ) : (
-                      <User size={40} className="text-gray-400" />
+                      <img 
+                        src={avatarPreview} 
+                        alt="Avatar preview" 
+                        className="w-20 h-20 object-cover"
+                        onError={() => {
+                          if (!avatarError) {
+                            setAvatarError(true);
+                            setAvatarPreview('/images/default-image.png');
+                          }
+                        }}
+                      />
                     )}
                   </div>
                   <div>
@@ -526,7 +544,10 @@ export default function AgentSidebar() {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setAvatarError(false);
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                   disabled={isUpdating}
                 >
