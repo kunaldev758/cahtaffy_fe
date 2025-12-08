@@ -212,6 +212,21 @@ export async function updateAgentStatus(id, isActive) {
   return await fetchData(`agents/${id}/status`, { isActive });
 }
 
+export async function uploadAgentAvatar(formData, agentId) {
+  const response = await fetch(`${process.env.API_HOST}agents/${agentId}/avatar`, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      Authorization: cookies().get('token').value
+    },
+  });
+  const data = await response.json();
+  if(data.status_code==401){
+    return 'error'
+  }
+  return data
+}
+
 export async function agentAcceptInviteVerify(token) {
   return await fetchDatawithoutToken(`/agents/accept-invite/${token}`);
 }

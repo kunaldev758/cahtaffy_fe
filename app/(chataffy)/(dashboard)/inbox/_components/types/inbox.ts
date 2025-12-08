@@ -22,6 +22,11 @@ export interface Conversation {
     is_note?: string;
     createdAt: string;
     conversation_id: string;
+    agentId?: {
+      _id: string;
+      name: string;
+      avatar?: string;
+    };
   }
   
   export interface Tag {

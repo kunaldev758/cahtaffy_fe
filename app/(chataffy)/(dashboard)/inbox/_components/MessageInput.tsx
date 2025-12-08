@@ -1,6 +1,7 @@
 "use client";
 import { Send, Mic, MessageCircle, StickyNote } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Socket } from 'socket.io-client';
 
 interface MessageInputProps {
   inputMessage: string;
@@ -9,6 +10,9 @@ interface MessageInputProps {
   isNoteActive: boolean;
   isAIChat: boolean;
   openConversationStatus: string;
+  conversationId: string | null;
+  visitorId: string | null;
+  socketRef: React.RefObject<Socket | null>;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onMessageSend: () => void;
   onAddNote: () => void;
@@ -22,6 +26,9 @@ export default function MessageInput({
   isNoteActive,
   isAIChat,
   openConversationStatus,
+  conversationId,
+  visitorId,
+  socketRef,
   onInputChange,
   onMessageSend,
   onAddNote,
@@ -32,6 +39,83 @@ export default function MessageInput({
   const [isSpeechSupported, setIsSpeechSupported] = useState(true);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef<boolean>(false);
+
+  // Emit typing events to backend
+  const emitTypingEvent = useCallback((isTyping: boolean) => {
+    const socket = socketRef.current;
+    if (!socket || !conversationId || !visitorId) {
+      return;
+    }
+
+    // Only emit typing events when:
+    // 1. Not in AI chat mode (isAIChat = false)
+    // 2. Not in note mode
+    // 3. Conversation is open
+    // 4. We have valid conversationId and visitorId
+    if (!isAIChat && !isNoteActive && openConversationStatus === 'open') {
+      const eventName = isTyping ? 'agent-start-typing' : 'agent-stop-typing';
+      console.log(`⌨️ Emitting ${eventName}:`, { conversationId, visitorId, isAIChat });
+      
+      socket.emit(eventName, { conversationId, visitorId }, (response: any) => {
+        if (response?.success) {
+          console.log(`✅ ${eventName} acknowledged:`, response);
+        } else {
+          console.log(`⚠️ ${eventName} response:`, response);
+        }
+      });
+    }
+  }, [socketRef, conversationId, visitorId, isAIChat, isNoteActive, openConversationStatus]);
+
+  // Handle typing with debouncing
+  const handleTyping = useCallback(() => {
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    // If not already typing, emit start-typing
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      emitTypingEvent(true);
+    }
+
+    // Set timeout to emit stop-typing after 2 seconds of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        emitTypingEvent(false);
+      }
+      typingTimeoutRef.current = null;
+    }, 2000);
+  }, [emitTypingEvent]);
+
+  // Cleanup typing timeout on unmount or when conversation changes
+  useEffect(() => {
+    // Stop typing when conversation changes
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      emitTypingEvent(false);
+    }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      // Emit stop-typing when component unmounts
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        emitTypingEvent(false);
+      }
+    };
+  }, [conversationId, visitorId, emitTypingEvent]);
 
   const appendTranscript = useCallback(
     (transcript: string) => {
@@ -49,8 +133,10 @@ export default function MessageInput({
       } as React.ChangeEvent<HTMLTextAreaElement>;
 
       onInputChange(syntheticEvent);
+      // Trigger typing event when recording transcript is appended
+      handleTyping();
     },
-    [inputMessage, onInputChange],
+    [inputMessage, onInputChange, handleTyping],
   );
 
   useEffect(() => {
@@ -110,12 +196,21 @@ export default function MessageInput({
     if (isRecording) {
       recognitionRef.current.stop();
       setIsRecording(false);
+      // Emit stop-typing when recording stops
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        emitTypingEvent(false);
+      }
       return;
     }
     setSpeechError(null);
     try {
       recognitionRef.current.start();
       setIsRecording(true);
+      // Emit start-typing when recording starts (only in agent chat mode)
+      if (!isAIChat && !isNoteActive && openConversationStatus === 'open') {
+        handleTyping();
+      }
     } catch (err) {
       setSpeechError("Unable to access microphone. Please try again.");
       setIsRecording(false);
@@ -197,13 +292,22 @@ export default function MessageInput({
             <div className="relative">
               <textarea
                 value={inputMessage}
-                onChange={onInputChange}
+                onChange={(e) => {
+                  onInputChange(e);
+                  // Trigger typing event when agent types
+                  handleTyping();
+                }}
                 placeholder="Type a message..."
                 rows={3}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
+                    // Emit stop-typing before sending message
+                    if (isTypingRef.current) {
+                      isTypingRef.current = false;
+                      emitTypingEvent(false);
+                    }
                     onMessageSend();
                   }
                 }}
@@ -241,7 +345,18 @@ export default function MessageInput({
           )}
           
           <button
-            onClick={isNoteActive || openConversationStatus === "close" ? onAddNote : onMessageSend}
+            onClick={() => {
+              // Emit stop-typing before sending message/note
+              if (isTypingRef.current) {
+                isTypingRef.current = false;
+                emitTypingEvent(false);
+              }
+              if (isNoteActive || openConversationStatus === "close") {
+                onAddNote();
+              } else {
+                onMessageSend();
+              }
+            }}
             disabled={sendDisabled}
             className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >

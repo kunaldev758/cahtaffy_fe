@@ -60,7 +60,7 @@ export default function Inbox(Props: any) {
 
   // Initialize socket manager
   const {
-    // socketRef,
+    socketRef,
     // socket,
     emitJoinConversation,
     emitSendMessage,
@@ -400,6 +400,9 @@ export default function Inbox(Props: any) {
                 isNoteActive={isNoteActive}
                 isAIChat={isAIChat}
                 openConversationStatus={openConversationStatus}
+                conversationId={openConversationId}
+                visitorId={openVisitorId}
+                socketRef={socketRef}
                 onInputChange={handleInputChange}
                 onMessageSend={handleMessageSend}
                 onAddNote={handleAddNote}

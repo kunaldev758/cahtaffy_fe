@@ -1121,6 +1121,34 @@ flex-direction: row-reverse;
   filter: brightness(10);
 }
 
+/* Override for agent avatars */
+.chatMessage-logo.agent-avatar-container {
+  background: transparent !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  width: 40px !important;
+  line-height: normal !important;
+}
+
+.chatMessage-logo.agent-avatar-container .agent-avatar-wrapper {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  background: transparent !important;
+}
+
+.chatMessage-logo.agent-avatar-container .agent-avatar-img {
+  height: 40px !important;
+  width: 40px !important;
+  filter: none !important;
+}
+
+.chatMessage-logo.agent-avatar-container .agent-avatar-initial {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+}
+
 .ai-message.noteBox .chat-messageBox {
   background: #FFF5BF;
   border: 1px solid #F8E78F;

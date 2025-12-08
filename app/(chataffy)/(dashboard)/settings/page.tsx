@@ -24,6 +24,7 @@ export interface Agent {
   status: 'pending' | 'approved';
   isActive: boolean;
   lastActive?: string;
+  isClient?: boolean;
 }
 
 export interface CreateAgentData {
@@ -265,8 +266,12 @@ export default function Settings() {
     setIsSubmitting(false)
   }
 
-  // Filter agents based on search and status
+  // Filter agents based on search and status (exclude client-agents)
   const filteredAgents = agents.filter((agent: Agent) => {
+    // Exclude client-agents from the list
+    if (agent.isClient === true) {
+      return false;
+    }
     const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          agent.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || agent.status === filterStatus
@@ -314,7 +319,7 @@ export default function Settings() {
               <div className="flex items-center space-x-4">
                 <div className="bg-indigo-50 px-3 py-2 rounded-lg">
                   <span className="text-sm font-medium text-indigo-700">
-                    {agents.length} Total Agents
+                    {agents.filter((agent: Agent) => !agent.isClient).length} Total Agents
                   </span>
                 </div>
               </div>

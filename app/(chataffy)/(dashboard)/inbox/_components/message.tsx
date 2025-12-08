@@ -113,7 +113,7 @@
 // }
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, User, ArrowRightLeft, Users } from 'lucide-react';
 import { format } from "date-fns";
 import trainingIconImage from '@/images/training-icon.svg';
 import chatSourceIconImage from '@/images/chat-source-icon.svg';
@@ -125,6 +125,12 @@ interface MessageData {
   createdAt: Date;
   infoSources?: string[];
   is_note?: string;
+  agentId?: {
+    _id: string;
+    name: string;
+    avatar?: string;
+    isClient?: boolean;
+  };
 }
 
 const Message = ({ 
@@ -199,20 +205,68 @@ const Message = ({
       )} */}
     </div>
   );
-
+  
   let message;
   switch(messageData.sender_type) {
     case 'system':
-      message = <></>;
+      message = (
+        <div className="message-box system-message my-4">
+          <div className="d-flex align-items-center justify-content-center">
+            <div className="d-flex align-items-center gap-2 px-4 py-2.5 rounded-full" 
+              style={{ 
+                backgroundColor: '#f0f9ff', 
+                border: '1px solid #bfdbfe',
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+              }}>
+              <div className="flex items-center justify-center w-5 h-5 rounded-full" 
+                style={{ backgroundColor: '#3b82f6' }}>
+                <ArrowRightLeft className="w-3 h-3 text-white" />
+              </div>
+              <div 
+                className="text-sm font-medium text-gray-700"
+                style={{ lineHeight: '1.4' }}
+                dangerouslySetInnerHTML={{ __html: messageData.message }}
+              />
+            </div>
+          </div>
+          {messageData.createdAt && (
+            <div className="chat-messageInfo mt-1">
+              <div className="d-flex gap-10 justify-content-center">
+                <span className="text-xs text-gray-400">{format(messageData.createdAt, 'hh:mm:ss a')}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      );
       break;
       
     case 'bot':
     case 'agent':
     case 'assistant':
+      // Check if this is an agent message (has agentId) vs bot/assistant
+      const isAgentMessage = messageData.sender_type === 'agent';
+      
+      // Format agent name - capitalize "client" to "Client" for client-agents
+      const getDisplayName = (name?: string, isClient?: boolean) => {
+        if (!name) return '';
+        if (name.toLowerCase() === 'client' || isClient) {
+          return 'Client';
+        }
+        return name;
+      };
+      
+      const displayName = getDisplayName(messageData.agentId?.name, messageData.agentId?.isClient);
+      
       message = (
         <div className="message-box ai-message">
           <div className="d-flex align-items-end justify-content-end gap-16">
             <div className="chat-messageArea d-flex flex-column align-items-end">
+              {/* Show agent name for agent messages */}
+              {isAgentMessage && displayName && (
+                <div className="text-xs text-gray-500 mb-1 mr-2">
+                  {displayName}
+                </div>
+              )}
               <div className="chat-messageBox relative" 
                 style={messageData.is_note === 'true' ? { backgroundColor: 'yellow' } : {}}
               >
@@ -243,8 +297,43 @@ const Message = ({
                 </div> */}
               </div>
             </div>
-            <div className="chatMessage-logo">
-              <Image src={trainingIconImage} alt="" />
+            <div className={`chatMessage-logo w-10 h-10 !min-w-10 min-h-10 rounded-full overflow-hidden flex items-center justify-center ${isAgentMessage && messageData.agentId ? 'agent-avatar-container' : ''}`}>
+              {isAgentMessage && messageData.agentId ? (
+                // Check if avatar exists and is not null/empty
+                messageData.agentId.avatar && messageData.agentId.avatar !== 'null' ? (
+                  <div className="agent-avatar-wrapper w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                    <img 
+                      src={messageData.agentId.avatar.startsWith('http') 
+                        ? messageData.agentId.avatar 
+                        : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${messageData.agentId.avatar}`} 
+                      alt={displayName || 'Agent'} 
+                      className="agent-avatar-img w-10 h-10 object-cover"
+                      onError={(e) => {
+                        // Fallback to initial if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent && displayName) {
+                          parent.innerHTML = `<div class="w-10 h-10 rounded-full ${messageData.agentId?.isClient ? 'bg-indigo-500' : 'bg-blue-500'} flex items-center justify-center text-white font-semibold text-sm agent-avatar-initial">${displayName.charAt(0).toUpperCase()}</div>`;
+                        }
+                      }}
+                    />
+                  </div>
+                ) : displayName ? (
+                  // Show initial circle if no avatar but has name
+                  <div className={`agent-avatar-initial w-10 h-10 rounded-full ${messageData.agentId.isClient ? 'bg-indigo-500' : 'bg-blue-500'} flex items-center justify-center text-white font-semibold text-sm`}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 min-w-10 min-h-10 rounded-full overflow-hidden flex items-center justify-center">
+                    <Image src={trainingIconImage} alt="" width={40} height={40} className="w-10 h-10 rounded-full object-contain" style={{ filter: 'brightness(10)' }} />
+                  </div>
+                )
+              ) : (
+                <div className="w-10 h-10 min-w-10 min-h-10 rounded-full overflow-hidden flex items-center justify-center">
+                  <Image src={trainingIconImage} alt="" width={40} height={40} className="w-10 h-10 rounded-full object-contain" style={{ filter: 'brightness(10)' }} />
+                </div>
+              )}
             </div>
           </div>
 

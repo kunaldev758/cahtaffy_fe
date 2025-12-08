@@ -190,6 +190,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [userId, setUserId] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [aiChat, setAiChat] = useState(true); // Default to true (AI chat mode)
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
@@ -242,6 +243,21 @@ export default function EnhancedChatWidget({ params }: any) {
     }
   }, [inputMessage]);
 
+  // Track isTyping changes for debugging
+  useEffect(() => {
+    console.log('🔄 isTyping state changed:', {
+      isTyping: isTyping,
+      aiChat: aiChatRef.current
+    });
+  }, [isTyping]);
+
+  // Track aiChat changes for debugging
+  useEffect(() => {
+    console.log('🔄 aiChat state changed to:', aiChat);
+    // Update ref after logging
+    aiChatRef.current = aiChat;
+  }, [aiChat]);
+
   useEffect(() => {
     adjustTextareaHeight();
   }, [inputMessage]);
@@ -293,16 +309,45 @@ export default function EnhancedChatWidget({ params }: any) {
     };
   }, [widgetId, widgetToken]);
 
+  const handleCloseConversationClient = useCallback(() => {
+    setConversationStatus('close');
+  }, []);
+
+  // Use a ref to track aiChat so socket listeners always have the latest value
+  const aiChatRef = useRef(aiChat);
+
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
 
     socket.on("conversation-append-message", (data) => {
-      data.chatMessage.sender_type != 'visitor' && setIsTyping(false);
-      if (!conversation.length) {
-        setConversationId(data.chatMessage[0]?.conversationId);
+      console.log('📨 conversation-append-message received:', {
+        sender_type: data.chatMessage.sender_type,
+        aiChat: aiChatRef.current,
+        currentIsTyping: isTyping
+      });
+
+      // Set isTyping to false when receiving a non-visitor message
+      // In AI chat mode: set false when bot/assistant responds
+      // In agent chat mode: typing is controlled by socket events, so don't set it here
+      if (data.chatMessage.sender_type != 'visitor') {
+        if (aiChatRef.current) {
+          // AI chat mode: clear typing indicator when bot responds
+          console.log('🤖 AI chat mode: Setting isTyping to false (bot responded)');
+          setIsTyping(false);
+        } else {
+          // Agent chat mode: typing is controlled by socket events, but clear it when message arrives
+          console.log('👤 Agent chat mode: Setting isTyping to false (agent message received)');
+          setIsTyping(false);
+        }
       }
-      setConversation((prev: any[]) => [...prev, data.chatMessage]);
+      
+      setConversation((prev: any[]) => {
+        if (!prev.length) {
+          setConversationId(data.chatMessage[0]?.conversationId);
+        }
+        return [...prev, data.chatMessage];
+      });
 
       if (data?.chatMessage?.sender_type === 'visitor') {
         startNoReplyTimer();
@@ -320,6 +365,50 @@ export default function EnhancedChatWidget({ params }: any) {
       }
     });
 
+    // Listen for typing events - only show typing indicator when aiChat = false
+    socket.on("agent-typing", () => {
+      console.log('⌨️ agent-typing event received:', {
+        aiChat: aiChatRef.current,
+        currentIsTyping: isTyping
+      });
+      
+      if (!aiChatRef.current) {
+        console.log('✅ Agent chat mode: Setting isTyping to true (agent is typing)');
+        setIsTyping(true);
+      } else {
+        console.log('⏭️ AI chat mode: Ignoring agent-typing event');
+      }
+    });
+
+    socket.on("agent-stop-typing", () => {
+      console.log('⏹️ agent-stop-typing event received:', {
+        aiChat: aiChatRef.current,
+        currentIsTyping: isTyping
+      });
+      
+      if (!aiChatRef.current) {
+        console.log('✅ Agent chat mode: Setting isTyping to false (agent stopped typing)');
+        setIsTyping(false);
+      } else {
+        console.log('⏭️ AI chat mode: Ignoring agent-stop-typing event');
+      }
+    });
+
+    // Listen for aiChat status updates
+    socket.on("ai-chat-status-update", (data: any) => {
+      console.log('🔄 ai-chat-status-update received:', {
+        newAiChat: data?.aiChat,
+        currentAiChat: aiChatRef.current
+      });
+      
+      if (data?.aiChat !== undefined) {
+        console.log(`📝 Updating aiChat from ${aiChatRef.current} to ${data.aiChat}`);
+        setAiChat(data.aiChat);
+        // Also clear typing indicator when switching modes
+        setIsTyping(false);
+      }
+    });
+
     socket.on("visitor-blocked", handleCloseConversationClient);
     socket.on("visitor-conversation-close", handleCloseConversationClient);
 
@@ -327,13 +416,12 @@ export default function EnhancedChatWidget({ params }: any) {
       socket.off("conversation-append-message");
       socket.off("visitor-blocked");
       socket.off("visitor-conversation-close");
+      socket.off("agent-typing");
+      socket.off("agent-stop-typing");
+      socket.off("ai-chat-status-update");
       clearNoReplyTimer();
     }
-  }, [socketRef.current]);
-
-  const handleCloseConversationClient = () => {
-    setConversationStatus('close');
-  };
+  }, [handleCloseConversationClient]);
 
   useEffect(() => {
     const socket = socketRef.current;
@@ -344,6 +432,13 @@ export default function EnhancedChatWidget({ params }: any) {
     });
 
     socket.on("visitor-connect-response", (data) => {
+      console.log('🔌 visitor-connect-response received:', {
+        hasChatMessages: !!data?.chatMessages,
+        chatMessagesCount: data?.chatMessages?.length,
+        aiChatFromResponse: data?.aiChat,
+        currentAiChat: aiChatRef.current
+      });
+
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
       setFields(data.themeSettings?.fields || []);
@@ -358,6 +453,13 @@ export default function EnhancedChatWidget({ params }: any) {
       }
       if (data?.themeSettings?.userId) {
         setUserId(data.themeSettings.userId)
+      }
+      // Set aiChat status if provided in response
+      if (data?.aiChat !== undefined) {
+        console.log(`📝 Setting aiChat from visitor-connect-response: ${data.aiChat}`);
+        setAiChat(data.aiChat);
+      } else {
+        console.log('⚠️ No aiChat value in visitor-connect-response, keeping default:', aiChatRef.current);
       }
     });
 
@@ -501,7 +603,20 @@ export default function EnhancedChatWidget({ params }: any) {
     const sanitizedMessage = sanitizeInput(inputMessage);
     const messageData = { message: sanitizedMessage, id: Date.now().toString() };
 
-    setIsTyping(true);
+    console.log('📤 handleMessageSend called:', {
+      aiChat: aiChat,
+      currentIsTyping: isTyping
+    });
+
+    // Only set isTyping to true if aiChat is true (AI chat mode)
+    // In agent chat mode (aiChat = false), typing indicator is controlled by socket events
+    if (aiChat) {
+      console.log('🤖 AI chat mode: Setting isTyping to true (waiting for bot response)');
+      setIsTyping(true);
+    } else {
+      console.log('👤 Agent chat mode: NOT setting isTyping (will be controlled by agent-typing socket events)');
+    }
+    
     socket?.emit("visitor-send-message", messageData);
     setInputMessage('');
     startNoReplyTimer();
@@ -1069,8 +1184,25 @@ export default function EnhancedChatWidget({ params }: any) {
                           <div className="space-y-4">
                             {conversation.map((item: any, key: any) => (
                               <div key={key}>
-                                {/* Agent/System/Bot messages */}
-                                {(item.sender_type === 'system' || item.sender_type === 'bot' ||
+                                {/* System messages - centered and styled differently */}
+                                {item.sender_type === 'system' && (
+                                  <div className="flex items-center justify-center py-2 animate-in slide-in-from-left duration-300">
+                                    <div className="px-4 py-2 rounded-lg text-center" style={{ backgroundColor: '#f3f4f6' }}>
+                                      <div
+                                        className="text-xs text-gray-600 italic"
+                                        dangerouslySetInnerHTML={{
+                                          __html: item.message.replace(
+                                            /<a\b([^>]*)>/gi,
+                                            '<a$1 target="_blank" rel="noopener noreferrer">'
+                                          )
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Agent/Bot messages */}
+                                {(item.sender_type === 'bot' ||
                                   (item.sender_type === 'agent' && item.is_note === "false") ||
                                   (item.sender_type === 'assistant' && item.is_note === "false")) && (
                                     <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">

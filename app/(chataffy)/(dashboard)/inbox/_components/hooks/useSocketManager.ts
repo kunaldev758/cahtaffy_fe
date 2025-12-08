@@ -103,17 +103,22 @@ export const useSocketManager = ({
 
       setNotesList((prev: any) => [
         ...prev,
-        { message: note.message, createdAt: Date.now() }
+        { message: note.message, createdAt: note.createdAt || Date.now() }
       ]);
+
+      // Include all note fields, especially agentId with name and avatar
+      const noteMessage = {
+        ...note,
+        is_note: 'true',
+        sender_type: "agent",
+        createdAt: note.createdAt ? new Date(note.createdAt) : new Date(),
+        // Ensure agentId is included if it exists
+        agentId: note.agentId || null
+      };
 
       setConversationMessages((prev: any) => ({
         ...prev,
-        data: [...prev.data, {
-          message: note.message,
-          is_note: 'true',
-          sender_type: "agent",
-          createdAt: Date.now()
-        }],
+        data: [...prev.data, noteMessage],
       }));
     };
 

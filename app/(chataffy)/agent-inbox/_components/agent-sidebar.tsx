@@ -16,8 +16,9 @@ import {
   Save,
   AlertCircle
 } from "lucide-react";
-import { toggleActiveStatus, updateAgent } from "@/app/_api/dashboard/action";
+import { toggleActiveStatus, updateAgent, uploadAgentAvatar } from "@/app/_api/dashboard/action";
 import { useSocket } from "@/app/socketContext";
+import Image from "next/image";
 
 interface Agent {
   id: string;
@@ -25,6 +26,7 @@ interface Agent {
   email: string;
   isActive: boolean;
   status: string;
+  avatar?: string;
 }
 
 export default function AgentSidebar() {
@@ -35,6 +37,9 @@ export default function AgentSidebar() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
   const router = useRouter();
 
@@ -50,7 +55,15 @@ export default function AgentSidebar() {
   // Only read from localStorage on the client
   useEffect(() => {
     const agentData = localStorage.getItem('agent');
-    setAgent(agentData ? JSON.parse(agentData) : null);
+    const parsedAgent = agentData ? JSON.parse(agentData) : null;
+    setAgent(parsedAgent);
+    if (parsedAgent?.avatar) {
+      // Use full URL if avatar path doesn't start with http
+      const avatarPath = parsedAgent.avatar.startsWith('http') 
+        ? parsedAgent.avatar 
+        : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${parsedAgent.avatar}`;
+      setAvatarPreview(avatarPath);
+    }
   }, []);
 
   const handleLogout = async () => {
@@ -105,13 +118,19 @@ export default function AgentSidebar() {
       const updatedAgent = {
         ...agent,
         name: result?.agent?.name,
+        avatar: result?.agent?.avatar || agent.avatar,
         // email: result.agent.email
       };
       
       localStorage.setItem('agent', JSON.stringify(updatedAgent));
       setAgent(updatedAgent);
       
-      setSuccess("Profile updated successfully!");
+      // Upload avatar if selected (do this after profile update)
+      if (avatarFile && agent.id) {
+        await handleAvatarUpload(agent.id);
+      } else {
+        setSuccess("Profile updated successfully!");
+      }
       
       // Reset password fields
       setEditForm(prev => ({
@@ -131,6 +150,71 @@ export default function AgentSidebar() {
       setError(error instanceof Error ? error.message : 'Failed to update profile');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleAvatarUpload = async (agentId: string) => {
+    if (!avatarFile) return;
+
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+
+      const result = await uploadAgentAvatar(formData, agentId);
+      
+      if (result.status_code === 200 && result.agent) {
+        const updatedAgent = {
+          ...agent!,
+          avatar: result.agent.avatar
+        };
+        
+        localStorage.setItem('agent', JSON.stringify(updatedAgent));
+        setAgent(updatedAgent);
+        // Use full URL if avatar path doesn't start with http
+        const avatarPath = result.agent.avatar.startsWith('http') 
+          ? result.agent.avatar 
+          : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${result.agent.avatar}`;
+        setAvatarPreview(avatarPath);
+        setAvatarFile(null);
+        setSuccess("Avatar uploaded successfully!");
+        
+        setTimeout(() => {
+          setSuccess("");
+        }, 2000);
+      } else {
+        throw new Error(result.message || 'Failed to upload avatar');
+      }
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to upload avatar');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
+        setError("Please select a valid image file (JPG or PNG)");
+        return;
+      }
+      
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File size must be less than 5MB");
+        return;
+      }
+
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setError("");
     }
   };
 
@@ -176,6 +260,15 @@ export default function AgentSidebar() {
           newPassword: '',
           confirmPassword: ''
         } as any);
+        setAvatarFile(null);
+        if (agent?.avatar) {
+          const avatarPath = agent.avatar.startsWith('http') 
+            ? agent.avatar 
+            : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`;
+          setAvatarPreview(avatarPath);
+        } else {
+          setAvatarPreview(null);
+        }
         setShowEditModal(true);
       }
     }
@@ -247,9 +340,24 @@ export default function AgentSidebar() {
         {/* User Info & Logout */}
         <div className="p-4 border-t border-gray-700">
           <div className="flex items-center space-x-3 mb-4">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${agent?.isActive ? 'bg-green-500' : 'bg-gray-500'}`}>
-              <User size={16} />
-            </div>
+            {agent?.avatar ? (
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-600 flex items-center justify-center">
+                <Image 
+                  src={agent.avatar.startsWith('http') 
+                    ? agent.avatar 
+                    : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`} 
+                  alt={agent.name || 'Agent'} 
+                  width={32} 
+                  height={32}
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${agent?.isActive ? 'bg-green-500' : 'bg-gray-500'}`}>
+                <User size={16} />
+              </div>
+            )}
             {!isCollapsed && (
               <div>
                 <p className="text-sm font-medium">
@@ -301,6 +409,43 @@ export default function AgentSidebar() {
             )}
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
+              {/* Avatar Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Avatar
+                </label>
+                <div className="flex items-center space-x-4">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                    {avatarPreview ? (
+                      <Image 
+                        src={avatarPreview} 
+                        alt="Avatar preview" 
+                        width={80} 
+                        height={80}
+                        className="object-cover"
+                      />
+                    ) : (
+                      <User size={40} className="text-gray-400" />
+                    )}
+                  </div>
+                  <div>
+                    <label className="cursor-pointer">
+                      <span className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block text-sm">
+                        {avatarFile ? 'Change Avatar' : 'Choose Avatar'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                        disabled={isUploadingAvatar}
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">JPG or PNG, max 5MB</p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Name
@@ -389,13 +534,13 @@ export default function AgentSidebar() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isUpdating}
+                  disabled={isUpdating || isUploadingAvatar}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
-                  {isUpdating ? (
+                  {(isUpdating || isUploadingAvatar) ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Updating...</span>
+                      <span>{isUploadingAvatar ? 'Uploading Avatar...' : 'Updating...'}</span>
                     </>
                   ) : (
                     <>
