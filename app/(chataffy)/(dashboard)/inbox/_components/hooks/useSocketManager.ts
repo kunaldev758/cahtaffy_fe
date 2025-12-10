@@ -165,7 +165,13 @@ export const useSocketManager = ({
       const userRole = localStorage.getItem("role");
       const baseUrl = window.location.origin;
       const inboxPath = userRole === "agent" ? "/agent-inbox" : "/inbox";
-      const chatUrl = `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
+      let chatUrl = "";
+      if(process.env.APP_ENV === "development") {
+         chatUrl = `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
+      } else {
+         chatUrl = `${baseUrl}/chataffy/cahtaffy_fe${inboxPath}?conversationId=${data.conversationId}`;
+      }
+      // const chatUrl = `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
       
       console.log("Agent connection notification - URL:", chatUrl, "Role:", userRole, "ConversationId:", data.conversationId);
 

@@ -1320,28 +1320,54 @@ export default function EnhancedChatWidget({ params }: any) {
                             ))}
 
                             {/* Typing indicator */}
-                            {isTyping && (
-                              <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
-                                {themeSettings?.showLogo && (
-                                  <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                                    style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                                    {themeSettings?.logo ? (
-                                      <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
-                                    ) : (
-                                      <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
-                                    )}
-                                  </div>
-                                )}
+                            {isTyping && (() => {
+                              // Find the most recent agent message to get agentId
+                              const recentAgentMessage = [...conversation].reverse().find((msg: any) => 
+                                msg.agentId && (msg.sender_type === 'agent' || msg.sender_type === 'assistant')
+                              );
+                              const typingAgentId = recentAgentMessage?.agentId;
+                              
+                              return (
+                                <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
+                                  {themeSettings?.showLogo && (
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden relative"
+                                      style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                                      {typingAgentId ? (
+                                        typingAgentId.avatar && typingAgentId.avatar !== 'null' && typingAgentId.avatar.trim() !== '' ? (
+                                          <img 
+                                            src={typingAgentId.avatar.startsWith('http') 
+                                              ? typingAgentId.avatar 
+                                              : `${process.env.NEXT_PUBLIC_API_HOST || process.env.NEXT_PUBLIC_FILE_HOST || ''}${typingAgentId.avatar}`} 
+                                            alt={typingAgentId.name || 'Agent'} 
+                                            className="w-8 h-8 rounded-full object-cover"
+                                            onError={(e) => {
+                                              const target = e.target as HTMLImageElement;
+                                              target.src = defaultImage;
+                                            }}
+                                          />
+                                        ) : (
+                                          <img 
+                                            src={defaultImage} 
+                                            alt={typingAgentId.name || 'Agent'} 
+                                            className="w-8 h-8 rounded-full object-cover"
+                                          />
+                                        )
+                                      ) : (
+                                        <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                                      )}
+                                    </div>
+                                  )}
 
-                                <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
-                                  <div className="flex space-x-1">
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                  <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
+                                    <div className="flex space-x-1">
+                                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
+                              );
+                            })()}
                             <div ref={chatBottomRef} />
                           </div>
                         ) : (
