@@ -21,6 +21,9 @@ import {
 import { io, Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid";
 import { sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
+import defaultImageImport from '@/images/default-image.png';
+
+const defaultImage = (defaultImageImport as any).src || defaultImageImport;
 
 const axios = require('axios');
 require('./_components/widgetcss.css');
@@ -191,6 +194,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [aiChat, setAiChat] = useState(true); // Default to true (AI chat mode)
+  const [isConnectingToAgent, setIsConnectingToAgent] = useState(false);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
@@ -356,7 +360,10 @@ export default function EnhancedChatWidget({ params }: any) {
       }
 
       try {
-        const audio = new Audio("/audio/notification.mp3");
+        // Construct audio path with basePath support for production
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/chataffy/cahtaffy_fe';
+        const audioPath = `${basePath}/audio/notification.mp3`;
+        const audio = new Audio(audioPath);
         data.chatMessage.sender_type != 'visitor' && audio.play().catch((err) => {
           console.error("Failed to play notification sound", err);
         });
@@ -409,6 +416,26 @@ export default function EnhancedChatWidget({ params }: any) {
       }
     });
 
+    // Listen for agent connection request
+    socket.on("agent-connection-request", (data: any) => {
+      console.log('🔗 agent-connection-request received:', data);
+      setIsConnectingToAgent(true);
+      setIsTyping(false);
+    });
+
+    // Listen for agent connection timeout
+    socket.on("agent-connection-timeout", (data: any) => {
+      console.log('⏱️ agent-connection-timeout received:', data);
+      setIsConnectingToAgent(false);
+    });
+
+    // Listen for agent connection accepted
+    socket.on("agent-connection-accepted", (data: any) => {
+      console.log('✅ agent-connection-accepted received:', data);
+      setIsConnectingToAgent(false);
+      setAiChat(false);
+    });
+
     socket.on("visitor-blocked", handleCloseConversationClient);
     socket.on("visitor-conversation-close", handleCloseConversationClient);
 
@@ -419,6 +446,9 @@ export default function EnhancedChatWidget({ params }: any) {
       socket.off("agent-typing");
       socket.off("agent-stop-typing");
       socket.off("ai-chat-status-update");
+      socket.off("agent-connection-request");
+      socket.off("agent-connection-timeout");
+      socket.off("agent-connection-accepted");
       clearNoReplyTimer();
     }
   }, [handleCloseConversationClient]);
@@ -1207,10 +1237,28 @@ export default function EnhancedChatWidget({ params }: any) {
                                   (item.sender_type === 'assistant' && item.is_note === "false")) && (
                                     <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
                                       {themeSettings?.showLogo && (
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden relative"
                                           style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                                          {themeSettings?.logo ? (
-                                            <img src={clientLogo} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                          {item.agentId ? (
+                                            item.agentId.avatar && item.agentId.avatar !== 'null' && item.agentId.avatar.trim() !== '' ? (
+                                              <img 
+                                                src={item.agentId.avatar.startsWith('http') 
+                                                  ? item.agentId.avatar 
+                                                  : `${process.env.NEXT_PUBLIC_API_HOST || process.env.NEXT_PUBLIC_FILE_HOST || ''}${item.agentId.avatar}`} 
+                                                alt={item.agentId.name || 'Agent'} 
+                                                className="w-8 h-8 rounded-full object-cover"
+                                                onError={(e) => {
+                                                  const target = e.target as HTMLImageElement;
+                                                  target.src = defaultImage;
+                                                }}
+                                              />
+                                            ) : (
+                                              <img 
+                                                src={defaultImage} 
+                                                alt={item.agentId.name || 'Agent'} 
+                                                className="w-8 h-8 rounded-full object-cover"
+                                              />
+                                            )
                                           ) : (
                                             <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
                                           )}
@@ -1334,8 +1382,22 @@ export default function EnhancedChatWidget({ params }: any) {
                       </div>
                     )}
 
+                    {/* Connecting to Agent Message */}
+                    {isConnectingToAgent && (
+                      <div className="border-t border-gray-200 bg-blue-50 flex-shrink-0 p-4">
+                        <div className="flex items-center justify-center space-x-3">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          </div>
+                          <span className="text-sm font-medium text-blue-700">Connecting to agent...</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Input Area or End Conversation */}
-                    {chatInputAvailable && (
+                    {chatInputAvailable && !isConnectingToAgent && (
                       <div className="border-t border-gray-200 bg-white flex-shrink-0">
                         {conversationStatus === 'close' ? (
                           <div className="text-center py-8 px-6">

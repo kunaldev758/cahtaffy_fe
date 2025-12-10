@@ -11,7 +11,8 @@ export default function BasicInfoForm(Props:any) {
     organisation: '',
     fallbackMessage: '',
     email: '',
-    phone: ''
+    phone: '',
+    liveAgentSupport: false
   });
   
   const [errors, setErrors] = useState({});
@@ -113,15 +114,16 @@ export default function BasicInfoForm(Props:any) {
 
   // Handle input change with real-time validation
   const handleChange = (e:any) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const fieldValue = type === 'checkbox' ? checked : value;
     setBasicInfo({
       ...basicInfo,
-      [name]: value,
+      [name]: fieldValue,
     });
 
     // Clear error for this field and validate
     if ((errors as any)[name]) {
-      const error = validateField(name, value);
+      const error = validateField(name, fieldValue);
       setErrors({
         ...errors,
         [name]: error
@@ -335,6 +337,22 @@ export default function BasicInfoForm(Props:any) {
                   {basicInfo?.fallbackMessage?.length}/500
                 </span>
               </div>
+            </div>
+
+            {/* Live Agent Support Checkbox */}
+            <div className="space-y-2">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="liveAgentSupport"
+                  checked={basicInfo.liveAgentSupport}
+                  onChange={handleChange}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                />
+                <span className="text-sm font-semibold text-gray-700">
+                  Visitors can request live chat with chat agents
+                </span>
+              </label>
             </div>
 
             {/* Submit Button */}

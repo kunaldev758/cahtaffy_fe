@@ -86,7 +86,43 @@ export default function AgentSidebar() {
   useEffect(()=>{
     console.log("agent deleted")
     socket?.on('agent-deleted-success',handleLogout)
+    
+    return () => {
+      socket?.off('agent-deleted-success', handleLogout)
+    }
   },[socket])
+
+  // Listen for socket events to update agent status in real-time
+  useEffect(() => {
+    if (!socket || !agent) return
+
+    const handleAgentStatusUpdate = (updatedAgent: any) => {
+      console.log('Agent status updated via socket:', updatedAgent)
+      // Check if this update is for the current agent
+      const agentId = agent.id?.toString() || agent.id
+      const updatedId = updatedAgent.id?.toString() || updatedAgent.id
+      
+      if (agentId === updatedId) {
+        // Update localStorage and state
+        const updatedAgentData = {
+          ...agent,
+          isActive: updatedAgent.isActive,
+          lastActive: updatedAgent.lastActive,
+        }
+        
+        localStorage.setItem('agent', JSON.stringify(updatedAgentData))
+        setAgent(updatedAgentData)
+      }
+    }
+
+    // Listen for agent status updates
+    socket.on('agent-status-updated', handleAgentStatusUpdate)
+
+    // Cleanup listener on unmount
+    return () => {
+      socket.off('agent-status-updated', handleAgentStatusUpdate)
+    }
+  }, [socket, agent])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -112,6 +112,34 @@ export default function Settings() {
     fetchAgents()
   }, [])
 
+  // Listen for socket events to update agent status in real-time
+  useEffect(() => {
+    if (!socket) return
+
+    const handleAgentStatusUpdate = (updatedAgent: any) => {
+      console.log('Agent status updated via socket:', updatedAgent)
+      setAgents((prevAgents) =>
+        prevAgents.map((agent) =>
+          agent._id === updatedAgent.id || agent._id.toString() === updatedAgent.id
+            ? {
+                ...agent,
+                isActive: updatedAgent.isActive,
+                lastActive: updatedAgent.lastActive,
+              }
+            : agent
+        )
+      )
+    }
+
+    // Listen for agent status updates
+    socket.on('agent-status-updated', handleAgentStatusUpdate)
+
+    // Cleanup listener on unmount
+    return () => {
+      socket.off('agent-status-updated', handleAgentStatusUpdate)
+    }
+  }, [socket])
+
   // Validation functions
   const validateForm = (isEdit = false): boolean => {
     const errors: FormErrors = {}
@@ -235,12 +263,28 @@ export default function Settings() {
   // Handle status toggle
   const handleStatusToggle = async (id: string, currentStatus: boolean) => {
     try {
-      await updateAgentStatus(id, !currentStatus)
+      const newStatus = !currentStatus
+      await updateAgentStatus(id, newStatus)
       toast.success('Agent status updated successfully')
-      fetchAgents()
+      // Optimistically update the local state immediately
+      setAgents((prevAgents) =>
+        prevAgents.map((agent) =>
+          agent._id === id || agent._id.toString() === id
+            ? {
+                ...agent,
+                isActive: newStatus,
+                lastActive: newStatus ? new Date().toISOString() : agent.lastActive,
+              }
+            : agent
+        )
+      )
+      // Socket event will also update the state, but this provides immediate feedback
+      // fetchAgents() // Not needed since socket will update state
     } catch (error: any) {
       toast.error('Failed to update agent status')
       console.error('Error updating agent status:', error)
+      // Revert optimistic update on error
+      fetchAgents()
     }
   }
 

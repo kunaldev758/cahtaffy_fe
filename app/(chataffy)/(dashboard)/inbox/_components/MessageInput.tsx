@@ -17,6 +17,7 @@ interface MessageInputProps {
   onMessageSend: () => void;
   onAddNote: () => void;
   setIsNoteActive: (value: boolean) => void;
+  canReply?: boolean;
 }
 
 export default function MessageInput({
@@ -33,6 +34,7 @@ export default function MessageInput({
   onMessageSend,
   onAddNote,
   setIsNoteActive,
+  canReply = true,
 }: MessageInputProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -226,7 +228,8 @@ export default function MessageInput({
   const sendDisabled =
     !inputMessage.trim() ||
     (!isNoteActive && isAIChat && openConversationStatus === "open") ||
-    !isOnline;
+    !isOnline ||
+    !canReply;
   return (
     <div className="bg-white border-t border-gray-200 p-4">
       {/* No Internet Banner */}
@@ -288,6 +291,10 @@ export default function MessageInput({
             <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm">
               Chat is disabled. Please disable AI Chat to send messages.
             </div>
+          ) : !canReply ? (
+            <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm">
+              You don't have permission to reply to this conversation.
+            </div>
           ) : (
             <div className="relative">
               <textarea
@@ -311,7 +318,7 @@ export default function MessageInput({
                     onMessageSend();
                   }
                 }}
-                disabled={!isOnline}
+                disabled={!isOnline || !canReply}
               />
               <div className="absolute right-2 bottom-2 text-xs text-gray-500">
                 {wordCount}/{maxWords} words

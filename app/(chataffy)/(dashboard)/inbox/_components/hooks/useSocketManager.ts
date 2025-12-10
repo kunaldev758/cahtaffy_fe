@@ -145,9 +145,119 @@ export const useSocketManager = ({
     socket.on('visitor-blocked', handleVisitorBlocked);
     socket.on('visitor-conversation-close', handleConversationClose);
 
+    // Handle agent connection notifications
+    const handleAgentConnectionNotification = (data: any) => {
+      console.log("Agent connection notification received:", data);
+      // Play notification sound
+      try {
+        // Construct audio path with basePath support for production
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/chataffy/cahtaffy_fe';
+        const audioPath = `${basePath}/audio/notification.mp3`;
+        const audio = new Audio(audioPath);
+        audio.play().catch((err) => {
+          console.error("Failed to play notification sound", err);
+        });
+      } catch (e) {
+        console.error("Audio play error", e);
+      }
+
+      // Determine the correct inbox URL based on user role
+      const userRole = localStorage.getItem("role");
+      const baseUrl = window.location.origin;
+      const inboxPath = userRole === "agent" ? "/agent-inbox" : "/inbox";
+      const chatUrl = `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
+      
+      console.log("Agent connection notification - URL:", chatUrl, "Role:", userRole, "ConversationId:", data.conversationId);
+
+      // Show browser notification if permission granted
+      const showNotification = () => {
+        // Store the URL in sessionStorage as a fallback
+        sessionStorage.setItem('pendingAgentConnectionUrl', chatUrl);
+        
+        const notification = new Notification("New Agent Connection Request", {
+          body: "A visitor requested to connect to an agent. Click to open chat.",
+          icon: "/favicon.ico",
+          tag: `agent-connection-${data.conversationId}`, // Tag to replace previous notifications for same conversation
+          requireInteraction: false,
+          data: { url: chatUrl, conversationId: data.conversationId }, // Store URL in notification data
+        });
+
+        // Handle notification click to navigate to chat
+        notification.onclick = (event) => {
+          console.log("Notification clicked, navigating to:", chatUrl);
+          event.preventDefault();
+          notification.close();
+          
+          // Remove stored URL since we're navigating now
+          sessionStorage.removeItem('pendingAgentConnectionUrl');
+          
+          // Focus the window first - this is critical for navigation to work
+          if (window.focus) {
+            window.focus();
+          }
+          
+          // Small delay to ensure window is focused before navigation
+          setTimeout(() => {
+            try {
+              console.log("Attempting navigation to:", chatUrl);
+              // Use window.location.assign which is more reliable than href
+              window.location.assign(chatUrl);
+            } catch (error) {
+              console.error("Navigation error:", error);
+              // Fallback to href
+              window.location.href = chatUrl;
+            }
+          }, 100);
+        };
+        
+        // Also handle window focus event as a fallback
+        const handleWindowFocus = () => {
+          const pendingUrl = sessionStorage.getItem('pendingAgentConnectionUrl');
+          if (pendingUrl && pendingUrl === chatUrl) {
+            sessionStorage.removeItem('pendingAgentConnectionUrl');
+            window.location.assign(pendingUrl);
+            window.removeEventListener('focus', handleWindowFocus);
+          }
+        };
+        
+        // Listen for window focus (in case notification click doesn't work)
+        window.addEventListener('focus', handleWindowFocus);
+        
+        // Clean up listener after 30 seconds
+        setTimeout(() => {
+          window.removeEventListener('focus', handleWindowFocus);
+          sessionStorage.removeItem('pendingAgentConnectionUrl');
+        }, 30000);
+      };
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        showNotification();
+      } else if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            showNotification();
+          }
+        });
+      }
+
+      // Store notification data (you might want to add state for this)
+      // For now, we'll emit a custom event that the inbox component can listen to
+      window.dispatchEvent(new CustomEvent('agent-connection-notification', { detail: data }));
+    };
+
+    const handleAgentConnectionCancelled = (data: any) => {
+      console.log("Agent connection cancelled:", data);
+      window.dispatchEvent(new CustomEvent('agent-connection-cancelled', { detail: data }));
+    };
+
+    socket.on("agent-connection-notification", handleAgentConnectionNotification);
+    socket.on("agent-connection-cancelled", handleAgentConnectionCancelled);
+
     return () => {
       socket.off("conversation-append-message", handleAppendMessage);
       socket.off("new-message-count", handleNewMessageCount);
+      socket.off("agent-connection-notification", handleAgentConnectionNotification);
+      socket.off("agent-connection-cancelled", handleAgentConnectionCancelled);
       socket.off("note-append-message", handleNoteAppendMessage);
       socket.off("ai-response-update", handleAiResponse);
       socket.off('conversation-close-triggered', handleConversationClose);

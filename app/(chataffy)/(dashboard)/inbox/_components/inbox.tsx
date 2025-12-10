@@ -1,6 +1,6 @@
 // components/Inbox.tsx (Main refactored component)
 "use client";
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { getConversationMessages, getOldConversationMessages } from "@/app/_api/dashboard/action";
 import { useSocketManager } from "./hooks/useSocketManager";
@@ -12,6 +12,7 @@ import MessagesArea from "./MessagesArea";
 import MessageInput from "./MessageInput";
 import DetailsPanel from "./DetailsPanel";
 import EmptyState from "./EmptyState";
+import AgentConnectionRequest from "./AgentConnectionRequest";
 
 export default function Inbox(Props: any) {
   const searchParams:any = useSearchParams();
@@ -54,9 +55,164 @@ export default function Inbox(Props: any) {
   const [tags, setTags] = useState<any>([]);
   const [openConversationStatus, setOpenConversationStatus] = useState<any>("close");
   const [isAIChat, setIsAIChat] = useState(true);
+  const [agentConnectionRequest, setAgentConnectionRequest] = useState<{
+    conversationId: string;
+    visitorName?: string;
+  } | null>(null);
+  const [agent, setAgent] = useState<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  // Get agent data from localStorage (for agent-inbox context)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const agentData = localStorage.getItem('agent');
+      if (agentData) {
+        try {
+          const parsedAgent = JSON.parse(agentData);
+          setAgent(parsedAgent);
+        } catch (error) {
+          console.error('Error parsing agent data:', error);
+        }
+      }
+    }
+  }, []);
+
+  // Calculate if agent can reply based on conditions
+  const canReply = useMemo(() => {
+    console.log('🔍 canReply calculation started');
+    
+    // If not in agent context, allow reply (for regular client inbox)
+    if (!agent) {
+      console.log('✅ No agent context - allowing reply');
+      return true;
+    }
+
+    console.log('👤 Agent found:', { id: agent.id, isActive: agent.isActive });
+
+    // Find current conversation
+    const currentConversation = conversationsList?.data?.find(
+      (conv: any) => conv._id === openConversationId || conv._id?.toString() === openConversationId?.toString()
+    );
+
+    if (!currentConversation) {
+      console.log('⚠️ No conversation found - checking isActive');
+      // If no conversation found, only allow if agent is active
+      return agent.isActive === true;
+    }
+
+    console.log('💬 Conversation found:', { 
+      conversationId: currentConversation._id, 
+      agentId: currentConversation.agentId,
+      agentIdType: typeof currentConversation.agentId 
+    });
+
+    // Get conversation agentId (could be string ID or populated object)
+    const conversationAgentId = currentConversation.agentId;
+    
+    // Extract agentId string for comparison
+    const agentIdString = typeof conversationAgentId === 'string' 
+      ? conversationAgentId 
+      : conversationAgentId?._id?.toString() || conversationAgentId?.id?.toString() || conversationAgentId?.toString();
+    
+    const agentIdForComparison = agent.id?.toString() || agent.id;
+    
+    console.log('🔍 Comparing agentIds:', {
+      conversationAgentId: agentIdString,
+      agentId: agentIdForComparison,
+      match: agentIdString === agentIdForComparison
+    });
+
+    // Condition 1: If agent isActive is true AND (conversation is unassigned OR assigned to this agent)
+    if (agent.isActive === true) {
+      // Allow if conversation is unassigned
+      if (conversationAgentId === null || conversationAgentId === undefined) {
+        console.log('✅ Agent isActive=true AND conversation is unassigned - allowing reply');
+        return true;
+      }
+      
+      // Allow if conversation is assigned to this agent
+      if (agentIdString === agentIdForComparison) {
+        console.log('✅ Agent isActive=true AND conversation assigned to this agent - allowing reply');
+        return true;
+      }
+      
+      // Block if conversation is assigned to a different agent
+      console.log('❌ Agent isActive=true BUT conversation assigned to different agent - blocking reply');
+      return false;
+    }
+
+    // Condition 2: If agent isActive is false, check if conversation is assigned to this agent
+    if (agent.isActive === false) {
+      console.log('❌ Agent isActive is false - checking conversation assignment');
+      
+      // Allow reply if conversation agentId is null/undefined (unassigned)
+      if (conversationAgentId === null || conversationAgentId === undefined) {
+        console.log('✅ Conversation is unassigned (agentId is null/undefined) - allowing reply');
+        return true;
+      }
+
+      // Allow reply if conversation agentId matches agent id
+      if (agentIdString === agentIdForComparison) {
+        console.log('✅ Conversation assigned to this agent - allowing reply');
+        return true;
+      }
+
+      console.log('❌ Conversation not assigned to this agent - blocking reply');
+      return false;
+    }
+
+    // Fallback: If agent isActive is not explicitly true/false, check conversation assignment
+    // Allow reply if conversation agentId is null/undefined (unassigned) or matches agent id
+    if (conversationAgentId === null || conversationAgentId === undefined) {
+      console.log('✅ Conversation is unassigned (fallback) - allowing reply');
+      return true;
+    }
+    
+    if (agentIdString === agentIdForComparison) {
+      console.log('✅ Conversation assigned to this agent (fallback) - allowing reply');
+      return true;
+    }
+
+    // Default: block reply
+    console.log('❌ Default case - blocking reply');
+    return false;
+  }, [agent, conversationsList?.data, openConversationId]);
+
+  // Listen for agent connection notifications
+  useEffect(() => {
+    const handleAgentConnectionNotification = (event: CustomEvent) => {
+      const data = event.detail;
+      console.log("Agent connection notification received:", data);
+      
+      // If this is for the currently open conversation, show the request
+      if (data.conversationId === openConversationId) {
+        setAgentConnectionRequest({
+          conversationId: data.conversationId,
+          visitorName: data.visitor?.visitorDetails?.find((d: any) => d.field === 'Name')?.value || 'Visitor',
+        });
+      } else {
+        // If not the current conversation, navigate to it or show notification
+        // For now, we'll just show it if user opens that conversation
+      }
+    };
+
+    const handleAgentConnectionCancelled = (event: CustomEvent) => {
+      const data = event.detail;
+      if (data.conversationId === openConversationId) {
+        setAgentConnectionRequest(null);
+      }
+    };
+
+    window.addEventListener('agent-connection-notification', handleAgentConnectionNotification as EventListener);
+    window.addEventListener('agent-connection-cancelled', handleAgentConnectionCancelled as EventListener);
+
+    return () => {
+      window.removeEventListener('agent-connection-notification', handleAgentConnectionNotification as EventListener);
+      window.removeEventListener('agent-connection-cancelled', handleAgentConnectionCancelled as EventListener);
+    };
+  }, [openConversationId]);
 
   // Initialize socket manager
   const {
@@ -88,6 +244,42 @@ export default function Inbox(Props: any) {
     openVisitorId,
     isAIChat,
   });
+
+  // Listen for socket events to update agent status in real-time
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !agent) return;
+
+    const handleAgentStatusUpdate = (updatedAgent: any) => {
+      console.log('Agent status updated via socket in inbox:', updatedAgent);
+      // Check if this update is for the current agent
+      const agentId = agent.id?.toString() || agent.id;
+      const updatedId = updatedAgent.id?.toString() || updatedAgent.id;
+      
+      if (agentId === updatedId) {
+        // Update localStorage and state
+        setAgent((prevAgent: any) => {
+          const updatedAgentData = {
+            ...prevAgent,
+            isActive: updatedAgent.isActive,
+            lastActive: updatedAgent.lastActive,
+          };
+          localStorage.setItem('agent', JSON.stringify(updatedAgentData));
+          return updatedAgentData;
+        });
+      }
+    };
+
+    // Listen for agent status updates
+    socket.on('agent-status-updated', handleAgentStatusUpdate);
+
+    // Cleanup listener on unmount
+    return () => {
+      if (socket) {
+        socket.off('agent-status-updated', handleAgentStatusUpdate);
+      }
+    };
+  }, [agent]);
 
   // Business logic functions (cleaner now without socket code)
   const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
@@ -383,6 +575,7 @@ export default function Inbox(Props: any) {
                 onTagDelete={handleTagDelete}
                 onInputAddTagChange={handleInputAddTagChange}
                 setAddTag={setAddTag}
+                canReply={canReply}
               />
 
               <MessagesArea
@@ -393,6 +586,20 @@ export default function Inbox(Props: any) {
                 messageRefs={messageRefs}
               />
 
+              {agentConnectionRequest && agentConnectionRequest.conversationId === openConversationId && (
+                <AgentConnectionRequest
+                  conversationId={agentConnectionRequest.conversationId}
+                  visitorName={agentConnectionRequest.visitorName}
+                  socketRef={socketRef}
+                  onAccept={() => {
+                    setAgentConnectionRequest(null);
+                    setIsAIChat(false);
+                  }}
+                  onDecline={() => {
+                    setAgentConnectionRequest(null);
+                  }}
+                />
+              )}
               <MessageInput
                 inputMessage={inputMessage}
                 wordCount={wordCount}
@@ -407,6 +614,7 @@ export default function Inbox(Props: any) {
                 onMessageSend={handleMessageSend}
                 onAddNote={handleAddNote}
                 setIsNoteActive={setIsNoteActive}
+                canReply={canReply}
               />
             </div>
           ) : (
