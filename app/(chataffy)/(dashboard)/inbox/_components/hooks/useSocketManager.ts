@@ -367,6 +367,26 @@ export const useSocketManager = ({
     }
   }, [status]);
 
+  const emitGetConversationTags = useCallback((conversationId?: string) => {
+    const socket = socketRef.current;
+    // const { socket } = useSocket();
+    const convId = conversationId || openConversationId;
+
+    if (!socket || !convId) {
+      console.log("Cannot fetch tags: missing socket or conversation ID");
+      return;
+    }
+
+    socket.emit("get-conversation-tags", { conversationId: convId }, (response: any) => {
+      if (response && response.success) {
+        console.log(response.tags, "response.tags");
+        setTags(response.tags);
+      } else {
+        console.error("Failed to fetch tags:", response?.error || "Unknown error");
+      }
+    });
+  }, [openConversationId, setTags]);
+
   const emitJoinConversation = useCallback((conversationId: string, callback?: (response: any) => void) => {
     const socket = socketRef.current;
     // const { socket } = useSocket();
@@ -390,6 +410,20 @@ export const useSocketManager = ({
       
       callback?.(response);
     });
+  }, [emitGetConversationTags]);
+
+  const emitCheckPendingAgentRequest = useCallback((conversationId: string, callback?: (response: any) => void) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit("check-pending-agent-request", { conversationId }, (response: any) => {
+      if (response && response.success) {
+        console.log("Checked for pending agent request:", response.hasPendingRequest);
+      } else {
+        console.error("Failed to check pending agent request:", response?.error || "Unknown error");
+      }
+      callback?.(response);
+    });
   }, []);
 
   const emitSendMessage = useCallback((messageData: { message: string; visitorId: string }, callback?: (response: any) => void) => {
@@ -407,26 +441,6 @@ export const useSocketManager = ({
 
     socket.emit("client-send-add-note", noteData);
   }, []);
-
-  const emitGetConversationTags = useCallback((conversationId?: string) => {
-    const socket = socketRef.current;
-    // const { socket } = useSocket();
-    const convId = conversationId || openConversationId;
-
-    if (!socket || !convId) {
-      console.log("Cannot fetch tags: missing socket or conversation ID");
-      return;
-    }
-
-    socket.emit("get-conversation-tags", { conversationId: convId }, (response: any) => {
-      if (response && response.success) {
-        console.log(response.tags, "response.tags");
-        setTags(response.tags);
-      } else {
-        console.error("Failed to fetch tags:", response?.error || "Unknown error");
-      }
-    });
-  }, [openConversationId, setTags]);
 
   const emitAddTag = useCallback((tagName: string, conversationId: string, callback?: (response: any) => void) => {
     const socket = socketRef.current;
@@ -644,5 +658,6 @@ export const useSocketManager = ({
     emitGetVisitorOldConversations,
     emitMarkMessagesSeen,
     emitGetConversationsList,
+    emitCheckPendingAgentRequest,
   };
 };

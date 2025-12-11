@@ -228,6 +228,7 @@ export default function Inbox(Props: any) {
     emitSearchConversations,
     emitCloseAIResponse,
     emitMarkMessagesSeen,
+    emitCheckPendingAgentRequest,
   } = useSocketManager({
     setConversationMessages,
     setConversationsList,
@@ -304,6 +305,12 @@ export default function Inbox(Props: any) {
 
         // Use socket manager to join conversation
         emitJoinConversation(conversationId);
+
+        // Check for pending agent connection request
+        emitCheckPendingAgentRequest(conversationId, (response: any) => {
+          // The backend will emit agent-connection-notification if there's a pending request
+          // The event listener will handle setting the state
+        });
 
         // Update conversation list to mark as read
         setConversationsList((prev: any) => ({
