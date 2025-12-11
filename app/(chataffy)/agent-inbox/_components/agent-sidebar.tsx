@@ -488,7 +488,7 @@ export default function AgentSidebar() {
                   <div>
                     <label className="cursor-pointer">
                       <span className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block text-sm">
-                        {avatarFile ? 'Change Avatar' : 'Choose Avatar'}
+                        {avatarFile ? 'Change Photo' : 'Choose Photo'}
                       </span>
                       <input
                         type="file"

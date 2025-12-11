@@ -10,9 +10,15 @@ export interface Conversation {
     };
     lastMessage?: string;
     updatedAt: string;
+    createdAt?: string;
     newMessage: number;
     is_started: boolean;
     aiChat: boolean;
+    agentId?: string | {
+      _id: string;
+      name: string;
+      avatar?: string;
+    };
   }
   
   export interface Message {

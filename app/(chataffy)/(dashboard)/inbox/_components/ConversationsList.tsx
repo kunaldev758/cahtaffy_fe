@@ -1,8 +1,12 @@
 "use client";
-import { Search } from "lucide-react";
-import { format } from "date-fns";
+import { Search, Bot } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import Skeleton from "react-loading-skeleton";
+import Image from "next/image";
 import { Conversation } from "./types/inbox";
+import defaultImageImport from '@/images/default-image.png';
+
+const defaultImage = (defaultImageImport as any).src || defaultImageImport;
 
 interface ConversationsListProps {
   conversationsList: {
@@ -16,10 +20,12 @@ interface ConversationsListProps {
   openConversationId: string | null;
   searchText: string;
   status: string;
+  sortBy: string;
   onConversationClick: (conversation: Conversation, visitorName: string, index: number) => void;
   onSearchInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSearchInputClick: () => void;
   onStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onSortChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
 export default function ConversationsList({
@@ -28,10 +34,12 @@ export default function ConversationsList({
   openConversationId,
   searchText,
   status,
+  sortBy,
   onConversationClick,
   onSearchInputChange,
   onSearchInputClick,
   onStatusChange,
+  onSortChange,
 }: ConversationsListProps) {
   const getAvatarColor = (index: number) => {
     const colors = [
@@ -45,9 +53,31 @@ export default function ConversationsList({
     return colors[index % colors.length];
   };
 
+  const sortConversations = (conversations: Conversation[]) => {
+    const sorted = [...conversations];
+    
+    if (sortBy === "lastActivity") {
+      // Sort by updatedAt (descending - most recent first)
+      return sorted.sort((a, b) => {
+        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return dateB - dateA;
+      });
+    } else if (sortBy === "dateStarted") {
+      // Sort by createdAt (descending - most recent first)
+      return sorted.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+    }
+    
+    return sorted;
+  };
+
   const displayConversations = searchConversationsList.data.length 
-    ? searchConversationsList.data 
-    : conversationsList.data;
+    ? sortConversations(searchConversationsList.data)
+    : sortConversations(conversationsList.data);
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
@@ -75,11 +105,12 @@ export default function ConversationsList({
         {/* Filters */}
         <div className="flex gap-3">
           <select 
+            value={sortBy}
+            onChange={onSortChange}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            defaultValue="newest"
           >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
+            <option value="lastActivity">Last Activity</option>
+            <option value="dateStarted">Date Started</option>
           </select>
           
           <select 
@@ -126,11 +157,47 @@ export default function ConversationsList({
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-sm font-medium text-gray-900 truncate">
-                        {conversation?.visitor?.name}
-                      </h3>
-                      <span className="text-xs text-gray-500">
-                        {conversation.updatedAt ? format(new Date(conversation.updatedAt), 'dd/MM/yy') : 'Now'}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                          {conversation?.visitor?.name}
+                        </h3>
+                        {conversation.agentId && typeof conversation.agentId === 'object' && 
+                         conversation.agentId.avatar && 
+                         conversation.agentId.avatar !== null && 
+                         conversation.agentId.avatar.trim() !== '' ? (
+                          <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
+                            <Image
+                              src={conversation.agentId.avatar.startsWith('http') 
+                                ? conversation.agentId.avatar 
+                                : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${conversation.agentId.avatar}`}
+                              alt={conversation.agentId.name || 'Agent'}
+                              width={16}
+                              height={16}
+                              className="w-4 h-4 object-cover"
+                              unoptimized
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = defaultImage;
+                              }}
+                            />
+                          </div>
+                        ) : conversation.agentId ? (
+                          <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
+                            <Image
+                              src={defaultImage}
+                              alt={ 'Agent'}
+                              width={16}
+                              height={16}
+                              className="w-4 h-4 object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        ) : !conversation.agentId ? (
+                          <Bot className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                        {conversation.updatedAt ? formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true }) : 'just now'}
                       </span>
                     </div>
                     

@@ -50,6 +50,7 @@ export default function Inbox(Props: any) {
   const [visitorDetails, setVisitorDetails] = useState<any>();
   const [status, setStatus] = useState("open");
   const [searchText, setSearchText] = useState("");
+  const [sortBy, setSortBy] = useState("lastActivity");
   const [addTag, setAddTag] = useState<boolean>(false);
   const [inputAddTag, setInputAddTag] = useState<string>("");
   const [tags, setTags] = useState<any>([]);
@@ -475,6 +476,10 @@ export default function Inbox(Props: any) {
     setStatus(e.target.value);
   };
 
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSortBy(e.target.value);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const text = e.target.value;
     const words = text.trim().split(/\s+/).filter(word => word.length > 0);
@@ -557,10 +562,12 @@ export default function Inbox(Props: any) {
         openConversationId={openConversationId}
         searchText={searchText}
         status={status}
+        sortBy={sortBy}
         onConversationClick={handleConversationClick}
         onSearchInputChange={handleSearchInputChange}
         onSearchInputClick={handleSearchInputClick}
         onStatusChange={handleStatusChange}
+        onSortChange={handleSortChange}
       />
 
       {isConversationAvailable ? (
