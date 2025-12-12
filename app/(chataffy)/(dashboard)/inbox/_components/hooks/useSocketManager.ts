@@ -161,19 +161,37 @@ export const useSocketManager = ({
         console.error("Audio play error", e);
       }
 
-      // Determine the correct inbox URL based on user role
+      // Determine the correct inbox URL based on user role and current path
       const userRole = localStorage.getItem("role");
       const baseUrl = window.location.origin;
-      const inboxPath = userRole === "agent" ? "/agent-inbox" : "/inbox";
-      let chatUrl = "";
-      if(process.env.APP_ENV === "development") {
-         chatUrl = `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
-      } else {
-         chatUrl = `${baseUrl}/chataffy/cahtaffy_fe${inboxPath}?conversationId=${data.conversationId}`;
-      }
-      // const chatUrl = `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
+      const currentPath = window.location.pathname;
+      const basePathPrefix = "/chataffy/cahtaffy_fe";
       
-      console.log("Agent connection notification - URL:", chatUrl, "Role:", userRole, "ConversationId:", data.conversationId);
+      // Normalize current path for checking
+      const normalizedCurrentPath = currentPath.replace(basePathPrefix, '');
+      
+      // Determine inbox path: check current path first, then role, then agent data
+      let inboxPath = "/inbox"; // default
+      if (normalizedCurrentPath.startsWith("/agent-inbox")) {
+        inboxPath = "/agent-inbox";
+      } else if (normalizedCurrentPath.startsWith("/inbox")) {
+        inboxPath = "/inbox";
+      } else {
+        // Fallback to role check
+        const agentData = localStorage.getItem("agent");
+        const isAgent = userRole === "agent" || (agentData && agentData !== "null" && agentData !== "undefined");
+        inboxPath = isAgent ? "/agent-inbox" : "/inbox";
+      }
+      
+      // Detect if we're in production by checking if current pathname has base path prefix
+      const isProduction = currentPath.startsWith(basePathPrefix);
+      
+      // Construct URL - only include base path if we're in production
+      const chatUrl = isProduction 
+        ? `${baseUrl}${basePathPrefix}${inboxPath}?conversationId=${data.conversationId}`
+        : `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
+      
+      console.log("Agent connection notification - URL:", chatUrl, "Role:", userRole, "CurrentPath:", currentPath, "InboxPath:", inboxPath, "ConversationId:", data.conversationId);
 
       // Show browser notification if permission granted
       const showNotification = () => {
@@ -202,18 +220,43 @@ export const useSocketManager = ({
             window.focus();
           }
           
-          // Small delay to ensure window is focused before navigation
-          setTimeout(() => {
+          // Check if we're already on the inbox page - if so, just update the query param
+          const currentPath = window.location.pathname;
+          // Normalize paths for comparison (remove trailing slashes and base path)
+          const normalizePath = (path: string) => path.replace(/\/chataffy\/cahtaffy_fe/, '').replace(/\/$/, '');
+          const normalizedCurrent = normalizePath(currentPath);
+          const normalizedInbox = normalizePath(inboxPath);
+          const isOnInboxPage = normalizedCurrent === normalizedInbox;
+          
+          if (isOnInboxPage) {
+            // Already on inbox page - just update the URL without full reload
             try {
-              console.log("Attempting navigation to:", chatUrl);
-              // Use window.location.assign which is more reliable than href
-              window.location.assign(chatUrl);
+              const url = new URL(chatUrl);
+              window.history.pushState({}, '', url.pathname + url.search);
+              // Dispatch a custom event to trigger conversation opening
+              window.dispatchEvent(new CustomEvent('notification-navigate-to-conversation', { 
+                detail: { conversationId: data.conversationId } 
+              }));
             } catch (error) {
-              console.error("Navigation error:", error);
-              // Fallback to href
+              console.error("Error updating URL:", error);
+              // Fallback to full navigation
               window.location.href = chatUrl;
             }
-          }, 100);
+          } else {
+            // Not on inbox page - navigate using window.location
+            // Use a small delay to ensure window is focused
+            setTimeout(() => {
+              try {
+                console.log("Navigating to:", chatUrl);
+                // Direct navigation - this will cause full page reload
+                // The middleware should allow /agent-inbox with query params
+                window.location.href = chatUrl;
+              } catch (error) {
+                console.error("Navigation error:", error);
+                window.location.assign(chatUrl);
+              }
+            }, 100);
+          }
         };
         
         // Also handle window focus event as a fallback

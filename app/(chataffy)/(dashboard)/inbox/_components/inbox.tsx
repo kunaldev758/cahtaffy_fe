@@ -183,8 +183,9 @@ export default function Inbox(Props: any) {
 
   // Listen for agent connection notifications
   useEffect(() => {
-    const handleAgentConnectionNotification = (event: CustomEvent) => {
-      const data = event.detail;
+    const handleAgentConnectionNotification = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
       console.log("Agent connection notification received:", data);
       
       // If this is for the currently open conversation, show the request
@@ -199,19 +200,20 @@ export default function Inbox(Props: any) {
       }
     };
 
-    const handleAgentConnectionCancelled = (event: CustomEvent) => {
-      const data = event.detail;
+    const handleAgentConnectionCancelled = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
       if (data.conversationId === openConversationId) {
         setAgentConnectionRequest(null);
       }
     };
 
-    window.addEventListener('agent-connection-notification', handleAgentConnectionNotification as EventListener);
-    window.addEventListener('agent-connection-cancelled', handleAgentConnectionCancelled as EventListener);
+    window.addEventListener('agent-connection-notification', handleAgentConnectionNotification);
+    window.addEventListener('agent-connection-cancelled', handleAgentConnectionCancelled);
 
     return () => {
-      window.removeEventListener('agent-connection-notification', handleAgentConnectionNotification as EventListener);
-      window.removeEventListener('agent-connection-cancelled', handleAgentConnectionCancelled as EventListener);
+      window.removeEventListener('agent-connection-notification', handleAgentConnectionNotification);
+      window.removeEventListener('agent-connection-cancelled', handleAgentConnectionCancelled);
     };
   }, [openConversationId]);
 
@@ -361,6 +363,43 @@ export default function Inbox(Props: any) {
       console.error("Error fetching old conversation messages:", error);
     }
   };
+
+  // Handle notification navigation when already on inbox page
+  useEffect(() => {
+    const handleNotificationNavigate = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { conversationId } = customEvent.detail;
+      console.log("Notification navigate to conversation:", conversationId);
+      
+      // Find the conversation in the list
+      const conversation = conversationsList?.data?.find((conv: any) => conv._id === conversationId || conv.id === conversationId);
+      
+      if (conversation) {
+        const visitorName = conversation.visitor?.visitorDetails?.find((d: any) => d.field === 'Name')?.value || 
+                           conversation.visitorName || 
+                           'Visitor';
+        await openConversation(conversation, visitorName, 0);
+      } else {
+        // If conversation not found in list, try to open it directly by ID
+        // This might be an old conversation or one that needs to be fetched
+        try {
+          const data = await getOldConversationMessages({ conversationId });
+          if (data && data.chatMessages && data.chatMessages.length > 0) {
+            const visitorName = data.visitorName || 'Visitor';
+            await openOldConversation(conversationId, visitorName);
+          }
+        } catch (error) {
+          console.error("Error opening conversation from notification:", error);
+        }
+      }
+    };
+
+    window.addEventListener('notification-navigate-to-conversation', handleNotificationNavigate);
+
+    return () => {
+      window.removeEventListener('notification-navigate-to-conversation', handleNotificationNavigate);
+    };
+  }, [conversationsList]);
 
   const handleMessageSend = () => {
     if (!inputMessage.trim()) return;
