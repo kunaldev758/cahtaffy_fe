@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { getConversationMessages, getOldConversationMessages } from "@/app/_api/dashboard/action";
+import { getConversationMessages, getOldConversationMessages, getClientData } from "@/app/_api/dashboard/action";
 import { useSocketManager } from "./hooks/useSocketManager";
 
 // Component imports
@@ -61,6 +61,8 @@ export default function Inbox(Props: any) {
     visitorName?: string;
   } | null>(null);
   const [agent, setAgent] = useState<any>(null);
+  const [client, setClient] = useState<any>(null);
+  const [currentConversation, setCurrentConversation] = useState<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -80,17 +82,121 @@ export default function Inbox(Props: any) {
     }
   }, []);
 
-  // Calculate if agent can reply based on conditions
+  // Get client agent data from localStorage and API (for client-inbox context)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !agent) {
+      const clientAgentData = localStorage.getItem('clientAgent');
+      if (clientAgentData) {
+        try {
+          const parsedClientAgent = JSON.parse(clientAgentData);
+          console.log('Loading client agent from localStorage:', parsedClientAgent);
+          setClient(parsedClientAgent);
+        } catch (error) {
+          console.error('Error parsing client agent data:', error);
+        }
+      }
+      
+      // Always fetch client data from API to ensure we have the latest status
+      const fetchClientData = async () => {
+        try {
+          const data = await getClientData();
+          console.log('Fetched client data from API:', data);
+          // Use clientAgent if available, otherwise fallback to client
+          if (data && data.clientAgent) {
+            const clientAgentInfo = {
+              _id: data.clientAgent._id,
+              userId: data.clientAgent.userId,
+              email: data.clientAgent.email,
+              name: data.clientAgent.name,
+              isActive: data.clientAgent.isActive !== undefined ? data.clientAgent.isActive : false,
+              lastActive: data.clientAgent.lastActive,
+              isClient: true,
+            };
+            console.log('Setting client agent state:', clientAgentInfo);
+            setClient(clientAgentInfo);
+            localStorage.setItem('clientAgent', JSON.stringify(clientAgentInfo));
+          } else if (data && data.client) {
+            // Fallback: if no clientAgent, try to get from agent localStorage
+            const agentData = localStorage.getItem('agent');
+            if (agentData) {
+              try {
+                const parsedAgent = JSON.parse(agentData);
+                if (parsedAgent.isClient) {
+                  setClient(parsedAgent);
+                  localStorage.setItem('clientAgent', JSON.stringify(parsedAgent));
+                }
+              } catch (error) {
+                console.error('Error parsing agent data:', error);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching client data:', error);
+        }
+      };
+      
+      // Fetch from API to get latest status
+      fetchClientData();
+    }
+  }, [agent]);
+
+  // Listen for client status changes from profile menu
+  useEffect(() => {
+    const handleClientStatusChange = (event: CustomEvent) => {
+      const updatedClient = event.detail;
+      console.log('Client status changed event received:', updatedClient);
+      setClient((prevClient: any) => {
+        const newClient = { ...prevClient, ...updatedClient };
+        console.log('Updating client state:', newClient);
+        return newClient;
+      });
+    };
+
+    window.addEventListener('client-status-changed', handleClientStatusChange as EventListener);
+
+    return () => {
+      window.removeEventListener('client-status-changed', handleClientStatusChange as EventListener);
+    };
+  }, []);
+
+  // Calculate if agent/client can reply based on conditions
   const canReply = useMemo(() => {
-    console.log('🔍 canReply calculation started');
+    console.log('🔍 canReply calculation started', { agent: !!agent, client: client?.isActive, agentId: agent?.id });
     
-    // If not in agent context, allow reply (for regular client inbox)
-    if (!agent) {
-      console.log('✅ No agent context - allowing reply');
+    // Check if this is a client acting as agent (has agent record with isClient: true)
+    const isClientAgent = agent && agent.isClient === true;
+    
+    // If agent exists and is a client agent, use agent logic
+    if (agent) {
+      // For client agents, check their isActive status
+      if (isClientAgent) {
+        console.log('👤 Client agent found:', { id: agent.id, isActive: agent.isActive });
+      } else {
+        console.log('👤 Regular agent found:', { id: agent.id, isActive: agent.isActive });
+      }
+    } else if (client) {
+      // If no agent but client agent data exists, check client agent status
+      console.log('👤 Client agent data found (no agent in localStorage):', { id: client._id, isActive: client.isActive });
+      // Use client agent data for canReply calculation
+      if (client.isActive === false) {
+        console.log('❌ Client agent is offline - blocking reply');
+        return false;
+      }
+      // Continue with agent logic using client agent data
+    } else {
+      // No agent or client data - default to allowing (for initial load)
+      console.log('✅ No agent/client context - allowing reply (default)');
       return true;
     }
 
-    console.log('👤 Agent found:', { id: agent.id, isActive: agent.isActive });
+    // Use agent or client agent data
+    const activeAgent = agent || (client && client.isClient ? client : null);
+    if (!activeAgent) {
+      console.log('❌ No active agent found');
+      return false;
+    }
+    
+    console.log('👤 Agent found:', { id: activeAgent.id || activeAgent._id, isActive: activeAgent.isActive, isClient: activeAgent.isClient });
 
     // Find current conversation
     const currentConversation = conversationsList?.data?.find(
@@ -100,7 +206,7 @@ export default function Inbox(Props: any) {
     if (!currentConversation) {
       console.log('⚠️ No conversation found - checking isActive');
       // If no conversation found, only allow if agent is active
-      return agent.isActive === true;
+      return activeAgent.isActive === true;
     }
 
     console.log('💬 Conversation found:', { 
@@ -117,7 +223,7 @@ export default function Inbox(Props: any) {
       ? conversationAgentId 
       : conversationAgentId?._id?.toString() || conversationAgentId?.id?.toString() || conversationAgentId?.toString();
     
-    const agentIdForComparison = agent.id?.toString() || agent.id;
+    const agentIdForComparison = activeAgent.id?.toString() || activeAgent._id?.toString() || activeAgent.id;
     
     console.log('🔍 Comparing agentIds:', {
       conversationAgentId: agentIdString,
@@ -126,7 +232,7 @@ export default function Inbox(Props: any) {
     });
 
     // Condition 1: If agent isActive is true AND (conversation is unassigned OR assigned to this agent)
-    if (agent.isActive === true) {
+    if (activeAgent.isActive === true) {
       // Allow if conversation is unassigned
       if (conversationAgentId === null || conversationAgentId === undefined) {
         console.log('✅ Agent isActive=true AND conversation is unassigned - allowing reply');
@@ -139,14 +245,27 @@ export default function Inbox(Props: any) {
         return true;
       }
       
-      // Block if conversation is assigned to a different agent
+      // For client agents (isClient: true), allow reply even if conversation is assigned to different agent
+      // This handles the case when client accepts a chat
+      if (isClientAgent) {
+        console.log('✅ Client agent isActive=true - allowing reply (client can accept any conversation)');
+        return true;
+      }
+      
+      // Block if conversation is assigned to a different agent (for regular agents)
       console.log('❌ Agent isActive=true BUT conversation assigned to different agent - blocking reply');
       return false;
     }
 
     // Condition 2: If agent isActive is false, check if conversation is assigned to this agent
-    if (agent.isActive === false) {
+    if (activeAgent.isActive === false) {
       console.log('❌ Agent isActive is false - checking conversation assignment');
+      
+      // For client agents, block if offline (they need to be online to accept chats)
+      if (isClientAgent) {
+        console.log('❌ Client agent is offline - blocking reply');
+        return false;
+      }
       
       // Allow reply if conversation agentId is null/undefined (unassigned)
       if (conversationAgentId === null || conversationAgentId === undefined) {
@@ -179,7 +298,7 @@ export default function Inbox(Props: any) {
     // Default: block reply
     console.log('❌ Default case - blocking reply');
     return false;
-  }, [agent, conversationsList?.data, openConversationId]);
+  }, [agent, client, conversationsList?.data, openConversationId]);
 
   // Listen for agent connection notifications
   useEffect(() => {
@@ -285,6 +404,69 @@ export default function Inbox(Props: any) {
     };
   }, [agent]);
 
+  // Listen for socket events to update client agent status in real-time
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const handleClientStatusUpdate = (updatedClientAgent: any) => {
+      console.log('Client agent status updated via socket in inbox:', updatedClientAgent);
+      
+      // Update client agent state
+      setClient((prevClient: any) => {
+        const updatedClientData = {
+          ...(prevClient || {}),
+          _id: updatedClientAgent._id || prevClient?._id,
+          userId: updatedClientAgent.userId || prevClient?.userId,
+          email: updatedClientAgent.email || prevClient?.email,
+          name: updatedClientAgent.name || prevClient?.name,
+          isActive: updatedClientAgent.isActive,
+          lastActive: updatedClientAgent.lastActive,
+          isClient: true,
+        };
+        localStorage.setItem('clientAgent', JSON.stringify(updatedClientData));
+        
+        // Also update agent localStorage if it exists and is a client agent
+        const agentData = localStorage.getItem('agent');
+        if (agentData) {
+          try {
+            const parsedAgent = JSON.parse(agentData);
+            if (parsedAgent.isClient) {
+              const updatedAgent = { ...parsedAgent, ...updatedClientData };
+              localStorage.setItem('agent', JSON.stringify(updatedAgent));
+              // Update agent state if it matches
+              if (agent && agent.id === updatedClientAgent._id) {
+                setAgent(updatedAgent);
+              }
+            }
+          } catch (error) {
+            console.error('Error updating agent data:', error);
+          }
+        }
+        
+        console.log('Updated client agent state from socket:', updatedClientData);
+        return updatedClientData;
+      });
+    };
+
+    // Listen for both client-status-updated and agent-status-updated (for client agents)
+    socket.on('client-status-updated', handleClientStatusUpdate);
+    socket.on('agent-status-updated', (updatedAgent: any) => {
+      // Only handle if it's a client agent
+      if (updatedAgent.isClient) {
+        handleClientStatusUpdate(updatedAgent);
+      }
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      if (socket) {
+        socket.off('client-status-updated', handleClientStatusUpdate);
+        socket.off('agent-status-updated', handleClientStatusUpdate);
+      }
+    };
+  }, [agent]);
+
   // Business logic functions (cleaner now without socket code)
   const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
     try {
@@ -305,6 +487,15 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(conversationId);
+        
+        // Update current conversation with feedback if available
+        if (data.conversationFeedback && ConversationData) {
+          setCurrentConversation({
+            ...ConversationData,
+            feedback: data.conversationFeedback.feedback,
+            comment: data.conversationFeedback.comment
+          });
+        }
 
         // Use socket manager to join conversation
         emitJoinConversation(conversationId);
@@ -338,6 +529,7 @@ export default function Inbox(Props: any) {
 
         setVisitorDetails(transformedVisitorDetails);
         setIsAIChat(ConversationData.aiChat);
+        setCurrentConversation(ConversationData);
       }
     } catch (error) {
       console.error("Error fetching conversation messages:", error);
@@ -356,6 +548,39 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(data.chatMessages[0]?.conversation_id);
+
+        // Find and set the conversation data from the list
+        const conversationFromList = conversationsList?.data?.find(
+          (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+        );
+        if (conversationFromList) {
+          // Update with feedback data if available
+          setCurrentConversation({
+            ...conversationFromList,
+            feedback: data.conversationFeedback?.feedback,
+            comment: data.conversationFeedback?.comment
+          });
+        } else {
+          // If not in list, try to get from old conversations
+          const oldConv = oldConversationList?.data?.find(
+            (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+          );
+          if (oldConv) {
+            // Update with feedback data if available
+            setCurrentConversation({
+              ...oldConv,
+              feedback: data.conversationFeedback?.feedback,
+              comment: data.conversationFeedback?.comment
+            });
+          } else if (data.conversationFeedback) {
+            // If conversation not found in lists, create a minimal object with feedback
+            setCurrentConversation({
+              _id: conversationId,
+              feedback: data.conversationFeedback.feedback,
+              comment: data.conversationFeedback.comment
+            });
+          }
+        }
 
         emitJoinConversation(conversationId);
       }
@@ -637,6 +862,7 @@ export default function Inbox(Props: any) {
                 expandedSources={expandedSources}
                 setExpandedSources={setExpandedSources}
                 messageRefs={messageRefs}
+                currentConversation={currentConversation}
               />
 
               {agentConnectionRequest && agentConnectionRequest.conversationId === openConversationId && (
@@ -687,6 +913,7 @@ export default function Inbox(Props: any) {
             openVisitorName={openVisitorName}
             onScrollToMessage={handleScrollToMessage}
             onOldConversationClick={handleOldConversationClick}
+            currentConversation={currentConversation}
           />
         </>
       ) : (

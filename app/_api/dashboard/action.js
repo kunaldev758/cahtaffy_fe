@@ -212,6 +212,10 @@ export async function updateAgentStatus(id, isActive) {
   return await fetchData(`agents/${id}/status`, { isActive });
 }
 
+export async function updateClientStatus(isActive) {
+  return await fetchData(`clients/status`, { isActive });
+}
+
 export async function uploadAgentAvatar(formData, agentId) {
   const response = await fetch(`${process.env.API_HOST}agents/${agentId}/avatar`, {
     method: 'POST',

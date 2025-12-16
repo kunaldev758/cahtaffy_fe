@@ -129,6 +129,15 @@ export const useSocketManager = ({
     const handleConversationClose = (data: any) => {
       console.log("Conversation closed event received:", data);
       setOpenConversationStatus("close");
+      
+      // Refresh conversation lists to reflect the closed status
+      const userId = localStorage.getItem("userId");
+      if (userId) {
+        // Refresh open conversations list (conversation will be removed)
+        socket.emit("get-open-conversations-list", { userId });
+        // Refresh closed conversations list (conversation will be added)
+        socket.emit("get-close-conversations-list", { userId });
+      }
     };
 
     const handleVisitorBlocked = (data: any) => {

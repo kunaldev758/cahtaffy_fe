@@ -2,16 +2,19 @@
 
 import Link from "next/link"
 import Image from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSelectedLayoutSegment, usePathname } from 'next/navigation'
 
 import logoPic from '@/images/logo.png'
 import Logout from './logout'
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
+import ClientProfileMenu from '../inbox/_components/ClientProfileMenu'
+import { getClientData } from '@/app/_api/dashboard/action'
 
 export default function IntegratedSidebar() {
   const segment = useSelectedLayoutSegment()
   const pathname = usePathname()
+  const [clientData, setClientData] = useState<any>(null)
   
   // State for expandable menus
   const [setupExpanded, setSetupExpanded] = useState(
@@ -20,6 +23,72 @@ export default function IntegratedSidebar() {
   const [settingsExpanded, setSettingsExpanded] = useState(
     pathname?.startsWith('/settings') || false
   )
+
+  // Fetch client agent data
+  useEffect(() => {
+    const fetchClient = async () => {
+      if (typeof window !== 'undefined') {
+        // Check localStorage first - check both clientAgent and agent
+        const storedClientAgent = localStorage.getItem('clientAgent')
+        const storedAgent = localStorage.getItem('agent')
+        
+        if (storedClientAgent) {
+          try {
+            const parsed = JSON.parse(storedClientAgent)
+            if (parsed.isClient) {
+              setClientData(parsed)
+            }
+          } catch (error) {
+            console.error('Error parsing client agent data:', error)
+          }
+        } else if (storedAgent) {
+          try {
+            const parsed = JSON.parse(storedAgent)
+            if (parsed.isClient) {
+              setClientData(parsed)
+            }
+          } catch (error) {
+            console.error('Error parsing agent data:', error)
+          }
+        }
+        
+        // Fetch from API if not in localStorage
+        try {
+          const data = await getClientData()
+          if (data && data.clientAgent) {
+            setClientData(data.clientAgent)
+            localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
+            // Also update agent localStorage if it's a client agent
+            if (storedAgent) {
+              try {
+                const parsedAgent = JSON.parse(storedAgent)
+                if (parsedAgent.isClient) {
+                  localStorage.setItem('agent', JSON.stringify({ ...parsedAgent, ...data.clientAgent }))
+                }
+              } catch (error) {
+                console.error('Error updating agent data:', error)
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching client data:', error)
+        }
+      }
+    }
+    
+    fetchClient()
+    
+    // Listen for client status changes
+    const handleClientStatusChange = (event: CustomEvent) => {
+      setClientData(event.detail)
+    }
+    
+    window.addEventListener('client-status-changed', handleClientStatusChange as EventListener)
+    
+    return () => {
+      window.removeEventListener('client-status-changed', handleClientStatusChange as EventListener)
+    }
+  }, [])
 
   const imageLoader = ({ src, width, quality }: { src: any; width: any; quality: any }) => {
     return `${src}?w=${width}&q=${quality || 75}`
@@ -246,15 +315,13 @@ export default function IntegratedSidebar() {
         </Link> */}
       </nav>
 
-      {/* Logout Section */}
+      {/* Profile Section */}
       <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors duration-200 cursor-pointer">
-          <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          <Logout />
-
-        </div>
+        <ClientProfileMenu 
+          clientEmail={clientData?.email}
+          clientId={clientData?._id}
+          isActive={clientData?.isActive !== false}
+        />
       </div>
     </div>
   )

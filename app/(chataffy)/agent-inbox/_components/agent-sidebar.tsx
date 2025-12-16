@@ -16,7 +16,7 @@ import {
   Save,
   AlertCircle
 } from "lucide-react";
-import { toggleActiveStatus, updateAgent, uploadAgentAvatar } from "@/app/_api/dashboard/action";
+import { toggleActiveStatus, updateAgent, uploadAgentAvatar, logoutApi } from "@/app/_api/dashboard/action";
 import { useSocket } from "@/app/socketContext";
 import Image from "next/image";
 import defaultImageImport from '@/images/default-image.png';
@@ -74,12 +74,34 @@ export default function AgentSidebar() {
 
   const handleLogout = async () => {
     try {
+      // Remove all agent-related localStorage items
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('agent');
+      localStorage.removeItem('userId');
+      
+      // Also remove any client-related items that might have been set
+      localStorage.removeItem('clientAgent');
+      localStorage.removeItem('client');
+      localStorage.removeItem('user');
+      
+      // Delete cookies via server action
+      try {
+        await logoutApi();
+      } catch (cookieError) {
+        // Even if logoutApi fails, cookies deletion might have succeeded
+        console.error('Logout API error:', cookieError);
+      }
+      
       router.push('/agent-login');
     } catch (error) {
       console.error('Logout error:', error);
+      // Still clear localStorage and redirect even if there's an error
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('agent');
+      localStorage.removeItem('userId');
+      router.push('/agent-login');
     }
   };
 

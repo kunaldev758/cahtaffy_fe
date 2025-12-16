@@ -45,3 +45,11 @@ export interface Conversation {
     message: string;
     createdAt: string;
   }
+
+export interface Client {
+    _id: string;
+    userId: string;
+    email: string;
+    isActive?: boolean;
+    lastActive?: Date | string | null;
+  }

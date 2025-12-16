@@ -13,6 +13,7 @@ interface DetailsPanelProps {
   openVisitorName: string;
   onScrollToMessage: (id: string) => void;
   onOldConversationClick: (conversationId: string, visitorName: string) => void;
+  currentConversation: any;
 }
 
 export default function DetailsPanel({
@@ -23,6 +24,7 @@ export default function DetailsPanel({
   openVisitorName,
   onScrollToMessage,
   onOldConversationClick,
+  currentConversation,
 }: DetailsPanelProps) {
   return (
     <div className="w-80 bg-white border-l border-gray-200 flex flex-col">

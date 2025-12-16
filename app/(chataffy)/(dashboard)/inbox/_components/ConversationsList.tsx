@@ -161,15 +161,10 @@ export default function ConversationsList({
                         <h3 className="text-sm font-medium text-gray-900 truncate">
                           {conversation?.visitor?.name}
                         </h3>
-                        {conversation.agentId && typeof conversation.agentId === 'object' && 
-                         conversation.agentId.avatar && 
-                         conversation.agentId.avatar !== null && 
-                         conversation.agentId.avatar.trim() !== '' ? (
+                        {conversation.agentId && typeof conversation.agentId === 'object' && conversation.agentId.avatar && conversation.agentId.avatar !== '' && conversation.agentId.avatar !== null ? (
                           <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
                             <Image
-                              src={conversation.agentId.avatar.startsWith('http') 
-                                ? conversation.agentId.avatar 
-                                : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${conversation.agentId.avatar}`}
+                              src={`${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${conversation.agentId.avatar}`}
                               alt={conversation.agentId.name || 'Agent'}
                               width={16}
                               height={16}
@@ -181,20 +176,20 @@ export default function ConversationsList({
                               }}
                             />
                           </div>
-                        ) : conversation.agentId ? (
+                        ) : conversation.agentId && typeof conversation.agentId === 'object' && (!conversation.agentId.avatar || conversation.agentId.avatar === '' || conversation.agentId.avatar === null) ? (
                           <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
                             <Image
                               src={defaultImage}
-                              alt={ 'Agent'}
+                              alt="Agent"
                               width={16}
                               height={16}
                               className="w-4 h-4 object-cover"
                               unoptimized
                             />
                           </div>
-                        ) : !conversation.agentId ? (
+                        ) : (
                           <Bot className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        ) : null}
+                        )}
                       </div>
                       <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
                         {conversation.updatedAt ? formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true }) : 'just now'}

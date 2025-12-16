@@ -170,6 +170,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const [visitorLocation, setVisitorLocation] = useState('');
   const [showWidget, setShowWidget] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [comment, setComment] = useState('');
+  const [conversationFeedback, setConversationFeedback] = useState<any>(null);
   const [clientLogo, setClientLogo] = useState('/api/placeholder/40/40');
   const [selectedLogo, setSelectedLogo] = useState('images/widget/human-avatar.png');
   const [isTyping, setIsTyping] = useState(false);
@@ -195,6 +197,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [aiChat, setAiChat] = useState(true); // Default to true (AI chat mode)
   const [isConnectingToAgent, setIsConnectingToAgent] = useState(false);
+  const [countdown, setCountdown] = useState(20);
+  const countdownTimerRef = useRef<any>(null);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
@@ -453,6 +457,35 @@ export default function EnhancedChatWidget({ params }: any) {
     }
   }, [handleCloseConversationClient]);
 
+  // Countdown timer for connecting to agent
+  useEffect(() => {
+    if (isConnectingToAgent) {
+      setCountdown(20);
+      countdownTimerRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+      setCountdown(20);
+    }
+
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, [isConnectingToAgent]);
+
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -483,6 +516,11 @@ export default function EnhancedChatWidget({ params }: any) {
       }
       if (data?.themeSettings?.userId) {
         setUserId(data.themeSettings.userId)
+      }
+      if (data?.conversationFeedback) {
+        setConversationFeedback(data.conversationFeedback);
+        setFeedback(data.conversationFeedback.feedback);
+        setComment(data.conversationFeedback.comment || '');
       }
       // Set aiChat status if provided in response
       if (data?.aiChat !== undefined) {
@@ -798,10 +836,18 @@ export default function EnhancedChatWidget({ params }: any) {
 
     socket.emit(
       "conversation-feedback",
-      { conversationId: conversationId ? conversationId : (conversation[0]?.conversation_id), feedback: type },
+      { 
+        conversationId: conversationId ? conversationId : (conversation[0]?.conversation_id), 
+        feedback: type,
+        comment: comment.trim() || undefined
+      },
       (response: any) => {
         if (response.success) {
           setFeedback(type);
+          setConversationFeedback({
+            feedback: type,
+            comment: comment.trim() || undefined
+          });
         }
       }
     );
@@ -1368,6 +1414,34 @@ export default function EnhancedChatWidget({ params }: any) {
                                 </div>
                               );
                             })()}
+                            
+                            {/* Feedback Display - Show in chat area if feedback exists */}
+                            {conversationFeedback && (conversationFeedback.feedback !== undefined || conversationFeedback.comment) && (
+                              <div className="flex justify-center my-4">
+                                <div className="max-w-xs w-full bg-gray-50 rounded-lg border border-gray-200 p-4">
+                                  <div className="font-semibold text-sm text-gray-900 mb-2">Feedback</div>
+                                  <div className="space-y-2">
+                                    {conversationFeedback.feedback !== undefined && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-xs text-gray-600">Rating:</span>
+                                        <span className={`text-xs font-medium ${conversationFeedback.feedback ? 'text-green-600' : 'text-red-600'}`}>
+                                          {conversationFeedback.feedback ? '👍 Good' : '👎 Poor'}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {conversationFeedback.comment && (
+                                      <div>
+                                        <span className="text-xs text-gray-600 block mb-1">Comment:</span>
+                                        <div className="bg-white rounded border border-gray-200 p-2">
+                                          <p className="text-xs text-gray-900 whitespace-pre-wrap">{conversationFeedback.comment}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
                             <div ref={chatBottomRef} />
                           </div>
                         ) : (
@@ -1418,6 +1492,7 @@ export default function EnhancedChatWidget({ params }: any) {
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                           </div>
                           <span className="text-sm font-medium text-blue-700">Connecting to agent...</span>
+                          <span className="text-sm font-semibold text-blue-600">{countdown}s</span>
                         </div>
                       </div>
                     )}
@@ -1461,6 +1536,35 @@ export default function EnhancedChatWidget({ params }: any) {
                                   <span className="text-sm font-medium">Poor</span>
                                 </button>
                               </div>
+                              
+                              {/* Comment Section */}
+                              <div className="mt-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Share your feedback (Optional)
+                                </label>
+                                <textarea
+                                  value={comment}
+                                  onChange={(e) => setComment(e.target.value)}
+                                  placeholder="Tell us what you think about your experience..."
+                                  rows={3}
+                                  maxLength={500}
+                                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none bg-white"
+                                />
+                                <div className="flex justify-between items-center mt-1">
+                                  <span className="text-xs text-gray-500">
+                                    {comment.length}/500 characters
+                                  </span>
+                                  {feedback !== null && comment.trim() && (
+                                    <button
+                                      onClick={() => handleFeedback(feedback)}
+                                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                      Update comment
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
                               {feedback !== null && (
                                 <div className="flex items-center justify-center space-x-2 text-sm">
                                   <CheckCircle className="w-4 h-4 text-green-600" />
