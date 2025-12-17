@@ -1499,78 +1499,80 @@ export default function EnhancedChatWidget({ params }: any) {
 
                     {/* Input Area or End Conversation */}
                     {chatInputAvailable && !isConnectingToAgent && (
-                      <div className="border-t border-gray-200 bg-white flex-shrink-0">
+                      <div className={`border-t border-gray-200 bg-white ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
                         {conversationStatus === 'close' ? (
-                          <div className="text-center py-8 px-6">
-                            <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-                              <CheckCircle className="w-10 h-10 text-gray-500" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-2">Conversation Ended</h3>
-                            <p className="text-gray-600 text-sm mb-8 leading-relaxed">Thank you for chatting with us! We hope we were able to help you.</p>
-
-                            {/* Feedback Section */}
-                            <div className="bg-gray-50 rounded-xl p-6 space-y-4">
-                              <p className="text-sm font-medium text-gray-700">How was your experience?</p>
-                              <div className="flex justify-center space-x-3">
-                                <button
-                                  onClick={() => handleFeedback(true)}
-                                  disabled={feedback === false}
-                                  className={`flex flex-col items-center space-y-2 px-6 py-4 rounded-xl transition-all duration-200 ${feedback === true
-                                    ? 'bg-green-500 text-white shadow-lg scale-105'
-                                    : 'bg-white text-gray-700 hover:bg-green-500 hover:text-white hover:scale-105 border border-gray-200'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
-                                >
-                                  <ThumbsUp className="w-6 h-6" />
-                                  <span className="text-sm font-medium">Good</span>
-                                </button>
-
-                                <button
-                                  onClick={() => handleFeedback(false)}
-                                  disabled={feedback === true}
-                                  className={`flex flex-col items-center space-y-2 px-6 py-4 rounded-xl transition-all duration-200 ${feedback === false
-                                    ? 'bg-red-500 text-white shadow-lg scale-105'
-                                    : 'bg-white text-gray-700 hover:bg-red-500 hover:text-white hover:scale-105 border border-gray-200'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
-                                >
-                                  <ThumbsDown className="w-6 h-6" />
-                                  <span className="text-sm font-medium">Poor</span>
-                                </button>
+                          <div className="flex-1 flex flex-col justify-center px-6 py-4">
+                            <div className="text-center">
+                              <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
+                                <CheckCircle className="w-8 h-8 text-gray-500" />
                               </div>
-                              
-                              {/* Comment Section */}
-                              <div className="mt-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Share your feedback (Optional)
-                                </label>
-                                <textarea
-                                  value={comment}
-                                  onChange={(e) => setComment(e.target.value)}
-                                  placeholder="Tell us what you think about your experience..."
-                                  rows={3}
-                                  maxLength={500}
-                                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none bg-white"
-                                />
-                                <div className="flex justify-between items-center mt-1">
-                                  <span className="text-xs text-gray-500">
-                                    {comment.length}/500 characters
-                                  </span>
-                                  {feedback !== null && comment.trim() && (
-                                    <button
-                                      onClick={() => handleFeedback(feedback)}
-                                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                    >
-                                      Update comment
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
+                              <h3 className="text-lg font-semibold text-gray-800 mb-1">Conversation Ended</h3>
+                              <p className="text-gray-600 text-xs mb-5 leading-relaxed">Thank you for chatting with us! We hope we were able to help you.</p>
 
-                              {feedback !== null && (
-                                <div className="flex items-center justify-center space-x-2 text-sm">
-                                  <CheckCircle className="w-4 h-4 text-green-600" />
-                                  <p className="text-green-600 font-medium">Thank you for your feedback!</p>
+                              {/* Feedback Section */}
+                              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                                <p className="text-xs font-medium text-gray-700">How was your experience?</p>
+                                <div className="flex justify-center space-x-2">
+                                  <button
+                                    onClick={() => handleFeedback(true)}
+                                    disabled={feedback === false}
+                                    className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === true
+                                      ? 'bg-green-500 text-white shadow-lg scale-105'
+                                      : 'bg-white text-gray-700 hover:bg-green-500 hover:text-white hover:scale-105 border border-gray-200'
+                                      } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                                  >
+                                    <ThumbsUp className="w-5 h-5" />
+                                    <span className="text-xs font-medium">Good</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleFeedback(false)}
+                                    disabled={feedback === true}
+                                    className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === false
+                                      ? 'bg-red-500 text-white shadow-lg scale-105'
+                                      : 'bg-white text-gray-700 hover:bg-red-500 hover:text-white hover:scale-105 border border-gray-200'
+                                      } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                                  >
+                                    <ThumbsDown className="w-5 h-5" />
+                                    <span className="text-xs font-medium">Poor</span>
+                                  </button>
                                 </div>
-                              )}
+                                
+                                {/* Comment Section */}
+                                <div className="mt-3">
+                                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                    Share your feedback (Optional)
+                                  </label>
+                                  <textarea
+                                    value={comment}
+                                    onChange={(e) => setComment(e.target.value)}
+                                    placeholder="Tell us what you think about your experience..."
+                                    rows={2}
+                                    maxLength={500}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none bg-white"
+                                  />
+                                  <div className="flex justify-between items-center mt-1">
+                                    <span className="text-xs text-gray-500">
+                                      {comment.length}/500 characters
+                                    </span>
+                                    {feedback !== null && comment.trim() && (
+                                      <button
+                                        onClick={() => handleFeedback(feedback)}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                      >
+                                        Update comment
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {feedback !== null && (
+                                  <div className="flex items-center justify-center space-x-2 text-xs pt-1">
+                                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                    <p className="text-green-600 font-medium">Thank you for your feedback!</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ) : (

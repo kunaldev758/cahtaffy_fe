@@ -439,7 +439,7 @@ export const useSocketManager = ({
     });
   }, [openConversationId, setTags]);
 
-  const emitJoinConversation = useCallback((conversationId: string, callback?: (response: any) => void) => {
+  const emitJoinConversation = useCallback((conversationId: string, callback?: (response: any) => void, shouldMarkAsSeen: boolean = false) => {
     const socket = socketRef.current;
     // const { socket } = useSocket();
     if (!socket) return;
@@ -448,11 +448,15 @@ export const useSocketManager = ({
       if (response && response.success) {
         console.log("Successfully joined conversation room:", conversationId);
 
-        socket.emit("message-seen", { conversationId }, (seenResponse: any) => {
-          if (seenResponse && !seenResponse.success) {
-            console.error("Failed to mark messages as seen:", seenResponse.error);
-          }
-        });
+        // Only mark messages as seen if there are actually new messages
+        // This prevents updating the conversation's updatedAt timestamp unnecessarily
+        if (shouldMarkAsSeen) {
+          socket.emit("message-seen", { conversationId }, (seenResponse: any) => {
+            if (seenResponse && !seenResponse.success) {
+              console.error("Failed to mark messages as seen:", seenResponse.error);
+            }
+          });
+        }
 
         // Fetch conversation tags
         emitGetConversationTags(conversationId);

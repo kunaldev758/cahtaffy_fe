@@ -497,8 +497,12 @@ export default function Inbox(Props: any) {
           });
         }
 
+        // Check if conversation has new messages before marking as seen
+        // Only mark as seen if there are actually new messages to prevent updating updatedAt unnecessarily
+        const hasNewMessages = ConversationData?.newMessage > 0;
+
         // Use socket manager to join conversation
-        emitJoinConversation(conversationId);
+        emitJoinConversation(conversationId, undefined, hasNewMessages);
 
         // Check for pending agent connection request
         emitCheckPendingAgentRequest(conversationId, (response: any) => {
@@ -506,13 +510,15 @@ export default function Inbox(Props: any) {
           // The event listener will handle setting the state
         });
 
-        // Update conversation list to mark as read
-        setConversationsList((prev: any) => ({
-          ...prev,
-          data: prev.data?.map((d: any) =>
-            d._id === conversationId ? { ...d, newMessage: 0 } : d
-          ),
-        }));
+        // Update conversation list to mark as read (only if there were new messages)
+        if (hasNewMessages) {
+          setConversationsList((prev: any) => ({
+            ...prev,
+            data: prev.data?.map((d: any) =>
+              d._id === conversationId ? { ...d, newMessage: 0 } : d
+            ),
+          }));
+        }
 
         // Transform visitor details
         const transformedVisitorDetails =
@@ -553,6 +559,7 @@ export default function Inbox(Props: any) {
         const conversationFromList = conversationsList?.data?.find(
           (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
         );
+        let oldConv: any = null;
         if (conversationFromList) {
           // Update with feedback data if available
           setCurrentConversation({
@@ -562,7 +569,7 @@ export default function Inbox(Props: any) {
           });
         } else {
           // If not in list, try to get from old conversations
-          const oldConv = oldConversationList?.data?.find(
+          oldConv = oldConversationList?.data?.find(
             (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
           );
           if (oldConv) {
@@ -582,7 +589,12 @@ export default function Inbox(Props: any) {
           }
         }
 
-        emitJoinConversation(conversationId);
+        // Check if conversation has new messages before marking as seen
+        // Only mark as seen if there are actually new messages to prevent updating updatedAt unnecessarily
+        const conversationData = conversationFromList || oldConv;
+        const hasNewMessages = conversationData?.newMessage > 0;
+
+        emitJoinConversation(conversationId, undefined, hasNewMessages);
       }
     } catch (error) {
       console.error("Error fetching old conversation messages:", error);
