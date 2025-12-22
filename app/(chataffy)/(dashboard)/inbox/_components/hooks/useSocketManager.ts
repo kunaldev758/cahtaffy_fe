@@ -42,12 +42,30 @@ export const useSocketManager = ({
 }: SocketManagerProps) => {
   // const { socket } = useSocket();
   const socketRef = useRef<Socket | null>(null);
+  const isInitializingRef = useRef(false);
 
     // Socket initialization
     const initializeSocket = useCallback(() => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
+      // Prevent multiple simultaneous initializations
+      if (isInitializingRef.current) {
+        return;
       }
+
+      // If socket already exists and is connected, don't reinitialize
+      if (socketRef.current && socketRef.current.connected) {
+        console.log("Socket already connected, skipping reinitialization");
+        return;
+      }
+
+      // If socket exists but not connected, disconnect it first
+      if (socketRef.current) {
+        console.log("Disconnecting existing socket before reinitialization");
+        socketRef.current.removeAllListeners(); // Remove all listeners to prevent memory leaks
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+
+      isInitializingRef.current = true;
   
       try {
         const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
@@ -58,19 +76,65 @@ export const useSocketManager = ({
           reconnection: true,
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          timeout: 20000,
+          forceNew: false, // Reuse existing connection if available
         });
   
         socketInstance.on("connect", () => {
           console.log("Socket connected successfully");
+          isInitializingRef.current = false;
         });
   
         socketInstance.on("connect_error", (error) => {
           console.error("Socket connection error:", error);
+          isInitializingRef.current = false;
+        });
+
+        socketInstance.on("disconnect", (reason) => {
+          console.log("Socket disconnected:", reason);
+          // Only reconnect if it wasn't a manual disconnect
+          if (reason === "io server disconnect") {
+            // Server disconnected, reconnect manually
+            socketInstance.connect();
+          } else if (reason === "io client disconnect") {
+            // Client disconnected manually, don't reconnect
+            console.log("Client manually disconnected, not reconnecting");
+          }
+        });
+
+        socketInstance.on("reconnect", (attemptNumber) => {
+          console.log("Socket reconnected after", attemptNumber, "attempts");
+          // Re-join conversation room if we have an open conversation
+          // The event handlers should persist, but we need to re-join rooms
+          setTimeout(() => {
+            if (socketRef.current && socketRef.current.connected && openConversationId) {
+              socketRef.current.emit("set-conversation-id", { conversationId: openConversationId }, (response: any) => {
+                if (response && response.success) {
+                  console.log("Rejoined conversation room after reconnect:", openConversationId);
+                }
+              });
+            }
+          }, 100);
+        });
+
+        socketInstance.on("reconnect_attempt", (attemptNumber) => {
+          console.log("Socket reconnection attempt", attemptNumber);
+        });
+
+        socketInstance.on("reconnect_error", (error) => {
+          console.error("Socket reconnection error:", error);
+        });
+
+        socketInstance.on("reconnect_failed", () => {
+          console.error("Socket reconnection failed after all attempts");
+          isInitializingRef.current = false;
         });
   
         socketRef.current = socketInstance;
       } catch (error) {
         console.error("Error initializing socket:", error);
+        isInitializingRef.current = false;
       }
     }, []);
 
@@ -365,8 +429,15 @@ export const useSocketManager = ({
     };
 
     const handleVisitorConnectListUpdate = () => {
+      // Only update if socket is connected and we're on open status
+      if (!socket.connected) {
+        console.log("Socket not connected, skipping visitor connect list update");
+        return;
+      }
       const userId = localStorage.getItem("userId");
-      socket.emit("get-open-conversations-list", { userId });
+      if (userId && status === "open") {
+        socket.emit("get-open-conversations-list", { userId });
+      }
     };
 
     socket.on("get-open-conversations-list-response", handleOpenConversationsListResponse);
@@ -652,28 +723,66 @@ export const useSocketManager = ({
     });
   }, []);
 
-  // Initialize socket on mount
+  // Initialize socket on mount - only once
   useEffect(() => {
-    initializeSocket();
+    // Only initialize if socket doesn't exist or isn't connected
+    if (!socketRef.current || !socketRef.current.connected) {
+      initializeSocket();
+    }
 
     return () => {
+      // Only disconnect on unmount, not on re-renders
       if (socketRef.current) {
+        console.log("Cleaning up socket on unmount");
+        socketRef.current.removeAllListeners();
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+      isInitializingRef.current = false;
     };
-  }, [initializeSocket]);
+  }, []); // Empty dependency array - only run on mount/unmount
 
-  // Setup event handlers
+  // Setup event handlers - only when socket is available and connected
   useEffect(() => {
-    const cleanup1 = setupMessageHandlers();
-    const cleanup2 = setupConversationListHandlers();
-    const cleanup3 = setupTagsHandler();
+    const socket = socketRef.current;
+    if (!socket) {
+      return;
+    }
 
+    let cleanupFunctions: Array<(() => void) | undefined> = [];
+
+    const setupHandlers = () => {
+      // Clean up existing handlers first to prevent duplicates
+      cleanupFunctions.forEach(cleanup => cleanup?.());
+      cleanupFunctions = [];
+
+      if (socketRef.current && socketRef.current.connected) {
+        const cleanup1 = setupMessageHandlers();
+        const cleanup2 = setupConversationListHandlers();
+        const cleanup3 = setupTagsHandler();
+        cleanupFunctions = [cleanup1, cleanup2, cleanup3];
+      }
+    };
+
+    // If socket is already connected, set up handlers immediately
+    if (socket.connected) {
+      setupHandlers();
+    } else {
+      // Wait for socket to connect before setting up handlers
+      const onConnect = () => {
+        setupHandlers();
+      };
+      socket.once("connect", onConnect);
+      
+      return () => {
+        socket.off("connect", onConnect);
+        cleanupFunctions.forEach(cleanup => cleanup?.());
+      };
+    }
+
+    // Return cleanup function
     return () => {
-      cleanup1?.();
-      cleanup2?.();
-      cleanup3?.();
+      cleanupFunctions.forEach(cleanup => cleanup?.());
     };
   }, [setupMessageHandlers, setupConversationListHandlers, setupTagsHandler]);
 

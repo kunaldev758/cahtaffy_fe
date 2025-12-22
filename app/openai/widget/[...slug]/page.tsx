@@ -209,6 +209,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const shouldBeRecordingRef = useRef<boolean>(false);
   const recordingTimerRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const shouldMaintainFocusRef = useRef<boolean>(false);
   const currentTranscriptRef = useRef<string>('');
   const lastFinalTranscriptRef = useRef<string>('');
   const lastDisplayedTextRef = useRef<string>('');
@@ -269,6 +270,19 @@ export default function EnhancedChatWidget({ params }: any) {
   useEffect(() => {
     adjustTextareaHeight();
   }, [inputMessage]);
+
+  // Refocus textarea when it becomes enabled (isTyping becomes false) or when we should maintain focus
+  useEffect(() => {
+    if (shouldMaintainFocusRef.current && !isTyping && isOnline && chatInputAvailable && conversationStatus === 'open' && !isMinimized && showWidget) {
+      // Use requestAnimationFrame for better timing
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          shouldMaintainFocusRef.current = false;
+        });
+      });
+    }
+  }, [isTyping, isOnline, chatInputAvailable, conversationStatus, isMinimized, showWidget]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -686,8 +700,19 @@ export default function EnhancedChatWidget({ params }: any) {
     }
     
     socket?.emit("visitor-send-message", messageData);
+    
+    // Set flag to maintain focus after state updates
+    shouldMaintainFocusRef.current = true;
+    
     setInputMessage('');
     startNoReplyTimer();
+    
+    // Refocus immediately if textarea won't be disabled, otherwise useEffect will handle it
+    if (!aiChat || (!isTyping && isOnline)) {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    }
   };
 
   const stopRecording = () => {
@@ -1658,7 +1683,15 @@ export default function EnhancedChatWidget({ params }: any) {
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                           e.preventDefault();
+                                          // Maintain focus before sending
+                                          const textarea = e.currentTarget;
                                           handleMessageSend();
+                                          // Refocus immediately after state update
+                                          requestAnimationFrame(() => {
+                                            requestAnimationFrame(() => {
+                                              textarea.focus();
+                                            });
+                                          });
                                         }
                                       }}
                                       rows={1}

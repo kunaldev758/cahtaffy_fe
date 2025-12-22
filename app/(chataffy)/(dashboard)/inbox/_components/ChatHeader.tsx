@@ -48,7 +48,7 @@ export default function ChatHeader({
           
           {/* AI Toggle */}
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-600">AI Chat</span>
+            <span className="text-sm text-gray-600">Agent Chat</span>
             <button
               onClick={onToggleAI}
               disabled={!canReply}
@@ -62,7 +62,7 @@ export default function ChatHeader({
                 }`}
               />
             </button>
-            <span className="text-sm text-gray-600">Agent Chat</span>
+            <span className="text-sm text-gray-600">AI Chat</span>
           </div>
         </div>
 
