@@ -168,7 +168,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [conversationStatus, setConversationStatus] = useState('open');
   const [visitorIp, setVisitorIp] = useState('');
   const [visitorLocation, setVisitorLocation] = useState('');
-  const [showWidget, setShowWidget] = useState(false);
+  const [showWidget, setShowWidget] = useState(true);
   const [feedback, setFeedback] = useState(null);
   const [comment, setComment] = useState('');
   const [conversationFeedback, setConversationFeedback] = useState<any>(null);
@@ -198,6 +198,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const [aiChat, setAiChat] = useState(true); // Default to true (AI chat mode)
   const [isConnectingToAgent, setIsConnectingToAgent] = useState(false);
   const [countdown, setCountdown] = useState(20);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const countdownTimerRef = useRef<any>(null);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
@@ -856,26 +858,53 @@ export default function EnhancedChatWidget({ params }: any) {
   };
 
   const handleFeedback = (type: any) => {
+    setFeedback(type);
+  };
+
+  const handleSubmitFeedback = () => {
+    if (feedback === null) return;
+    
     const socket = socketRef.current;
     if (!socket) return;
 
+    setIsSubmittingFeedback(true);
+
+    const feedbackData = {
+      conversationId: conversationId ? conversationId : (conversation[0]?.conversation_id),
+      feedback: feedback,
+      comment: comment.trim() || undefined
+    };
+
     socket.emit(
       "conversation-feedback",
-      { 
-        conversationId: conversationId ? conversationId : (conversation[0]?.conversation_id), 
-        feedback: type,
-        comment: comment.trim() || undefined
-      },
+      feedbackData,
       (response: any) => {
+        setIsSubmittingFeedback(false);
         if (response.success) {
-          setFeedback(type);
+          setFeedbackSubmitted(true);
           setConversationFeedback({
-            feedback: type,
+            feedback: feedback,
             comment: comment.trim() || undefined
           });
         }
       }
     );
+  };
+
+  const handleStartNewChat = () => {
+    // Clear localStorage
+    localStorage.removeItem('visitorId');
+    
+    // Disconnect socket
+    const socket = socketRef.current;
+    if (socket) {
+      socket.disconnect();
+    }
+    
+    // Reload page to start fresh with new visitor ID
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
   };
 
   const getThemeColor = (index: any, fallback: any) => {
@@ -1527,78 +1556,99 @@ export default function EnhancedChatWidget({ params }: any) {
                       <div className={`border-t border-gray-200 bg-white ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
                         {conversationStatus === 'close' ? (
                           <div className="flex-1 flex flex-col justify-center px-6 py-4">
-                            <div className="text-center">
-                              <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
-                                <CheckCircle className="w-8 h-8 text-gray-500" />
-                              </div>
-                              <h3 className="text-lg font-semibold text-gray-800 mb-1">Conversation Ended</h3>
-                              <p className="text-gray-600 text-xs mb-5 leading-relaxed">Thank you for chatting with us! We hope we were able to help you.</p>
-
-                              {/* Feedback Section */}
-                              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                                <p className="text-xs font-medium text-gray-700">How was your experience?</p>
-                                <div className="flex justify-center space-x-2">
-                                  <button
-                                    onClick={() => handleFeedback(true)}
-                                    disabled={feedback === false}
-                                    className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === true
-                                      ? 'bg-green-500 text-white shadow-lg scale-105'
-                                      : 'bg-white text-gray-700 hover:bg-green-500 hover:text-white hover:scale-105 border border-gray-200'
-                                      } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
-                                  >
-                                    <ThumbsUp className="w-5 h-5" />
-                                    <span className="text-xs font-medium">Good</span>
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleFeedback(false)}
-                                    disabled={feedback === true}
-                                    className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === false
-                                      ? 'bg-red-500 text-white shadow-lg scale-105'
-                                      : 'bg-white text-gray-700 hover:bg-red-500 hover:text-white hover:scale-105 border border-gray-200'
-                                      } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
-                                  >
-                                    <ThumbsDown className="w-5 h-5" />
-                                    <span className="text-xs font-medium">Poor</span>
-                                  </button>
+                            {feedbackSubmitted ? (
+                              <div className="text-center">
+                                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                                  <CheckCircle className="w-10 h-10 text-green-600" />
                                 </div>
+                                <h3 className="text-lg font-semibold text-gray-800 mb-2">Your response has been submitted</h3>
+                                <p className="text-gray-600 text-sm mb-6 leading-relaxed">Thank you for your feedback! We appreciate your input.</p>
                                 
-                                {/* Comment Section */}
-                                <div className="mt-3">
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                    Share your feedback (Optional)
-                                  </label>
-                                  <textarea
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    placeholder="Tell us what you think about your experience..."
-                                    rows={2}
-                                    maxLength={500}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none bg-white"
-                                  />
-                                  <div className="flex justify-between items-center mt-1">
-                                    <span className="text-xs text-gray-500">
-                                      {comment.length}/500 characters
-                                    </span>
-                                    {feedback !== null && comment.trim() && (
-                                      <button
-                                        onClick={() => handleFeedback(feedback)}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                      >
-                                        Update comment
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {feedback !== null && (
-                                  <div className="flex items-center justify-center space-x-2 text-xs pt-1">
-                                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                                    <p className="text-green-600 font-medium">Thank you for your feedback!</p>
-                                  </div>
-                                )}
+                                <button
+                                  onClick={handleStartNewChat}
+                                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                                >
+                                  Start New Chat
+                                </button>
                               </div>
-                            </div>
+                            ) : (
+                              <div className="text-center">
+                                <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
+                                  <CheckCircle className="w-8 h-8 text-gray-500" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-800 mb-1">Conversation Ended</h3>
+                                <p className="text-gray-600 text-xs mb-5 leading-relaxed">Thank you for chatting with us! We hope we were able to help you.</p>
+
+                                {/* Feedback Section */}
+                                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                                  <p className="text-xs font-medium text-gray-700">How was your experience?</p>
+                                  <div className="flex justify-center space-x-2">
+                                    <button
+                                      onClick={() => handleFeedback(true)}
+                                      disabled={feedback === false || isSubmittingFeedback}
+                                      className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === true
+                                        ? 'bg-green-500 text-white shadow-lg scale-105'
+                                        : 'bg-white text-gray-700 hover:bg-green-500 hover:text-white hover:scale-105 border border-gray-200'
+                                        } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                                    >
+                                      <ThumbsUp className="w-5 h-5" />
+                                      <span className="text-xs font-medium">Good</span>
+                                    </button>
+
+                                    <button
+                                      onClick={() => handleFeedback(false)}
+                                      disabled={feedback === true || isSubmittingFeedback}
+                                      className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === false
+                                        ? 'bg-red-500 text-white shadow-lg scale-105'
+                                        : 'bg-white text-gray-700 hover:bg-red-500 hover:text-white hover:scale-105 border border-gray-200'
+                                        } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                                    >
+                                      <ThumbsDown className="w-5 h-5" />
+                                      <span className="text-xs font-medium">Poor</span>
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Comment Section */}
+                                  <div className="mt-3">
+                                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                      Share your feedback (Optional)
+                                    </label>
+                                    <textarea
+                                      value={comment}
+                                      onChange={(e) => setComment(e.target.value)}
+                                      placeholder="Tell us what you think about your experience..."
+                                      rows={2}
+                                      maxLength={500}
+                                      disabled={isSubmittingFeedback}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                    />
+                                    <div className="flex justify-between items-center mt-1">
+                                      <span className="text-xs text-gray-500">
+                                        {comment.length}/500 characters
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Submit Button */}
+                                  {feedback !== null && (
+                                    <button
+                                      onClick={handleSubmitFeedback}
+                                      disabled={isSubmittingFeedback}
+                                      className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg disabled:transform-none mt-3"
+                                    >
+                                      {isSubmittingFeedback ? (
+                                        <div className="flex items-center justify-center space-x-2">
+                                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                          <span>Submitting...</span>
+                                        </div>
+                                      ) : (
+                                        'Submit Feedback'
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="p-4">
