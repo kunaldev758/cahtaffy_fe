@@ -197,10 +197,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [aiChat, setAiChat] = useState(true); // Default to true (AI chat mode)
   const [isConnectingToAgent, setIsConnectingToAgent] = useState(false);
-  const [countdown, setCountdown] = useState(20);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const countdownTimerRef = useRef<any>(null);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
@@ -472,35 +470,6 @@ export default function EnhancedChatWidget({ params }: any) {
       clearNoReplyTimer();
     }
   }, [handleCloseConversationClient]);
-
-  // Countdown timer for connecting to agent
-  useEffect(() => {
-    if (isConnectingToAgent) {
-      setCountdown(20);
-      countdownTimerRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownTimerRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-      setCountdown(20);
-    }
-
-    return () => {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-    };
-  }, [isConnectingToAgent]);
 
   useEffect(() => {
     const socket = socketRef.current;
@@ -1215,7 +1184,8 @@ export default function EnhancedChatWidget({ params }: any) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setShowWidget(false);
+                        handleCloseConversation();
+                        // setShowWidget(false);
                       }}
                       className="p-2 hover:bg-white/20 rounded-full transition-colors"
                     >
@@ -1546,7 +1516,6 @@ export default function EnhancedChatWidget({ params }: any) {
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                           </div>
                           <span className="text-sm font-medium text-blue-700">Connecting to agent...</span>
-                          <span className="text-sm font-semibold text-blue-600">{countdown}s</span>
                         </div>
                       </div>
                     )}

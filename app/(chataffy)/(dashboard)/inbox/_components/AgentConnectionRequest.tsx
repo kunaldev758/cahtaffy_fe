@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect, useRef } from "react";
 import { CheckCircle, XCircle } from "lucide-react";
 import { Socket } from 'socket.io-client';
 
@@ -17,7 +18,39 @@ export default function AgentConnectionRequest({
   onAccept,
   onDecline,
 }: AgentConnectionRequestProps) {
+  const [countdown, setCountdown] = useState(20);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Start countdown timer
+    setCountdown(20);
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const handleAccept = () => {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+
     const socket = socketRef.current;
     if (!socket) return;
 
@@ -31,6 +64,11 @@ export default function AgentConnectionRequest({
   };
 
   const handleDecline = () => {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+
     const socket = socketRef.current;
     if (!socket) return;
 
@@ -56,6 +94,10 @@ export default function AgentConnectionRequest({
           <p className="text-sm text-blue-700 mb-3">
             {visitorName ? `${visitorName} requested to connect to an agent` : "Visitor requested to connect to an agent"}
           </p>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-blue-600 font-medium">Time remaining:</span>
+            <span className="text-sm font-semibold text-blue-700">{countdown}s</span>
+          </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={handleAccept}
