@@ -216,7 +216,7 @@ export default function EnhancedChatWidget({ params }: any) {
   
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
-  const voiceButtonDisabled = !isRecording && (!isOnline || isTyping);
+  const voiceButtonDisabled = !isRecording && (!isOnline || (aiChat && isTyping));
 
   const widgetId = params?.slug?.[0] || 'demo-widget';
   const widgetToken = params?.slug?.[1] || 'demo-token';
@@ -755,7 +755,7 @@ export default function EnhancedChatWidget({ params }: any) {
       !recognition ||
       !isSpeechSupported ||
       !isOnline ||
-      isTyping ||
+      (aiChat && isTyping) ||
       !chatInputAvailable ||
       conversationStatus === 'close'
     ) {
@@ -1714,7 +1714,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                         }
                                       }}
                                       rows={1}
-                                      disabled={isTyping || !isOnline}
+                                      disabled={(aiChat && isTyping) || !isOnline}
                                       className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none overflow-y-auto custom-scrollbar"
                                       style={{ maxHeight: '120px' }}
                                     />
@@ -1740,7 +1740,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
                                     <button
                                       onClick={handleMessageSend}
-                                      disabled={!inputMessage.trim() || Boolean(error) || isTyping || !isOnline}
+                                      disabled={!inputMessage.trim() || Boolean(error) || (aiChat && isTyping) || !isOnline}
                                       className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg disabled:transform-none"
                                     >
                                       <Send className="w-5 h-5" />

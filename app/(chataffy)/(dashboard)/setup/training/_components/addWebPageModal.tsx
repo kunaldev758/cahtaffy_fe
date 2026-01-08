@@ -55,8 +55,11 @@ export default function Home(Props: any) {
     if (response==null || response == 'error'){
       setButtonLoading(false)
       router.push('/login')
+      return
     }
     setButtonLoading(false)
+    setUrl('')
+    setUrls('')
     Props.onHide()
     toast.success(response.message)
 
