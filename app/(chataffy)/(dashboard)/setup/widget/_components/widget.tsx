@@ -433,6 +433,7 @@ const uploadLogoFunc = async (formData:any,userId:any) => {
 
 // Main component
 export default function EnhancedWidgetSettings() {
+  const [agentId, setAgentId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [state, dispatch] = useReducer(reducer, initialState);
   const [selectedLogo, setSelectedLogo] = useState('images/widget/human-avatar.png');
@@ -446,7 +447,9 @@ export default function EnhancedWidgetSettings() {
     // Ensure this code runs only on the client side
     if (typeof window !== 'undefined') {
       const storedUserId = localStorage.getItem('userId');
+      const storedAgentId = localStorage.getItem('currentAgentId');
       setUserId(storedUserId);
+      setAgentId(storedAgentId);
     } 
   }, []);
 
@@ -512,7 +515,7 @@ export default function EnhancedWidgetSettings() {
   
     try {
       setIsLoading(true);
-      await updateThemeSettings({ themeSettings });
+      await updateThemeSettings({ agentId: agentId, themeSettings });
       setOriginalSettings(state); // Update originalSettings after successful save
       // Show success message
     } catch (error) {
@@ -525,8 +528,8 @@ export default function EnhancedWidgetSettings() {
 
   useEffect(() => {
     async function fetchData() {
-      if (userId) {
-        const data = await getThemeSettings(userId);
+      if (agentId) {
+        const data = await getThemeSettings(agentId);
         if (data) {
           dispatch({ type: actionTypes.SET_THEME_DATA, payload: data.data });
           setOriginalSettings({ ...state, ...data.data });
@@ -538,7 +541,7 @@ export default function EnhancedWidgetSettings() {
       //  setThemeData(data);
     }
     fetchData()
-  }, [userId])
+  }, [agentId])
 
   // Color field labels
   const colorFieldLabels = {

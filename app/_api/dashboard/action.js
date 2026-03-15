@@ -89,6 +89,18 @@ async function getFetchData(endpoint,params=null) {
 
 
 
+export async function getSitemapUrlsApi(sitemapUrl, agentId) {
+  return await fetchData('getSitemapUrls', {
+    sitemapUrl,
+    agentId,
+    skipBulkInsert: true,
+  });
+}
+
+export async function startSitemapScrapingApi(agentId, urls) {
+  return await fetchData('openaiScrape', { agentId, urls });
+}
+
 export async function openaiWebPageScrapeApi(sitemap,isNotSitemap) {
   if(isNotSitemap){
     const url = sitemap;
@@ -99,8 +111,10 @@ export async function openaiWebPageScrapeApi(sitemap,isNotSitemap) {
   }
 }
 
-export async function openaiCreateSnippet(formData) {
-  console.log(formData, "form data");
+export async function openaiCreateSnippet(formData, agentId) {
+  if (agentId) {
+    formData.append('agentId', agentId);
+  }
   const response = await fetch(`${process.env.API_HOST}openaiCreateSnippet`, {
     method: 'POST',
     cache: 'no-cache',
@@ -111,14 +125,13 @@ export async function openaiCreateSnippet(formData) {
   });
   const data = await response.json();
   if(data.status_code==401){
-    // cookies().delete('token')
     return 'error'
   }
   return data
 }
 
-export async function openaiCreateFaq(faqs) {
-  return await fetchData('openaiCreateFaq', { faqs });
+export async function openaiCreateFaq(faqs, agentId) {
+  return await fetchData('openaiCreateFaq', { faqs, agentId });
 }
 
 export async function openaiToggleActiveStatus(id) {
@@ -169,8 +182,16 @@ export async function uploadLogo(formData,userId) {
   return await uploadData('uploadLogo',formData,userId);
 }
 
-export async function updateThemeSettings(themeSettings) {
-  return await fetchData('updateThemeSettings', { themeSettings });
+export async function updateThemeSettings(data) {
+  return await fetchData('updateThemeSettings', data);
+}
+
+export async function getAgentSettingsApi(agentId) {
+  return await getFetchData('agent-settings', agentId);
+}
+
+export async function updateAgentSettingsApi(data) {
+  return await fetchData('updateAgentSettings', data);
 }
 
 

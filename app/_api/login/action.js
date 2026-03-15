@@ -60,11 +60,7 @@ export async function registrationApi(email, password, role = 'client') {
 }
 
 
-
-
-
 export async function googleOAuthExchange(googleToken) {
-  // Expecting backend to validate googleToken (access_token or id_token) and return app token
   const response = await fetch(`${process.env.API_HOST}oauth/google`, {
     method: 'POST',
     cache: 'no-cache',
@@ -81,8 +77,6 @@ export async function googleOAuthExchange(googleToken) {
 }
 
 
-
-
 export async function verifyEmailApi(token) {
   const response = await fetch(`${process.env.API_HOST}verifyEmail`, {
     method: 'POST',
@@ -94,6 +88,34 @@ export async function verifyEmailApi(token) {
   return result
 }
 
+export async function getAgentsApi() {
+  const token = cookies().get('token')?.value
+  if (!token) return { status: false, agents: [] }
 
+  const response = await fetch(`${process.env.API_HOST}ai-agents`, {
+    method: 'GET',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token,
+    }
+  })
+  const result = await response.json()
+  return result
+}
 
+export async function completeOnboardingApi() {
+  const token = cookies().get('token')?.value
+  if (!token) return { status: false }
 
+  const response = await fetch(`${process.env.API_HOST}complete-onboarding`, {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token,
+    }
+  })
+  const result = await response.json()
+  return result
+}

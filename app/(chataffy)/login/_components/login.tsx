@@ -29,11 +29,18 @@ export function LoginForm() {
       const response = await loginApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
       if (response?.status_code == 200) {
-        router.replace(appUrl + 'dashboard')
-        // router.replace('/dashboard')
         localStorage.setItem('token', response.token);
         localStorage.setItem('userId', response.userId);
+        if (response.agents) {
+          localStorage.setItem('agents', JSON.stringify(response.agents));
+          localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
+        }
         handleSocketEvent(response.userId)
+        if (!response.isOnboarded) {
+          router.replace(appUrl + 'onboarding')
+        } else {
+          router.replace(appUrl + 'dashboard')
+        }
       } else {
         toast.error(response.message)
       }
@@ -75,14 +82,21 @@ export function LoginForm() {
         setGoogleLoading(false);
         if (response?.status_code === 200) {
           toast.success('Signed in with Google')
-          router.replace(appUrl + 'dashboard')
-          // router.replace('/dashboard')
           if (response.token) {
             localStorage.setItem('token', response.token)
           }
           if (response.userId) {
             localStorage.setItem('userId', response.userId)
             handleSocketEvent(response.userId)
+          }
+          if (response.agents) {
+            localStorage.setItem('agents', JSON.stringify(response.agents));
+            localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
+          }
+          if (!response.isOnboarded) {
+            router.replace(appUrl + 'onboarding')
+          } else {
+            router.replace(appUrl + 'dashboard')
           }
         } else {
           toast.error(response?.message || 'Google login failed')
