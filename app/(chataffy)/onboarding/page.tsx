@@ -528,7 +528,7 @@ export default function OnboardingPage() {
                                     value={websiteUrl}
                                     onChange={(e) => setWebsiteUrl(e.target.value)}
                                     disabled={isFetchingUrls}
-                                    className="h-full w-full border-none bg-transparent text-[14px] font-normal capitalize leading-5 text-[#111827] outline-none placeholder:text-[#64748B]"
+                                    className="h-full w-full border-none bg-transparent text-[14px] font-normal leading-5 text-[#111827] outline-none placeholder:text-[#64748B]"
                                 />
                             </div>
 
