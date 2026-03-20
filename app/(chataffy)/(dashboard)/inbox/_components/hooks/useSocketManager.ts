@@ -1,6 +1,11 @@
 // hooks/useSocketManager.ts
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { io, Socket } from 'socket.io-client';
+
+// Dedup guard – prevents processing the same agent-connection-notification twice
+// when the socket receives it due to backend room membership overlap.
+const recentNotificationIds = new Set<string>();
+const NOTIF_DEDUP_TTL_MS = 3000;
 
 // import { useSocket } from "@/app/socketContext"
 
@@ -16,6 +21,7 @@ interface SocketManagerProps {
   setIsAIChat: (value: boolean) => void;
   setOpenConversationId: (value: any) => void;
   setIsConversationAvailable: (value: boolean) => void;
+  setAITyping?: (value: boolean) => void;
 
   // Current state values
   status: string;
@@ -35,6 +41,7 @@ export const useSocketManager = ({
   setIsAIChat,
   setOpenConversationId,
   setIsConversationAvailable,
+  setAITyping,
   status,
   openConversationId,
   openVisitorId,
@@ -43,6 +50,9 @@ export const useSocketManager = ({
   // const { socket } = useSocket();
   const socketRef = useRef<Socket | null>(null);
   const isInitializingRef = useRef(false);
+  // Incremented every time the socket is re-created (e.g. on agent switch)
+  // so that dependent effects re-run with the new socket instance.
+  const [socketVersion, setSocketVersion] = useState(0);
 
     // Socket initialization
     const initializeSocket = useCallback(() => {
@@ -68,10 +78,59 @@ export const useSocketManager = ({
       isInitializingRef.current = true;
   
       try {
+        const token = localStorage.getItem('token');
+        let humanAgentId: string | undefined;
+        let agentId: string | undefined;
+
+        // Human agent login: humanAgentId and agentId from agent/humanAgentId/currentAgentId
+        const storedHumanAgentId = localStorage.getItem('humanAgentId');
+        const agentData = localStorage.getItem('agent');
+        const currentAgentId = localStorage.getItem('currentAgentId');
+
+        if (storedHumanAgentId) {
+          humanAgentId = storedHumanAgentId;
+        } else if (agentData) {
+          try {
+            const parsedAgent = JSON.parse(agentData);
+            humanAgentId = parsedAgent?.id || parsedAgent?._id;
+          } catch {}
+        }
+
+        if (!humanAgentId && localStorage.getItem('clientAgent')) {
+          const clientAgent = JSON.parse(localStorage.getItem('clientAgent') || '{}');
+          humanAgentId = clientAgent._id;
+        }
+        if (!humanAgentId) {
+          const agents = localStorage.getItem('agents');
+          if (agents) {
+            const parsedAgents = JSON.parse(agents);
+            humanAgentId = parsedAgents[0]?._id;
+          }
+        }
+
+        // agentId is required for socket rooms so inbox receives visitor messages
+        agentId = currentAgentId || undefined;
+        if (!agentId && agentData) {
+          try {
+            const parsedAgent = JSON.parse(agentData);
+            const firstAssigned = parsedAgent?.assignedAgents?.[0];
+            agentId = firstAssigned?.toString?.() || firstAssigned;
+          } catch {}
+        }
+        if (!agentId) {
+          const agents = localStorage.getItem('agents');
+          if (agents) {
+            const parsedAgents = JSON.parse(agents);
+            agentId = parsedAgents[0]?._id;
+          }
+        }
+
+        const query: Record<string, string> = { token: token || '' };
+        if (humanAgentId) query.humanAgentId = humanAgentId;
+        if (agentId) query.agentId = agentId;
+
         const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-          query: {
-            token: localStorage.getItem('token'),
-          },
+          query,
           transports: ["websocket", "polling"],
           reconnection: true,
           reconnectionAttempts: 5,
@@ -145,20 +204,39 @@ export const useSocketManager = ({
     if (!socket) return;
 
     const handleAppendMessage = (data: any) => {
-      setConversationMessages((prev: any) => ({
-        ...prev,
-        data: [...prev.data, data.chatMessage],
-      }));
+      const chatMsg = data?.chatMessage;
+      if (chatMsg && (chatMsg.sender_type === 'ai' || chatMsg.sender_type === 'system')) {
+        setAITyping?.(false);
+      }
+      if (chatMsg) {
+        setConversationMessages((prev: any) => ({
+          ...prev,
+          data: [...prev.data, chatMsg],
+        }));
+      }
+    };
+
+    const handleIntermediateResponse = (data: any) => {
+      const convId = data?.conversationId?.toString?.() || data?.conversationId;
+      const openId = openConversationId?.toString?.() || openConversationId;
+      if (convId && openId && convId === openId) {
+        setAITyping?.(true);
+      }
     };
 
     const handleNewMessageCount = (data: any) => {
-      console.log("New message count triggered:", data);
-      const userId = localStorage.getItem("userId");
-
-      if (status === "open") {
-        socket.emit("get-open-conversations-list", { userId });
-      } else {
-        socket.emit("get-close-conversations-list", { userId });
+      // Backend now sends { conversationId } — patch only that conversation's count
+      // in local state instead of re-fetching the entire list from the server.
+      const { conversationId } = data || {};
+      if (conversationId) {
+        setConversationsList((prev: any) => ({
+          ...prev,
+          data: prev.data?.map((conv: any) =>
+            conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+              ? { ...conv, newMessage: (conv.newMessage || 0) + 1 }
+              : conv
+          ),
+        }));
       }
     };
 
@@ -170,11 +248,11 @@ export const useSocketManager = ({
         { message: note.message, createdAt: note.createdAt || Date.now() }
       ]);
 
-      // Include all note fields, especially agentId with name and avatar
+      // Include all note fields; use note's sender_type from backend (humanAgent/client)
       const noteMessage = {
         ...note,
         is_note: 'true',
-        sender_type: "agent",
+        sender_type: note.sender_type || "humanAgent",
         createdAt: note.createdAt ? new Date(note.createdAt) : new Date(),
         // Ensure agentId is included if it exists
         agentId: note.agentId || null
@@ -186,21 +264,24 @@ export const useSocketManager = ({
       }));
     };
 
-    const handleAiResponse = () => {
-      setIsAIChat(false);
+    const handleAiChatStatusUpdate = (data: any) => {
+      setIsAIChat(data?.aiChat ?? false);
     };
 
     const handleConversationClose = (data: any) => {
       console.log("Conversation closed event received:", data);
       setOpenConversationStatus("close");
-      
-      // Refresh conversation lists to reflect the closed status
+
+      // Only refresh the currently active tab — the other tab will refresh when
+      // the user switches to it. Emitting both at once caused two rapid
+      // setConversationsList calls which flickered the list.
       const userId = localStorage.getItem("userId");
       if (userId) {
-        // Refresh open conversations list (conversation will be removed)
-        socket.emit("get-open-conversations-list", { userId });
-        // Refresh closed conversations list (conversation will be added)
-        socket.emit("get-close-conversations-list", { userId });
+        if (status === "open") {
+          socket.emit("get-open-conversations-list", { userId });
+        } else {
+          socket.emit("get-close-conversations-list", { userId });
+        }
       }
     };
 
@@ -211,15 +292,26 @@ export const useSocketManager = ({
 
     // Register event listeners
     socket.on("conversation-append-message", handleAppendMessage);
+    socket.on("intermediate-response", handleIntermediateResponse);
     socket.on("new-message-count", handleNewMessageCount);
     socket.on("note-append-message", handleNoteAppendMessage);
-    socket.on("ai-response-update", handleAiResponse);
+    socket.on("ai-chat-status-update", handleAiChatStatusUpdate);
     socket.on('conversation-close-triggered', handleConversationClose);
     socket.on('visitor-blocked', handleVisitorBlocked);
     socket.on('visitor-conversation-close', handleConversationClose);
 
     // Handle agent connection notifications
     const handleAgentConnectionNotification = (data: any) => {
+      // Deduplicate: same conversationId arriving within NOTIF_DEDUP_TTL_MS is ignored
+      const dedupKey = data?.conversationId?.toString?.() || data?.conversationId || '';
+      if (dedupKey && recentNotificationIds.has(dedupKey)) {
+        console.log("Duplicate agent-connection-notification ignored:", dedupKey);
+        return;
+      }
+      if (dedupKey) {
+        recentNotificationIds.add(dedupKey);
+        setTimeout(() => recentNotificationIds.delete(dedupKey), NOTIF_DEDUP_TTL_MS);
+      }
       console.log("Agent connection notification received:", data);
       // Play notification sound
       try {
@@ -268,15 +360,12 @@ export const useSocketManager = ({
 
       // Show browser notification if permission granted
       const showNotification = () => {
-        // Store the URL in sessionStorage as a fallback
-        sessionStorage.setItem('pendingAgentConnectionUrl', chatUrl);
-        
         const notification = new Notification("New Agent Connection Request", {
           body: "A visitor requested to connect to an agent. Click to open chat.",
           icon: "/favicon.ico",
-          tag: `agent-connection-${data.conversationId}`, // Tag to replace previous notifications for same conversation
+          tag: `agent-connection-${data.conversationId}`,
           requireInteraction: false,
-          data: { url: chatUrl, conversationId: data.conversationId }, // Store URL in notification data
+          data: { url: chatUrl, conversationId: data.conversationId },
         });
 
         // Handle notification click to navigate to chat
@@ -284,72 +373,35 @@ export const useSocketManager = ({
           console.log("Notification clicked, navigating to:", chatUrl);
           event.preventDefault();
           notification.close();
-          
-          // Remove stored URL since we're navigating now
-          sessionStorage.removeItem('pendingAgentConnectionUrl');
-          
-          // Focus the window first - this is critical for navigation to work
+
           if (window.focus) {
             window.focus();
           }
-          
+
           // Check if we're already on the inbox page - if so, just update the query param
           const currentPath = window.location.pathname;
-          // Normalize paths for comparison (remove trailing slashes and base path)
           const normalizePath = (path: string) => path.replace(/\/chataffy\/cahtaffy_fe/, '').replace(/\/$/, '');
           const normalizedCurrent = normalizePath(currentPath);
           const normalizedInbox = normalizePath(inboxPath);
           const isOnInboxPage = normalizedCurrent === normalizedInbox;
-          
+
           if (isOnInboxPage) {
-            // Already on inbox page - just update the URL without full reload
             try {
               const url = new URL(chatUrl);
               window.history.pushState({}, '', url.pathname + url.search);
-              // Dispatch a custom event to trigger conversation opening
-              window.dispatchEvent(new CustomEvent('notification-navigate-to-conversation', { 
-                detail: { conversationId: data.conversationId } 
+              window.dispatchEvent(new CustomEvent('notification-navigate-to-conversation', {
+                detail: { conversationId: data.conversationId }
               }));
             } catch (error) {
               console.error("Error updating URL:", error);
-              // Fallback to full navigation
               window.location.href = chatUrl;
             }
           } else {
-            // Not on inbox page - navigate using window.location
-            // Use a small delay to ensure window is focused
             setTimeout(() => {
-              try {
-                console.log("Navigating to:", chatUrl);
-                // Direct navigation - this will cause full page reload
-                // The middleware should allow /agent-inbox with query params
-                window.location.href = chatUrl;
-              } catch (error) {
-                console.error("Navigation error:", error);
-                window.location.assign(chatUrl);
-              }
+              window.location.href = chatUrl;
             }, 100);
           }
         };
-        
-        // Also handle window focus event as a fallback
-        const handleWindowFocus = () => {
-          const pendingUrl = sessionStorage.getItem('pendingAgentConnectionUrl');
-          if (pendingUrl && pendingUrl === chatUrl) {
-            sessionStorage.removeItem('pendingAgentConnectionUrl');
-            window.location.assign(pendingUrl);
-            window.removeEventListener('focus', handleWindowFocus);
-          }
-        };
-        
-        // Listen for window focus (in case notification click doesn't work)
-        window.addEventListener('focus', handleWindowFocus);
-        
-        // Clean up listener after 30 seconds
-        setTimeout(() => {
-          window.removeEventListener('focus', handleWindowFocus);
-          sessionStorage.removeItem('pendingAgentConnectionUrl');
-        }, 30000);
       };
 
       if ("Notification" in window && Notification.permission === "granted") {
@@ -377,63 +429,39 @@ export const useSocketManager = ({
 
     return () => {
       socket.off("conversation-append-message", handleAppendMessage);
+      socket.off("intermediate-response", handleIntermediateResponse);
       socket.off("new-message-count", handleNewMessageCount);
       socket.off("agent-connection-notification", handleAgentConnectionNotification);
       socket.off("agent-connection-cancelled", handleAgentConnectionCancelled);
       socket.off("note-append-message", handleNoteAppendMessage);
-      socket.off("ai-response-update", handleAiResponse);
+      socket.off("ai-chat-status-update", handleAiChatStatusUpdate);
       socket.off('conversation-close-triggered', handleConversationClose);
       socket.off('visitor-blocked', handleVisitorBlocked);
       socket.off('visitor-conversation-close', handleConversationClose);
     };
-  }, [status, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus]);
+  }, [status, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setAITyping]);
 
   const setupConversationListHandlers = useCallback(() => {
     const socket = socketRef.current;
     // const { socket } = useSocket();
     if (!socket) return;
 
-    const handleOpenConversationsListResponse = async (data: any) => {
-      console.log("Open conversations list received:", data);
+    const handleOpenConversationsListResponse = (data: any) => {
+      if (status !== 'open') return;
       const filteredConversations = data.conversations.filter((conv: any) => conv.is_started === true);
       setIsConversationAvailable(filteredConversations.length > 0);
-      setConversationsList({ 
-        data: filteredConversations, 
-        loading: false 
-      });
-
-      if (!openConversationId && filteredConversations[0]) {
-        setOpenConversationId(filteredConversations[0].id);
-      }
+      setConversationsList({ data: filteredConversations, loading: false });
     };
 
-    const handleCloseConversationsListResponse = async (data: any) => {
-      console.log("Close conversations list received:", data);
+    const handleCloseConversationsListResponse = (data: any) => {
+      if (status !== 'close') return;
       const filteredConversations = data.conversations.filter((conv: any) => conv.is_started === true);
       setIsConversationAvailable(filteredConversations.length > 0);
-      setConversationsList({ 
-        data: filteredConversations, 
-        loading: false 
-      });
-
-      if (!openConversationId && filteredConversations[0]) {
-        setOpenConversationId(filteredConversations[0].id);
-      }
-    };
-
-    const handleOpenConversationsListUpdateResponse = async (data: any) => {
-      status === 'open' && setConversationsList({ 
-        data: data.conversations.filter((conv: any) => conv.is_started === true), 
-        loading: false 
-      });
+      setConversationsList({ data: filteredConversations, loading: false });
     };
 
     const handleVisitorConnectListUpdate = () => {
-      // Only update if socket is connected and we're on open status
-      if (!socket.connected) {
-        console.log("Socket not connected, skipping visitor connect list update");
-        return;
-      }
+      if (!socket.connected) return;
       const userId = localStorage.getItem("userId");
       if (userId && status === "open") {
         socket.emit("get-open-conversations-list", { userId });
@@ -444,16 +472,12 @@ export const useSocketManager = ({
     socket.on("get-close-conversations-list-response", handleCloseConversationsListResponse);
     socket.on("visitor-connect-list-update", handleVisitorConnectListUpdate);
 
-    // For update responses
-    socket.on("get-open-conversations-list-response", handleOpenConversationsListUpdateResponse);
-
     return () => {
       socket.off("get-open-conversations-list-response", handleOpenConversationsListResponse);
       socket.off("get-close-conversations-list-response", handleCloseConversationsListResponse);
       socket.off("visitor-connect-list-update", handleVisitorConnectListUpdate);
-      socket.off("get-open-conversations-list-response", handleOpenConversationsListUpdateResponse);
     };
-  }, [status, openConversationId, setConversationsList, setIsConversationAvailable, setOpenConversationId]);
+  }, [status, setConversationsList, setIsConversationAvailable]);
 
   const setupTagsHandler = useCallback(() => {
     const socket = socketRef.current;
@@ -482,11 +506,20 @@ export const useSocketManager = ({
     // const { socket } = useSocket();
     if (!socket) return;
 
-    const userId = localStorage.getItem("userId");
-    if (status === "open") {
-      socket.emit("get-open-conversations-list", { userId });
+    const doEmit = () => {
+      const userId = localStorage.getItem("userId");
+      if (status === "open") {
+        socket.emit("get-open-conversations-list", { userId });
+      } else {
+        socket.emit("get-close-conversations-list", { userId });
+      }
+    };
+
+    // If the socket is already connected emit immediately, otherwise wait for connect
+    if (socket.connected) {
+      doEmit();
     } else {
-      socket.emit("get-close-conversations-list", { userId });
+      socket.once("connect", doEmit);
     }
   }, [status]);
 
@@ -553,21 +586,25 @@ export const useSocketManager = ({
     });
   }, []);
 
-  const emitSendMessage = useCallback((messageData: { message: string; visitorId: string }, callback?: (response: any) => void) => {
+  const emitSendMessage = useCallback((messageData: { message: string; visitorId: string; replyTo?: string | null }, callback?: (response: any) => void) => {
     const socket = socketRef.current;
-    // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit("client-send-message", messageData, callback);
   }, []);
 
-  const emitSendNote = useCallback((noteData: { message: string; visitorId: string; conversationId: string }) => {
-    const socket = socketRef.current;
-    // const { socket } = useSocket();
-    if (!socket) return;
+  const emitSendNote = useCallback(
+    (
+      noteData: { message: string; visitorId: string; conversationId: string; replyTo?: string | null },
+      callback?: (response: any) => void
+    ) => {
+      const socket = socketRef.current;
+      if (!socket) return;
 
-    socket.emit("client-send-add-note", noteData);
-  }, []);
+      socket.emit("client-send-add-note", noteData, callback);
+    },
+    []
+  );
 
   const emitAddTag = useCallback((tagName: string, conversationId: string, callback?: (response: any) => void) => {
     const socket = socketRef.current;
@@ -742,6 +779,27 @@ export const useSocketManager = ({
     };
   }, []); // Empty dependency array - only run on mount/unmount
 
+  // Re-initialize socket when the active agent changes so the inbox
+  // is connected to the correct agent room and fetches its conversations.
+  useEffect(() => {
+    const handleAgentChanged = () => {
+      // Force disconnect existing socket so initializeSocket will reconnect fresh
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners();
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      isInitializingRef.current = false;
+      initializeSocket();
+      // Bump version so handlers-setup and conversations-fetch effects re-run
+      // with the new socket after it connects.
+      setSocketVersion((v) => v + 1);
+    };
+
+    window.addEventListener("agent-changed", handleAgentChanged);
+    return () => window.removeEventListener("agent-changed", handleAgentChanged);
+  }, [initializeSocket]);
+
   // Setup event handlers - only when socket is available and connected
   useEffect(() => {
     const socket = socketRef.current;
@@ -784,12 +842,12 @@ export const useSocketManager = ({
     return () => {
       cleanupFunctions.forEach(cleanup => cleanup?.());
     };
-  }, [setupMessageHandlers, setupConversationListHandlers, setupTagsHandler]);
+  }, [setupMessageHandlers, setupConversationListHandlers, setupTagsHandler, socketVersion]);
 
-  // Auto-fetch conversations list when status changes
+  // Auto-fetch conversations list when status changes or socket is re-created
   useEffect(() => {
     emitGetConversationsList();
-  }, [status, isAIChat, emitGetConversationsList]);
+  }, [status, isAIChat, emitGetConversationsList, socketVersion]);
 
   // Auto-fetch notes and old conversations when conversation changes
   useEffect(() => {

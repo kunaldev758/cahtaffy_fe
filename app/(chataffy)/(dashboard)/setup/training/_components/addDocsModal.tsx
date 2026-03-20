@@ -5,7 +5,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import { FileUpload } from './fileUpload';
 import { openaiCreateSnippet } from '@/app/_api/dashboard/action';
 
-export default function AddContentModal({ showModal, onHide }: any) {
+export default function AddContentModal({ showModal, onHide, agentId }: any) {
   const [toggle, setToggle] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -33,7 +33,7 @@ export default function AddContentModal({ showModal, onHide }: any) {
     }
 
     setButtonLoading(true);
-    const response: any = await openaiCreateSnippet(formData)
+    const response: any = await openaiCreateSnippet(formData, agentId ?? undefined)
     setButtonLoading(false)
     onHide()
     toast.success(response.message)

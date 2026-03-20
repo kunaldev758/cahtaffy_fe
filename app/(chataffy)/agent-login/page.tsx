@@ -20,9 +20,20 @@ export default function AgentLogin() {
         setError(res.message || "Login failed");
         return;
       }
+      const humanAgent = res.humanAgent;
+      if (!humanAgent) {
+        setError("Invalid login response");
+        return;
+      }
+      const humanAgentId = humanAgent.id?.toString?.() || humanAgent.id;
+      const userId = humanAgent.userId?.toString?.() || humanAgent.userId;
+      const currentAgentId = humanAgent.assignedAgents?.[0]?.toString?.() || humanAgent.assignedAgents?.[0] || "";
+
       localStorage.setItem("token", res.token);
-      localStorage.setItem("agent", JSON.stringify(res.agent));
-      localStorage.setItem("userId", JSON.stringify(res.agent.userId));
+      localStorage.setItem("agent", JSON.stringify({ ...humanAgent, _id: humanAgentId }));
+      localStorage.setItem("userId", userId);
+      localStorage.setItem("humanAgentId", humanAgentId);
+      localStorage.setItem("currentAgentId", currentAgentId);
       router.push("/agent-inbox");
     } catch (err) {
       setError("Login failed. Please try again.");

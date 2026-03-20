@@ -3,88 +3,56 @@
 import Link from "next/link"
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
-import { useSelectedLayoutSegment, usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { Plus, LayoutDashboard, Globe, Settings2, Inbox, Brain, Users, CreditCard, Loader2 } from "lucide-react"
+import { toast } from 'react-toastify'
 
 import logoPic from '@/images/logo.png'
-import Logout from './logout'
-import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import ClientProfileMenu from '../inbox/_components/ClientProfileMenu'
 import { getClientData } from '@/app/_api/dashboard/action'
+import { createAIAgentApi } from '@/app/_api/login/action'
 
 export default function IntegratedSidebar() {
-  const segment = useSelectedLayoutSegment()
   const pathname = usePathname()
+  const router = useRouter()
   const [clientData, setClientData] = useState<any>(null)
-  
-  // State for expandable menus
-  const [setupExpanded, setSetupExpanded] = useState(
-    pathname?.startsWith('/setup') || false
-  )
-  const [settingsExpanded, setSettingsExpanded] = useState(
-    pathname?.startsWith('/settings') || false
-  )
+  const [isCreatingAgent, setIsCreatingAgent] = useState(false)
 
-  // Fetch client agent data
   useEffect(() => {
     const fetchClient = async () => {
       if (typeof window !== 'undefined') {
-        // Check localStorage first - check both clientAgent and agent
         const storedClientAgent = localStorage.getItem('clientAgent')
         const storedAgent = localStorage.getItem('agent')
-        
+
         if (storedClientAgent) {
           try {
             const parsed = JSON.parse(storedClientAgent)
-            if (parsed.isClient) {
-              setClientData(parsed)
-            }
-          } catch (error) {
-            console.error('Error parsing client agent data:', error)
-          }
+            if (parsed.isClient) setClientData(parsed)
+          } catch {}
         } else if (storedAgent) {
           try {
             const parsed = JSON.parse(storedAgent)
-            if (parsed.isClient) {
-              setClientData(parsed)
-            }
-          } catch (error) {
-            console.error('Error parsing agent data:', error)
-          }
+            if (parsed.isClient) setClientData(parsed)
+          } catch {}
         }
-        
-        // Fetch from API if not in localStorage
+
         try {
           const data = await getClientData()
           if (data && data.clientAgent) {
             setClientData(data.clientAgent)
             localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
-            // Also update agent localStorage if it's a client agent
-            if (storedAgent) {
-              try {
-                const parsedAgent = JSON.parse(storedAgent)
-                if (parsedAgent.isClient) {
-                  localStorage.setItem('agent', JSON.stringify({ ...parsedAgent, ...data.clientAgent }))
-                }
-              } catch (error) {
-                console.error('Error updating agent data:', error)
-              }
-            }
           }
-        } catch (error) {
-          console.error('Error fetching client data:', error)
-        }
+        } catch {}
       }
     }
-    
+
     fetchClient()
-    
-    // Listen for client status changes
+
     const handleClientStatusChange = (event: CustomEvent) => {
       setClientData(event.detail)
     }
-    
+
     window.addEventListener('client-status-changed', handleClientStatusChange as EventListener)
-    
     return () => {
       window.removeEventListener('client-status-changed', handleClientStatusChange as EventListener)
     }
@@ -94,21 +62,52 @@ export default function IntegratedSidebar() {
     return `${src}?w=${width}&q=${quality || 75}`
   }
 
-  // Check if current path matches
-  const isActive = (path: any) => pathname === path
-  const isParentActive = (parentPath: any) => pathname?.startsWith(parentPath)
+  const handleNewAgent = async () => {
+    if (isCreatingAgent) return
+    setIsCreatingAgent(true)
+    try {
+      const res = await createAIAgentApi()
+      if (!res?.status || !res?.agent?._id) {
+        toast.error(res?.message || 'Failed to create agent')
+        return
+      }
+      const newAgentId = res.agent._id
+      const previousAgentId = localStorage.getItem('currentAgentId') ?? ''
+      localStorage.setItem('previousAgentId', previousAgentId)
+      localStorage.setItem('currentAgentId', newAgentId)
+      window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: newAgentId } }))
+      router.push('/website/new')
+    } catch {
+      toast.error('Failed to create agent. Please try again.')
+    } finally {
+      setIsCreatingAgent(false)
+    }
+  }
+
+  const isActive = (path: string) => pathname === path
+  const isParentActive = (path: string) => !!pathname?.startsWith(path)
+
+  const navItemClass = (active: boolean) =>
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
+      active
+        ? 'bg-[#111827] text-white'
+        : 'text-[#64748B] hover:bg-gray-100 hover:text-[#111827]'
+    }`
+
+  const iconClass = (active: boolean) =>
+    `w-5 h-5 flex-shrink-0 ${active ? 'text-white' : 'text-[#64748B]'}`
 
   return (
-    <div className="bg-white border-r border-gray-200 w-64 min-h-screen flex flex-col shadow-sm">
-      {/* Logo Section */}
-      <div className="p-6 border-b border-gray-100">
-        <Link href="/dashboard" className="flex items-center space-x-3">
-          <Image 
-            loader={imageLoader as any} 
-            src={logoPic} 
-            alt="Chataffy" 
-            title="Chataffy" 
-            width={32} 
+    <div className="bg-[#F9F9F9] border-r border-gray-200 w-64 min-h-screen flex flex-col">
+      {/* Logo */}
+      <div className="px-5 py-5">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <Image
+            loader={imageLoader as any}
+            src={logoPic}
+            alt="Chataffy"
+            title="Chataffy"
+            width={32}
             height={32}
             className="rounded-lg"
           />
@@ -116,212 +115,82 @@ export default function IntegratedSidebar() {
         </Link>
       </div>
 
-      {/* Navigation Menu */}
-      <nav className="flex-1 p-4 space-y-2">
-        {/* Dashboard */}
-        <Link
-          href="/dashboard"
-          className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
-            isActive('/dashboard')
-              ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-          }`}
-        >
-          <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0a2 2 0 01-2 2H10a2 2 0 01-2-2v0z" />
-          </svg>
-          Dashboard
+      {/* Nav */}
+      <nav className="flex-1 px-3 pb-4 space-y-0.5">
+        {/* HOME section */}
+        <p className="px-3 pt-4 pb-2 text-[#94A3B8] text-[13px] font-bold uppercase tracking-wide">
+          Home
+        </p>
+
+        <Link href="/dashboard" className={navItemClass(isActive('/dashboard'))}>
+          <LayoutDashboard className={iconClass(isActive('/dashboard'))} />
+          Overview
         </Link>
 
-        {/* Setup with Sub-menu */}
-        <div>
-          <button
-            onClick={() => setSetupExpanded(!setupExpanded)}
-            className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
-              isParentActive('/setup')
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center">
-              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Setup
-            </div>
-            {setupExpanded ? (
-              <ChevronDownIcon className="w-4 h-4" />
-            ) : (
-              <ChevronRightIcon className="w-4 h-4" />
-            )}
-          </button>
-          
-          {/* Setup Sub-menu */}
-          <div className={`overflow-hidden transition-all duration-300 ${setupExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="pl-8 py-2 space-y-1">
-              <Link
-                href="/setup/basic-info"
-                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
-                  segment === 'basic-info'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                Basic Info
-              </Link>
-              <Link
-                href="/setup/training"
-                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
-                  segment === 'training'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                Training
-              </Link>
-              <Link
-                href="/setup/widget"
-                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
-                  segment === 'widget'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                Widget Setup
-              </Link>
-            </div>
-          </div>
-        </div>
+        <Link href="/website" className={navItemClass(isActive('/website'))}>
+          <Globe className={iconClass(isActive('/website'))} />
+          Website
+        </Link>
 
-        {/* Inbox */}
-        <Link
-          href="/inbox"
-          className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
-            isParentActive('/inbox')
-              ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-          }`}
-        >
-          <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-          </svg>
+        <Link href="/setup/widget" className={navItemClass(isParentActive('/setup'))}>
+          <Settings2 className={iconClass(isParentActive('/setup'))} />
+          Setup
+        </Link>
+
+        <Link href="/inbox" className={navItemClass(isParentActive('/inbox'))}>
+          <Inbox className={iconClass(isParentActive('/inbox'))} />
           Inbox
         </Link>
 
-        {/* Settings with Sub-menu */}
-        {/* <div>
-          <button
-            onClick={() => setSettingsExpanded(!settingsExpanded)}
-            className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
-              isParentActive('/settings')
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center">
-              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Settings
-            </div>
-            {settingsExpanded ? (
-              <ChevronDownIcon className="w-4 h-4" />
-            ) : (
-              <ChevronRightIcon className="w-4 h-4" />
-            )}
-          </button>
-          
-          Settings Sub-menu
-          <div className={`overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="pl-8 py-2 space-y-1">
-              <Link
-                href="/settings"
-                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
-                  pathname === '/settings/agent'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                Agent Settings
-              </Link>
-            </div>
-          </div>
+        <Link href="/training" className={navItemClass(isActive('/training'))}>
+          <Brain className={iconClass(isActive('/training'))} />
+          Training
+        </Link>
 
-          SPricing Page
-          <div className={`overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="pl-8 py-2 space-y-1">
-              <Link
-                href="/pricing"
-                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
-                  pathname === '/pricing'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                Pricing
-              </Link>
-            </div>
-          </div>
-        </div> */}
+        {/* CONFIGURATION section */}
+        <p className="px-3 pt-6 pb-2 text-[#94A3B8] text-[13px] font-bold uppercase tracking-wide">
+          Configuration
+        </p>
 
+        <Link href="/humanAgent" className={navItemClass(isActive('/humanAgent'))}>
+          <Users className={iconClass(isActive('/humanAgent'))} />
+          Human Agent
+        </Link>
 
-        <div className={`overflow-hidden transition-all duration-300 max-h-40 opacity-100`}>
-            <div className="pl-8 py-2 space-y-1">
-              <Link
-                href="/settings"
-                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
-                  pathname === '/settings'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                Agent Settings
-              </Link>
-            </div>
-          </div>
-
-
-        <div className={`overflow-hidden transition-all duration-300 max-h-40 opacity-100`}>
-            <div className="pl-8 py-2 space-y-1">
-              <Link
-                href="/pricing"
-                className={`block px-4 py-2 text-sm rounded-md transition-colors duration-200 ${
-                  pathname === '/pricing'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                Pricing
-              </Link>
-            </div>
-          </div>
-
-        {/* Profile */}
-        {/* <Link
-          href="/profile"
-          className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
-            isParentActive('/profile')
-              ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-          }`}
+        <button
+          className={navItemClass(false) + ' w-full text-left cursor-default'}
+          tabIndex={-1}
         >
-          <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          Profile
-        </Link> */}
+          <CreditCard className={iconClass(false)} />
+          Pricing
+        </button>
       </nav>
 
-      {/* Profile Section */}
-      <div className="p-4 border-t border-gray-100">
-        <ClientProfileMenu 
-          clientEmail={clientData?.email}
-          clientId={clientData?._id}
-          isActive={clientData?.isActive !== false}
-        />
+      {/* Bottom */}
+      <div className="px-3 pb-4 space-y-3">
+        {/* New AI Agent button */}
+        <button
+          onClick={handleNewAgent}
+          disabled={isCreatingAgent}
+          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#111827] text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors duration-150 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {isCreatingAgent ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
+          {isCreatingAgent ? 'Creating...' : 'New AI agent'}
+        </button>
+
+        {/* Agent card */}
+        <div className="border-t border-gray-200 pt-3">
+          <ClientProfileMenu
+            clientEmail={clientData?.email}
+            clientId={clientData?._id}
+            isActive={clientData?.isActive !== false}
+            clientName={clientData?.name}
+          />
+        </div>
       </div>
     </div>
   )

@@ -101,13 +101,18 @@ export async function startSitemapScrapingApi(agentId, urls) {
   return await fetchData('openaiScrape', { agentId, urls });
 }
 
-export async function openaiWebPageScrapeApi(sitemap,isNotSitemap) {
-  if(isNotSitemap){
+export async function openaiWebPageScrapeApi(sitemap, isNotSitemap, agentId) {
+  if (isNotSitemap) {
     const url = sitemap;
-    return await fetchData('openaiScrape', { url });
-  }else{
+    const urls = typeof url === 'string' ? url.split(',').map((u) => u.trim()).filter(Boolean) : [];
+    return await startSitemapScrapingApi(agentId, urls);
+  } else {
     const sitemapUrl = sitemap;
-    return await fetchData('openaiScrape', { sitemapUrl });
+    const res = await getSitemapUrlsApi(sitemapUrl, agentId);
+    if (res?.success && Array.isArray(res.urls) && res.urls.length > 0) {
+      return await startSitemapScrapingApi(agentId, res.urls);
+    }
+    return res;
   }
 }
 
@@ -132,6 +137,24 @@ export async function openaiCreateSnippet(formData, agentId) {
 
 export async function openaiCreateFaq(faqs, agentId) {
   return await fetchData('openaiCreateFaq', { faqs, agentId });
+}
+
+/**
+ * Delete training data by IDs. Runs in background.
+ * @param {string[]} ids - Array of training entry _ids
+ * @param {string} agentId - Agent ID
+ */
+export async function deleteTrainingDataApi(ids, agentId) {
+  return await fetchData('deleteTrainingData', { ids, agentId });
+}
+
+/**
+ * Retrain training data by IDs. Only webpages are retrained. Runs in background.
+ * @param {string[]} ids - Array of training entry _ids
+ * @param {string} agentId - Agent ID
+ */
+export async function retrainTrainingDataApi(ids, agentId) {
+  return await fetchData('retrainTrainingData', { ids, agentId });
 }
 
 export async function openaiToggleActiveStatus(id) {
@@ -164,6 +187,10 @@ export async function getOldConversationMessages(id) {
 
 export async function getMessageSources(trainingListIds) {
   return await fetchData('getMessageSources', { trainingListIds });
+}
+
+export async function reviseAnswer(data) {
+  return await fetchData('revise-answer', data);
 }
 
 
@@ -201,19 +228,39 @@ export async function logoutApi() {
   return await fetchData('logout');
 }
 
-// Agent API functions
-export async function getAllAgents() {
+// Human Agent API functions
+export async function getAllHumanAgents() {
   const data = await getFetchData('agents');
-  console.log('getAllAgents response:', data);
+  console.log('getAllHumanAgents response:', data);
   return data;
 }
 
-export async function createAgent(agentData) {
+// AI Agents (websites) - for assignedAgents dropdown
+export async function getAIAgents() {
+  const data = await getFetchData('ai-agents');
+  if (data === 'error') return [];
+  return Array.isArray(data?.agents) ? data.agents : (Array.isArray(data) ? data : []);
+}
+
+export async function createHumanAgent(agentData) {
   return await fetchData('agents', agentData);
 }
 
-export async function updateAgent(id, agentData) {
+export async function updateHumanAgent(id, agentData) {
   return await fetchData(`agents/${id}`, agentData);
+}
+
+// Legacy aliases for backward compatibility
+export async function getAllAgents() {
+  return getAllHumanAgents();
+}
+
+export async function createAgent(agentData) {
+  return createHumanAgent(agentData);
+}
+
+export async function updateAgent(id, agentData) {
+  return updateHumanAgent(id, agentData);
 }
 
 export async function toggleActiveStatus(id,status) {

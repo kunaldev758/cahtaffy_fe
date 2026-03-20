@@ -1,6 +1,6 @@
 'use client'
 
-import {  useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from 'react-bootstrap'
 import Image from 'next/image'
 import { basePath } from '@/next.config'
@@ -17,13 +17,23 @@ export default function Home(Props: any) {
   const [webPageShowModal, setWebPageShowModal] = useState(false)
   const [docShowModal, setDocShowModal] = useState(false)
   const [faqShowModal, setFaqShowModal] = useState(false)
+  const [currentAgentId, setCurrentAgentId] = useState<string | null>(null)
 
-
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setCurrentAgentId(localStorage.getItem('currentAgentId'))
+    const handleAgentChanged = (e: CustomEvent) => {
+      const id = (e as CustomEvent).detail?.agentId ?? localStorage.getItem('currentAgentId')
+      setCurrentAgentId(id)
+    }
+    window.addEventListener('agent-changed', handleAgentChanged as EventListener)
+    return () => window.removeEventListener('agent-changed', handleAgentChanged as EventListener)
+  }, [])
 
   return (<>
-    <AddwebPageModal showModal={webPageShowModal} onHide={() => { setWebPageShowModal(false) }} />
-    <AddDocModal showModal={docShowModal} onHide={() => { setDocShowModal(false) }} />
-    <AddFaqModal showModal={faqShowModal} onHide={() => { setFaqShowModal(false) }} />
+    <AddwebPageModal showModal={webPageShowModal} onHide={() => { setWebPageShowModal(false) }} agentId={currentAgentId} />
+    <AddDocModal showModal={docShowModal} onHide={() => { setDocShowModal(false) }} agentId={currentAgentId} />
+    <AddFaqModal showModal={faqShowModal} onHide={() => { setFaqShowModal(false) }} agentId={currentAgentId} />
 
     <Modal show={Props.showModal} onHide={Props.onHide} size='lg' centered>
       <Modal.Header closeButton>

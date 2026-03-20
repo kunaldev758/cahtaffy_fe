@@ -1,7 +1,14 @@
 "use client";
-import { Send, Mic, MessageCircle, StickyNote } from "lucide-react";
+import { Send, Mic, MessageCircle, StickyNote, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Socket } from 'socket.io-client';
+
+interface ReplyingTo {
+  _id?: string;
+  message: string;
+  sender_type: string;
+  senderName?: string;
+}
 
 interface MessageInputProps {
   inputMessage: string;
@@ -18,6 +25,9 @@ interface MessageInputProps {
   onAddNote: () => void;
   setIsNoteActive: (value: boolean) => void;
   canReply?: boolean;
+  replyingTo?: ReplyingTo | null;
+  onClearReply?: () => void;
+  onJumpToReplyPreview?: (messageId: string) => void;
 }
 
 export default function MessageInput({
@@ -35,6 +45,9 @@ export default function MessageInput({
   onAddNote,
   setIsNoteActive,
   canReply = true,
+  replyingTo,
+  onClearReply,
+  onJumpToReplyPreview,
 }: MessageInputProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -60,7 +73,7 @@ export default function MessageInput({
       const eventName = isTyping ? 'agent-start-typing' : 'agent-stop-typing';
       console.log(`⌨️ Emitting ${eventName}:`, { conversationId, visitorId, isAIChat });
       
-      socket.emit(eventName, { conversationId, visitorId }, (response: any) => {
+      socket.emit(eventName, { conversationId, visitorId, aiChat: isAIChat }, (response: any) => {
         if (response?.success) {
           console.log(`✅ ${eventName} acknowledged:`, response);
         } else {
@@ -230,8 +243,56 @@ export default function MessageInput({
     (!isNoteActive && isAIChat && openConversationStatus === "open") ||
     !isOnline ||
     !canReply;
+  const stripHtml = (html: string) => html?.replace(/<[^>]+>/g, '').trim() || '';
+
   return (
     <div className="bg-white border-t border-gray-200 p-4">
+      {/* Reply context bar */}
+      {replyingTo && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderLeft: '3px solid #3b82f6',
+          background: '#eff6ff',
+          borderRadius: '4px',
+          padding: '6px 10px',
+          marginBottom: '8px',
+          gap: '8px',
+        }}>
+          <button
+            type="button"
+            onClick={() => replyingTo._id && onJumpToReplyPreview?.(replyingTo._id)}
+            disabled={!replyingTo._id || !onJumpToReplyPreview}
+            title={replyingTo._id && onJumpToReplyPreview ? 'Jump to message in chat' : undefined}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              textAlign: 'left',
+              background: 'none',
+              border: 'none',
+              cursor: replyingTo._id && onJumpToReplyPreview ? 'pointer' : 'default',
+              padding: 0,
+              font: 'inherit',
+            }}
+          >
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#1d4ed8', marginBottom: '2px' }}>
+              REPLYING TO {(replyingTo.senderName || 'VISITOR').toUpperCase()}
+            </div>
+            <div style={{ fontSize: '12px', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {stripHtml(replyingTo.message).slice(0, 100) || '…'}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={onClearReply}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px', flexShrink: 0 }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* No Internet Banner */}
       {!isOnline && (
         <div className="bg-red-100 text-red-700 text-center py-2 font-semibold mb-2">

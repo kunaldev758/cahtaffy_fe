@@ -61,16 +61,9 @@ interface TrainingItem {
   isActive?: boolean
 }
 
+// Client model fields (from Client collection)
 interface ClientData {
-  userId: string
-  dataTrainingStatus: number // 0-NoCurrentScrapping, 1-RunningScrapping
-  pagesAdded: {
-    success: number
-    failed: number
-    total: number
-  }
-  filesAdded: number
-  faqsAdded: number
+  userId?: string
   currentDataSize: number
   upgradePlanStatus: {
     storageLimitExceeded: boolean
@@ -79,11 +72,26 @@ interface ClientData {
   }
   plan: string
   planStatus: string
-  paymentStatus: string
-  planExpiry: Date | null
-  billingCycle: string
-  totalAmountPaid: number
+  paymentStatus?: string
+  planExpiry?: Date | null
+  billingCycle?: string
+  totalAmountPaid?: number
+}
+
+// Agent model fields (from Agent collection)
+interface AgentData {
+  _id?: string
+  userId?: string
+  dataTrainingStatus: number // 0-NoCurrentScrapping, 1-RunningScrapping
   scrapingStartTime?: string | Date
+  pagesAdded: {
+    success: number
+    failed: number
+    total: number
+  }
+  isSitemapAdded?: boolean
+  filesAdded: number
+  faqsAdded: number
 }
 
 interface ScrapingProgress {
@@ -119,6 +127,8 @@ export default function EnhancedTrainingPage() {
 
   // Data states
   const [clientData, setClientData] = useState<ClientData | null>(null)
+  const [agentData, setAgentData] = useState<AgentData | null>(null)
+  const [agentId, setAgentId] = useState<string | null>(null)
   const [trainingList, setTrainingList] = useState<{ 
     data: TrainingItem[], 
     loading: boolean,
@@ -161,6 +171,13 @@ export default function EnhancedTrainingPage() {
   const clearErrors = () => {
     setErrors([])
   }
+
+  // Load agentId from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setAgentId(localStorage.getItem('currentAgentId'))
+    }
+  }, [])
 
   const getSourceTypeFromNumber = (type: number): TrainingItem['sourceType'] => {
     switch(type) {
@@ -356,7 +373,8 @@ export default function EnhancedTrainingPage() {
 
     // Basic connection and data fetching
     socket.on('client-connect-response', function () {
-      socket.emit('get-training-list-count')
+      socket.emit('get-agent-data')
+      socket.emit('get-client-data')
       socket.emit('get-training-list', { 
         skip: (currentPage - 1) * pageSize, 
         limit: pageSize,
@@ -365,9 +383,12 @@ export default function EnhancedTrainingPage() {
       })
     })
 
-    // Updated handler for the new client data response
-    socket.on('get-training-list-count-response', function ({ data }: any) {
-      console.log(data, "client data response");
+    // Agent data response (from Agent model)
+    socket.on('get-agent-data-response', function ({ agentData: data }: any) {
+      setAgentData(data)
+    })
+    // Client data response (from Client model)
+    socket.on('get-client-data-response', function ({ clientData: data }: any) {
       setClientData(data)
     })
 
@@ -404,9 +425,8 @@ export default function EnhancedTrainingPage() {
     })
 
     // Main training event handler - handles all training-related updates
-    socket.on('training-event', function({ client, message, scrapingProgress: progress }: { client?: ClientData, message?: string, scrapingProgress?: ScrapingProgress }) {
-      console.log('Training event received:', { client, message, scrapingProgress: progress })
-      
+    // Backend may send 'agent' (from ScrapingController) or 'client' (from jobService)
+    socket.on('training-event', function({ client, agent, message, scrapingProgress: progress }: { client?: ClientData, agent?: AgentData, message?: string, scrapingProgress?: ScrapingProgress }) {
       // Handle scraping progress updates
       if (progress) {
         setScrapingProgress(progress)
@@ -418,47 +438,37 @@ export default function EnhancedTrainingPage() {
           }, 5000) // Clear after 5 seconds
         }
         
-        // Handle stopped states
-        // if (progress.stoppedReason === 'storage_limit_exceeded') {
-        //   addError('Storage limit exceeded. Scraping stopped. Upgrade your plan to continue.', 'warning', 'Storage')
-        // }
-        
         // Handle error states
         if (progress.error) {
           addError('An error occurred during scraping/training.', 'error', 'Scraping')
         }
-      } else if (client?.dataTrainingStatus === 0) {
+      } else if (agent?.dataTrainingStatus === 0) {
         // Clear progress when training status is 0 and no progress is provided
         setScrapingProgress(null)
       }
       
-      if (client) {
-          if (client.dataTrainingStatus === 1 && clientData?.dataTrainingStatus !== 1 && clientData?.dataTrainingStatus !== null && progress == undefined) {
-            toast.info('Training started...')
-          } else if (client.dataTrainingStatus === 0 && clientData?.dataTrainingStatus !== 0 && clientData?.dataTrainingStatus !== null) {
-            // Clear progress when training completes
-            setScrapingProgress(null)
-
-            if (message) {
-              toast.error(message)
-              addError(message, 'error', 'Training')
-            }
-            else {
-              toast.success('Training completed successfully!')
-            }
-          }
-
-        // Handle upgrade plan status alerts
-        if (client.upgradePlanStatus) {
-          if (client.upgradePlanStatus.storageLimitExceeded) {
-            addError('Storage limit exceeded. Please upgrade your plan to continue.', 'warning', 'Storage')
+      // Update agent data (training status, pages, files, faqs from Agent model)
+      if (agent) {
+        if (agent.dataTrainingStatus === 1 && agentData?.dataTrainingStatus !== 1 && agentData?.dataTrainingStatus !== null && progress == undefined) {
+          toast.info('Training started...')
+        } else if (agent.dataTrainingStatus === 0 && agentData?.dataTrainingStatus !== 0 && agentData?.dataTrainingStatus !== null) {
+          setScrapingProgress(null)
+          if (message) {
+            toast.error(message)
+            addError(message, 'error', 'Training')
+          } else {
+            toast.success('Training completed successfully!')
           }
         }
-        setClientData(client)
+        setAgentData(agent)
       }
-
-      if (message) {
-        console.log('Training message:', message)
+      
+      // Update client data (plan, storage limits from Client model)
+      if (client) {
+        if (client.upgradePlanStatus?.storageLimitExceeded) {
+          addError('Storage limit exceeded. Please upgrade your plan to continue.', 'warning', 'Storage')
+        }
+        setClientData(client)
       }
 
       // Refresh data after training events
@@ -491,13 +501,13 @@ export default function EnhancedTrainingPage() {
     }
   }, [sourceTypeFilter, actionTypeFilter, currentPage, socket])
 
-  // Calculate totals and percentages
-  const totalItems = clientData ? (clientData.pagesAdded.total + clientData.filesAdded + clientData.faqsAdded) : 0
-  const totalSuccess = clientData ? (clientData.pagesAdded.success + clientData.filesAdded + clientData.faqsAdded) : 0
-  const totalFailed = clientData ? clientData.pagesAdded.failed : 0
+  // Calculate totals and percentages (from AgentData)
+  const totalItems = agentData ? (agentData.pagesAdded.total + agentData.filesAdded + agentData.faqsAdded) : 0
+  const totalSuccess = agentData ? (agentData.pagesAdded.success + agentData.filesAdded + agentData.faqsAdded) : 0
+  const totalFailed = agentData ? agentData.pagesAdded.failed : 0
   const successRate = totalItems > 0 ? (totalSuccess / totalItems) * 100 : 0
 
-  const trainingStatus = clientData ? getTrainingStatusMessage(clientData.dataTrainingStatus) : null
+  const trainingStatus = agentData ? getTrainingStatusMessage(agentData.dataTrainingStatus) : null
 
   console.log(trainingList.data,"trainingList.data")
   return (
@@ -542,7 +552,7 @@ export default function EnhancedTrainingPage() {
             <Button 
               onClick={() => setShowModal(true)}
               className="bg-blue-600 hover:bg-blue-700"
-              disabled={clientData?.dataTrainingStatus === 1 || clientData?.upgradePlanStatus?.storageLimitExceeded}
+              disabled={agentData?.dataTrainingStatus === 1 || clientData?.upgradePlanStatus?.storageLimitExceeded}
             >
               <PlusIcon className="w-4 h-4 mr-2" />
               Add Content
@@ -712,19 +722,19 @@ export default function EnhancedTrainingPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Total:</span>
-                  <span className="font-medium">{clientData?.pagesAdded.total || 0}</span>
+                  <span className="font-medium">{agentData?.pagesAdded.total || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Success:</span>
-                  <span className="font-medium text-green-600">{clientData?.pagesAdded.success || 0}</span>
+                  <span className="font-medium text-green-600">{agentData?.pagesAdded.success || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Failed:</span>
-                  <span className="font-medium text-red-600">{clientData?.pagesAdded.failed || 0}</span>
+                  <span className="font-medium text-red-600">{agentData?.pagesAdded.failed || 0}</span>
                 </div>
-                {/* {clientData?.pagesAdded.total > 0 && (
+                {/* {agentData?.pagesAdded.total > 0 && (
                   <Progress 
-                    value={(clientData.pagesAdded.success / clientData.pagesAdded.total) * 100} 
+                    value={(agentData.pagesAdded.success / agentData.pagesAdded.total) * 100} 
                     className="h-2 mt-2" 
                   />
                 )} */}
@@ -746,7 +756,7 @@ export default function EnhancedTrainingPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Total Added:</span>
-                  <span className="font-medium">{clientData?.filesAdded || 0}</span>
+                  <span className="font-medium">{agentData?.filesAdded || 0}</span>
                 </div>
                 {/* <div className="flex justify-between text-sm">
                   <span>Data Size:</span>
@@ -772,7 +782,7 @@ export default function EnhancedTrainingPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Total Added:</span>
-                  <span className="font-medium">{clientData?.faqsAdded || 0}</span>
+                  <span className="font-medium">{agentData?.faqsAdded || 0}</span>
                 </div>
               </div>
             </CardContent>
@@ -821,9 +831,9 @@ export default function EnhancedTrainingPage() {
               <CardTitle>Training Data</CardTitle>
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* Training Status Indicator */}
-                {clientData && (
+                {agentData && (
                   <div className="flex items-center gap-2">
-                    {clientData.dataTrainingStatus === 1 ? (
+                    {agentData.dataTrainingStatus === 1 ? (
                       <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                         Training Active
