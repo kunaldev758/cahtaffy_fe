@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { getClientData } from '@/app/_api/dashboard/action'
 
 export default function Home(Props: any) {
+  const { showModal, onHide, agentId } = Props
   const router = useRouter()
   const [toggle, setToggle] = useState(false)
   const [url, setUrl] = useState('')
@@ -47,9 +48,9 @@ export default function Home(Props: any) {
 
     let response: any = null
     if(toggle == true){
-       response = await openaiWebPageScrapeApi(sitemap,true)
+       response = await openaiWebPageScrapeApi(sitemap, true, agentId ?? undefined)
     } else{
-       response = await openaiWebPageScrapeApi(sitemap,false)
+       response = await openaiWebPageScrapeApi(sitemap, false, agentId ?? undefined)
     }
     // const response: any = await openaiWebPageScrapeApi(sitemap)
     if (response==null || response == 'error'){
@@ -60,14 +61,14 @@ export default function Home(Props: any) {
     setButtonLoading(false)
     setUrl('')
     setUrls('')
-    Props.onHide()
+    onHide()
     toast.success(response.message)
 
   }
 
   return (<>
 
-    <Modal show={Props.showModal} onHide={Props.onHide} size='sm' centered backdrop="static">
+    <Modal show={showModal} onHide={onHide} size='sm' centered backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title as='h1'>Add new Web Pages</Modal.Title>
       </Modal.Header>
@@ -110,7 +111,7 @@ export default function Home(Props: any) {
       </Modal.Body>
       <Modal.Footer className="flex justify-content-space-between">
         <button type="button" className="custom-btn default-btn" onClick={() => {
-          Props.onHide()
+          onHide()
         }}>Cancel</button>
         <button type="button" className="custom-btn" onClick={handleButtonOnClick} disabled={buttonLoading}>
           {buttonLoading ?

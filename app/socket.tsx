@@ -6,6 +6,8 @@ interface SocketOptions {
   widgetAuthToken?:string,
   widgetId?:string,
   userId?: string,
+  agentId?: string,
+  humanAgentId?: string,
 }
 
 const initializeSocket = (options: SocketOptions): Socket => {

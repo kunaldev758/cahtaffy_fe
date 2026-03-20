@@ -14,10 +14,14 @@ interface MessagesAreaProps {
   setExpandedSources: (value: null | number) => void;
   messageRefs: React.MutableRefObject<Record<number, HTMLDivElement | null>>;
   currentConversation?: any;
+  isAITyping?: boolean;
+  onReviseAnswer?: (messageData: any) => void;
+  onReply?: (messageData: any) => void;
+  onJumpToReply?: (messageId: string) => void;
 }
 
 const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
-  ({ conversationMessages, expandedSources, setExpandedSources, messageRefs, currentConversation }, ref) => {
+  ({ conversationMessages, expandedSources, setExpandedSources, messageRefs, currentConversation, isAITyping, onReviseAnswer, onReply, onJumpToReply }, ref) => {
     return (
       <div className="flex-1 overflow-y-auto p-6" ref={ref}>
         {conversationMessages.loading ? (
@@ -32,6 +36,17 @@ const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
           </div>
         ) : (
           <div className="space-y-4">
+            {isAITyping && (
+              <div className="flex justify-start">
+                <div className="max-w-xs bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </div>
+            )}
             {conversationMessages?.data?.map((item: MessageType, index: number) => (
               <div
                 key={index}
@@ -45,6 +60,9 @@ const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
                   expandedSources={expandedSources}
                   setExpandedSources={setExpandedSources}
                   visitorName={conversationMessages?.visitorName}
+                  onReviseAnswer={onReviseAnswer}
+                  onReply={onReply}
+                  onJumpToReply={onJumpToReply}
                 />
               </div>
             ))}

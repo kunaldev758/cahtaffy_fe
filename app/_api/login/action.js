@@ -14,12 +14,10 @@ export async function loginAgentApi(email, password) {
   })
 
   const result = await response.json()
-  if (result.message=="Login successful") {
-    console.log(result.token,"this is token")
-    cookies().set({ name: 'token', value: result.token, httpOnly: true})
-    cookies().set({name:"role",value:"agent",httpOnly: true})
+  if (result.message === "Login successful") {
+    cookies().set({ name: 'token', value: result.token, httpOnly: true })
+    cookies().set({ name: 'role', value: 'agent', httpOnly: true })
   }
-  console.log(result,"the result")
   return result
 }
 
@@ -99,6 +97,40 @@ export async function getAgentsApi() {
       'Content-Type': 'application/json',
       'Authorization': token,
     }
+  })
+  const result = await response.json()
+  return result
+}
+
+export async function createAIAgentApi() {
+  const token = cookies().get('token')?.value
+  if (!token) return { status: false, message: 'Not authenticated' }
+
+  const response = await fetch(`${process.env.API_HOST}ai-agents`, {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token,
+    },
+    body: JSON.stringify({}),
+  })
+  const result = await response.json()
+  return result
+}
+
+export async function deleteAIAgentApi(agentId) {
+  const token = cookies().get('token')?.value
+  if (!token) return { status: false, message: 'Not authenticated' }
+
+  const response = await fetch(`${process.env.API_HOST}ai-agents/delete/${agentId}`, {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token,
+    },
+    body: JSON.stringify({}),
   })
   const result = await response.json()
   return result

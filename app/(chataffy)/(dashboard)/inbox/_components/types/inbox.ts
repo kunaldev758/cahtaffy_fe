@@ -21,6 +21,12 @@ export interface Conversation {
     };
   }
   
+  export interface MessageSource {
+    type: number | null; // 0=WebPage, 1=File, 2=Snippet, 3=FAQ, 4=RevisedAnswer
+    title: string | null;
+    url: string | null;
+  }
+
   export interface Message {
     _id: string;
     message: string;
@@ -28,10 +34,18 @@ export interface Conversation {
     is_note?: string;
     createdAt: string;
     conversation_id: string;
+    infoSources?: MessageSource[] | string[];
     agentId?: {
       _id: string;
       name: string;
       avatar?: string;
+      isClient?: boolean;
+    };
+    humanAgentId?: {
+      _id: string;
+      name: string;
+      avatar?: string;
+      isClient?: boolean;
     };
   }
   

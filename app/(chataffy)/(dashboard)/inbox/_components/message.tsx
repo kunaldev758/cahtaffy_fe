@@ -113,7 +113,7 @@
 // }
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { MoreVertical, Edit, Trash2, User, ArrowRightLeft, Users } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, User, ArrowRightLeft, Users, Pencil } from 'lucide-react';
 import { format } from "date-fns";
 import trainingIconImage from '@/images/training-icon.svg';
 import chatSourceIconImage from '@/images/chat-source-icon.svg';
@@ -122,13 +122,34 @@ import InformationSources from './informationSources';
 
 const defaultImage = (defaultImageImport as any).src || defaultImageImport;
 
+interface MessageSource {
+  type: number | null;
+  title: string | null;
+  url: string | null;
+}
+
+interface ReplyTo {
+  _id?: string;
+  message: string;
+  sender_type: string;
+  humanAgentId?: { name: string; isClient?: boolean } | null;
+}
+
 interface MessageData {
+  _id?: string;
   sender_type: string;
   message: string;
   createdAt: Date;
-  infoSources?: string[];
+  infoSources?: MessageSource[] | string[];
   is_note?: string;
+  replyTo?: ReplyTo | null;
   agentId?: {
+    _id: string;
+    name: string;
+    avatar?: string;
+    isClient?: boolean;
+  };
+  humanAgentId?: {
     _id: string;
     name: string;
     avatar?: string;
@@ -141,17 +162,19 @@ const Message = ({
   messageIndex, 
   expandedSources, 
   setExpandedSources, 
-  visitorName, 
-  // onEditMessage, 
-  // onDeleteMessage 
+  visitorName,
+  onReviseAnswer,
+  onReply,
+  onJumpToReply,
 }: { 
   messageData: MessageData; 
   messageIndex: number; 
   expandedSources: number | null; 
   setExpandedSources: (index: number | null) => void; 
-  visitorName: string; 
-  // onEditMessage: (data: MessageData) => void; 
-  // onDeleteMessage: (data: MessageData) => void; 
+  visitorName: string;
+  onReviseAnswer?: (messageData: MessageData) => void;
+  onReply?: (messageData: MessageData) => void;
+  onJumpToReply?: (messageId: string) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -209,6 +232,73 @@ const Message = ({
     </div>
   );
   
+  const stripHtml = (html: string) => html?.replace(/<[^>]+>/g, '').trim() || '';
+
+  const renderReplyQuote = (replyTo: ReplyTo, align: 'left' | 'right') => {
+    const replyId = replyTo._id?.toString?.() || (replyTo as any)._id;
+    const senderLabel =
+      replyTo.sender_type === 'visitor'
+        ? visitorName || 'Visitor'
+        : replyTo.humanAgentId?.name || 'Agent';
+    const preview = stripHtml(replyTo.message).slice(0, 120);
+    const borderColor = align === 'right' ? 'rgba(255,255,255,0.5)' : '#93c5fd';
+    const bgColor = align === 'right' ? 'rgba(255,255,255,0.15)' : '#eff6ff';
+    const textColor = align === 'right' ? 'rgba(255,255,255,0.9)' : '#1e40af';
+    const subColor = align === 'right' ? 'rgba(255,255,255,0.7)' : '#3b82f6';
+    const jumpable = Boolean(replyId && onJumpToReply);
+    const inner = (
+      <>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: subColor, marginBottom: '2px' }}>
+          {senderLabel}
+        </div>
+        <div style={{ fontSize: '12px', color: textColor, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {preview || '…'}
+        </div>
+      </>
+    );
+    const boxStyle: React.CSSProperties = {
+      borderLeft: `3px solid ${borderColor}`,
+      background: bgColor,
+      borderRadius: '4px',
+      padding: '4px 8px',
+      marginBottom: '6px',
+      maxWidth: '100%',
+      ...(jumpable
+        ? { cursor: 'pointer', outline: 'none' }
+        : {}),
+    };
+    if (jumpable) {
+      return (
+        <button
+          type="button"
+          onClick={() => replyId && onJumpToReply?.(replyId)}
+          title="Jump to original message"
+          style={{
+            ...boxStyle,
+            border: 'none',
+            width: '100%',
+            textAlign: 'left',
+            font: 'inherit',
+          }}
+        >
+          {inner}
+        </button>
+      );
+    }
+    return <div style={boxStyle}>{inner}</div>;
+  };
+
+  // Parse infoSources: support both new object format and legacy string format
+  const structuredSources: MessageSource[] = React.useMemo(() => {
+    if (!messageData.infoSources?.length) return [];
+    return (messageData.infoSources as any[]).map((s) => {
+      if (typeof s === 'string') {
+        try { return JSON.parse(s); } catch { return { type: null, title: s, url: null }; }
+      }
+      return s as MessageSource;
+    }).filter((s) => s && (s.url || s.title));
+  }, [messageData.infoSources]);
+
   let message;
   switch(messageData.sender_type) {
     case 'system':
@@ -243,13 +333,16 @@ const Message = ({
       );
       break;
       
+    case 'ai':
     case 'bot':
+    case 'humanAgent':
+    case 'client':
     case 'agent':
     case 'assistant':
-      // Check if this is an agent message (has agentId) vs bot/assistant
-      const isAgentMessage = messageData.sender_type === 'agent';
-      
-      // Format agent name - capitalize "client" to "Client" for client-agents
+      // Human agent messages: humanAgent, client (legacy: agent). AI: ai (legacy: bot, assistant)
+      const isAgentMessage = ['humanAgent', 'client', 'agent'].includes(messageData.sender_type);
+      const agentSource = messageData.humanAgentId || messageData.agentId;
+
       const getDisplayName = (name?: string, isClient?: boolean) => {
         if (!name) return '';
         if (name.toLowerCase() === 'client' || isClient) {
@@ -257,8 +350,8 @@ const Message = ({
         }
         return name;
       };
-      
-      const displayName = getDisplayName(messageData.agentId?.name, messageData.agentId?.isClient);
+
+      const displayName = getDisplayName(agentSource?.name, agentSource?.isClient);
       
       message = (
         <div className="message-box ai-message">
@@ -273,6 +366,7 @@ const Message = ({
               <div className="chat-messageBox relative" 
                 style={messageData.is_note === 'true' ? { backgroundColor: 'yellow' } : {}}
               >
+                {messageData.replyTo && renderReplyQuote(messageData.replyTo, 'right')}
                 <span className="relative flex items-center">
                   {/* {renderMessageMenu()} */}
                   <div
@@ -300,15 +394,14 @@ const Message = ({
                 </div> */}
               </div>
             </div>
-            <div className={`chatMessage-logo w-10 h-10 !min-w-10 min-h-10 rounded-full overflow-hidden flex items-center justify-center ${isAgentMessage && messageData.agentId ? 'agent-avatar-container' : ''}`}>
-              {isAgentMessage && messageData.agentId ? (
-                // Check if avatar exists and is not null/empty
-                messageData.agentId.avatar && messageData.agentId.avatar !== 'null' && messageData.agentId.avatar.trim() !== '' ? (
+            <div className={`chatMessage-logo w-10 h-10 !min-w-10 min-h-10 rounded-full overflow-hidden flex items-center justify-center ${isAgentMessage && agentSource ? 'agent-avatar-container' : ''}`}>
+              {isAgentMessage && agentSource ? (
+                agentSource.avatar && agentSource.avatar !== 'null' && agentSource.avatar.trim() !== '' ? (
                   <div className="agent-avatar-wrapper w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     <img 
-                      src={messageData.agentId.avatar.startsWith('http') 
-                        ? messageData.agentId.avatar 
-                        : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${messageData.agentId.avatar}`} 
+                      src={agentSource.avatar.startsWith('http') 
+                        ? agentSource.avatar 
+                        : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agentSource.avatar}`} 
                       alt={displayName || 'Agent'} 
                       className="agent-avatar-img w-10 h-10 object-cover"
                       onError={(e) => {
@@ -339,16 +432,67 @@ const Message = ({
           </div>
 
           <div className="chat-messageInfo">
-            <div className="d-flex gap-10">
-              {!!messageData.infoSources?.length && (
-                <span className="sourceChat-box">
-                  <button type="button" className="plain-btn sourceChat" onClick={toggleExpandedSources}>
-                    <Image src={chatSourceIconImage} alt="" />
+            <div className="d-flex gap-10 items-center flex-wrap">
+              {/* Source info button */}
+              {!!structuredSources?.length && (
+                <span className="sourceChat-box relative">
+                  <button
+                    type="button"
+                    className="plain-btn sourceChat"
+                    onClick={toggleExpandedSources}
+                    title="View sources"
+                  >
+                    <Image src={chatSourceIconImage} alt="sources" />
                   </button>
-                  {isExpanded && <InformationSources trainingListIds={messageData.infoSources} />}
+                  {isExpanded && <InformationSources sources={structuredSources} />}
                 </span>
               )}
               <span>{format(messageData.createdAt, 'hh:mm:ss a')}</span>
+              {onReply && (
+                <button
+                  type="button"
+                  onClick={() => onReply(messageData)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    background: 'none',
+                    border: 'none',
+                    padding: '1px 4px',
+                    fontSize: '11px',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    borderRadius: '4px',
+                  }}
+                  title={messageData.is_note === 'true' ? 'Reply to this note' : 'Reply to this message'}
+                >
+                  ↩ Reply
+                </button>
+              )}
+              {/* Revise Answer button - only for AI messages and only for agents */}
+              {!isAgentMessage && onReviseAnswer && (
+                <button
+                  type="button"
+                  onClick={() => onReviseAnswer(messageData)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'none',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    padding: '2px 8px',
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    cursor: 'pointer',
+                    lineHeight: '18px',
+                  }}
+                  title="Improve this AI answer"
+                >
+                  <Pencil className="w-3 h-3" />
+                  Revise Answer
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -366,6 +510,7 @@ const Message = ({
             </div>
             <div className="chat-messageArea d-flex flex-column align-items-start">
               <div className="chat-messageBox relative">
+                {messageData.replyTo && renderReplyQuote(messageData.replyTo, 'left')}
                 <div
                   dangerouslySetInnerHTML={{
                     __html: messageData.message
@@ -395,8 +540,29 @@ const Message = ({
           </div>
 
           <div className="chat-messageInfo">
-            <div className="d-flex gap-10">
+            <div className="d-flex gap-10 items-center">
               <span>{format(messageData.createdAt, 'hh:mm:ss a')}</span>
+              {onReply && (
+                <button
+                  type="button"
+                  onClick={() => onReply(messageData)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    background: 'none',
+                    border: 'none',
+                    padding: '1px 4px',
+                    fontSize: '11px',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    borderRadius: '4px',
+                  }}
+                  title="Reply to this message"
+                >
+                  ↩ Reply
+                </button>
+              )}
             </div>
           </div>
         </div>

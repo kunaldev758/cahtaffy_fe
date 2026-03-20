@@ -12,6 +12,7 @@ interface FaqItem {
 }
 
 export default function Home(Props: any) {
+  const { showModal, onHide, agentId } = Props
   const [faqs, setFaqs] = useState<FaqItem[]>([{ id: 1, question: '', answer: '' }])
   const [buttonLoading, setButtonLoading] = useState(false)
 
@@ -54,7 +55,7 @@ export default function Home(Props: any) {
     // Save all FAQs
     // for (const faq of faqs) {
       try {
-        const response: any = await openaiCreateFaq(faqs)
+        const response: any = await openaiCreateFaq(faqs, agentId ?? undefined)
         if (response && response.message) {
           successCount++
         } else {
@@ -73,7 +74,7 @@ export default function Home(Props: any) {
       setFaqs([{ id: 1, question: '', answer: '' }])
     } else if (successCount > 0) {
       // toast.warning(`Added ${successCount} FAQ${successCount > 1 ? 's' : ''}, but ${errorCount} failed`)
-      Props.onHide()
+      onHide()
       setFaqs([{ id: 1, question: '', answer: '' }])
     } else {
       toast.error("Failed to add FAQs. Please try again.")
@@ -81,12 +82,12 @@ export default function Home(Props: any) {
   }
 
   const handleCancel = () => {
-    Props.onHide()
+    onHide()
     setFaqs([{ id: 1, question: '', answer: '' }])
   }
 
   return (<>
-    <Modal show={Props.showModal} onHide={handleCancel} size='lg' centered backdrop="static">
+    <Modal show={showModal} onHide={handleCancel} size='lg' centered backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title as='h1'>Add New FAQs</Modal.Title>
       </Modal.Header>

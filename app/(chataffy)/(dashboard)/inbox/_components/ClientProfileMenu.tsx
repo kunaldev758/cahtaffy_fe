@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { User, LogOut, ChevronDown } from "lucide-react";
+import { User, LogOut, ChevronDown, CreditCard } from "lucide-react";
 import { logoutApi } from '@/app/_api/dashboard/action';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
@@ -10,12 +10,14 @@ interface ClientProfileMenuProps {
   clientEmail?: string;
   clientId?: string;
   isActive?: boolean;
+  clientName?: string;
 }
 
-export default function ClientProfileMenu({ 
-  clientEmail, 
+export default function ClientProfileMenu({
+  clientEmail,
   clientId,
-  isActive = true 
+  isActive = true,
+  clientName,
 }: ClientProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(isActive);
@@ -24,14 +26,12 @@ export default function ClientProfileMenu({
   const router = useRouter();
   const { socket } = useSocket();
 
-  // Sync with prop changes
   useEffect(() => {
     if (isActive !== undefined) {
       setIsOnline(isActive);
     }
   }, [isActive]);
 
-  // Get client data from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const clientData = localStorage.getItem('client');
@@ -41,22 +41,16 @@ export default function ClientProfileMenu({
           if (isActive === undefined) {
             setIsOnline(parsedClient.isActive !== false);
           }
-        } catch (error) {
-          console.error('Error parsing client data:', error);
-        }
+        } catch {}
       }
     }
   }, [isActive]);
 
-  // Listen for client status updates via socket
   useEffect(() => {
     if (!socket) return;
 
     const handleClientStatusUpdate = (updatedClient: any) => {
-      console.log('Client status updated via socket:', updatedClient);
       setIsOnline(updatedClient.isActive !== false);
-      
-      // Update localStorage
       if (typeof window !== 'undefined') {
         const clientData = localStorage.getItem('client');
         if (clientData) {
@@ -68,59 +62,42 @@ export default function ClientProfileMenu({
               lastActive: updatedClient.lastActive,
             };
             localStorage.setItem('client', JSON.stringify(updatedClientData));
-          } catch (error) {
-            console.error('Error updating client data:', error);
-          }
+          } catch {}
         }
       }
     };
 
     socket.on('client-status-updated', handleClientStatusUpdate);
-
     return () => {
       socket.off('client-status-updated', handleClientStatusUpdate);
     };
   }, [socket]);
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen]);
 
   const handleToggleStatus = async () => {
-    if (isUpdating) {
-      console.log('Cannot toggle: isUpdating=', isUpdating);
-      return;
-    }
-    
+    if (isUpdating) return;
     setIsUpdating(true);
     const newStatus = !isOnline;
-    console.log('Toggling client status:', { currentStatus: isOnline, newStatus });
-    
+
     try {
       const response = await updateClientStatus(newStatus);
-      console.log('Update client status response:', response);
-      
-      // Check if the response indicates success
       if (response === 'error' || (response && response.status_code !== 200)) {
         throw new Error(response?.message || 'Failed to update client status');
       }
-      
       setIsOnline(newStatus);
-      
-      // Update localStorage
       if (typeof window !== 'undefined') {
         const clientData = localStorage.getItem('client');
         if (clientData) {
@@ -132,40 +109,23 @@ export default function ClientProfileMenu({
               lastActive: newStatus ? new Date().toISOString() : parsedClient.lastActive,
             };
             localStorage.setItem('client', JSON.stringify(updatedClientData));
-            
-            // Trigger a custom event to update inbox component
-            window.dispatchEvent(new CustomEvent('client-status-changed', { 
-              detail: updatedClientData 
-            }));
-          } catch (error) {
-            console.error('Error updating client data:', error);
-          }
-        } else {
-          // If no client data in localStorage, create it from the response
-          if (response && response.agent) {
-            localStorage.setItem('clientAgent', JSON.stringify(response.agent));
-            // Also update agent localStorage if it exists
-            const agentData = localStorage.getItem('agent');
-            if (agentData) {
-              try {
-                const parsedAgent = JSON.parse(agentData);
-                if (parsedAgent.isClient) {
-                  const updatedAgent = { ...parsedAgent, ...response.agent };
-                  localStorage.setItem('agent', JSON.stringify(updatedAgent));
-                }
-              } catch (error) {
-                console.error('Error updating agent data:', error);
+            window.dispatchEvent(new CustomEvent('client-status-changed', { detail: updatedClientData }));
+          } catch {}
+        } else if (response && response.agent) {
+          localStorage.setItem('clientAgent', JSON.stringify(response.agent));
+          const agentData = localStorage.getItem('agent');
+          if (agentData) {
+            try {
+              const parsedAgent = JSON.parse(agentData);
+              if (parsedAgent.isClient) {
+                localStorage.setItem('agent', JSON.stringify({ ...parsedAgent, ...response.agent }));
               }
-            }
-            window.dispatchEvent(new CustomEvent('client-status-changed', { 
-              detail: response.agent 
-            }));
+            } catch {}
           }
+          window.dispatchEvent(new CustomEvent('client-status-changed', { detail: response.agent }));
         }
       }
-    } catch (error) {
-      console.error('Error updating client status:', error);
-      // Revert on error
+    } catch {
       setIsOnline(!newStatus);
       alert('Failed to update status. Please try again.');
     } finally {
@@ -176,84 +136,70 @@ export default function ClientProfileMenu({
   const handleLogout = async () => {
     try {
       await logoutApi();
-      localStorage.clear();
-      router.replace('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still clear localStorage and redirect on error
-      localStorage.clear();
-      router.replace('/login');
-    }
+    } catch {}
+    localStorage.clear();
+    router.replace('/login');
   };
 
-  // Get email from localStorage if not provided
-  const displayEmail = clientEmail || (typeof window !== 'undefined' ? 
-    (() => {
-      try {
-        const clientData = localStorage.getItem('client');
-        if (clientData) {
-          const parsed = JSON.parse(clientData);
-          return parsed.email || '';
-        }
-        const userData = localStorage.getItem('user');
-        if (userData) {
-          const parsed = JSON.parse(userData);
-          return parsed.email || '';
-        }
-      } catch (error) {
-        console.error('Error getting email:', error);
-      }
-      return '';
-    })() : '');
+  const displayEmail = clientEmail || (typeof window !== 'undefined'
+    ? (() => {
+        try {
+          const clientData = localStorage.getItem('client');
+          if (clientData) return JSON.parse(clientData).email || '';
+          const userData = localStorage.getItem('user');
+          if (userData) return JSON.parse(userData).email || '';
+        } catch {}
+        return '';
+      })()
+    : '');
+
+  const displayName = clientName || (displayEmail ? displayEmail.split('@')[0] : 'Agent');
 
   return (
     <div className="relative" ref={menuRef}>
+      {/* Agent card trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors duration-200"
-        title="Profile"
+        className="flex items-center gap-3 w-full px-2 py-2 rounded-xl hover:bg-gray-100 transition-colors duration-150 group"
       >
-        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
-          <User className="w-5 h-5" />
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+          <User className="w-5 h-5 text-white" />
         </div>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <div className="flex-1 text-left min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
+          <p className="text-xs text-[#94A3B8] truncate">Free Plan</p>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-[#94A3B8] transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-          {/* Profile Header */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
-                <User className="w-6 h-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {displayEmail?.split('@')[0] || 'Client'}
-                </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {displayEmail || 'No email'}
-                </p>
-              </div>
+        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+          {/* Profile header */}
+          <div className="px-5 pt-5 pb-4 text-center border-b border-gray-100">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <User className="w-7 h-7 text-white" />
             </div>
+            <p className="text-sm font-bold text-gray-900">{displayName}</p>
+            <p className="text-xs text-[#94A3B8] mt-0.5">{displayEmail || 'No email'}</p>
           </div>
 
-          {/* Online/Offline Toggle */}
-          <div className="p-4 border-b border-gray-200">
+          {/* Accept Chats toggle */}
+          <div className="px-5 py-3 border-b border-gray-100">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-700">Accept chats</span>
-                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <span className="text-sm font-medium text-gray-700">Accept Chats</span>
               </div>
               <button
                 onClick={handleToggleStatus}
                 disabled={isUpdating}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isOnline ? 'bg-blue-600' : 'bg-gray-300'
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                  isOnline ? 'bg-green-500' : 'bg-gray-200'
                 } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
                     isOnline ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -261,14 +207,31 @@ export default function ClientProfileMenu({
             </div>
           </div>
 
+          {/* Menu items */}
+          <div className="px-3 py-2 space-y-0.5">
+            <button
+              className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
+            >
+              <CreditCard className="w-4 h-4 text-[#64748B]" />
+              Billing
+            </button>
+
+            <button
+              className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
+            >
+              <User className="w-4 h-4 text-[#64748B]" />
+              Profile
+            </button>
+          </div>
+
           {/* Logout */}
-          <div className="p-2">
+          <div className="px-3 pb-3">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
+              className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150"
             >
               <LogOut className="w-4 h-4" />
-              <span>Log out</span>
+              Logout
             </button>
           </div>
         </div>

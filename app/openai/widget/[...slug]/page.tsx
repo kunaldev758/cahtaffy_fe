@@ -199,10 +199,12 @@ export default function EnhancedChatWidget({ params }: any) {
   const [isConnectingToAgent, setIsConnectingToAgent] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ _id?: string; message: string; sender_type: string; senderName?: string } | null>(null);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
   const chatBottomRef = useRef<any>(null);
+  const messageRowRefsById = useRef<Record<string, HTMLDivElement | null>>({});
   const socketRef = useRef<Socket | null>(null);
   const recognitionRef = useRef<any>(null);
   const isManualStopRef = useRef<boolean>(false);
@@ -220,6 +222,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
   const widgetId = params?.slug?.[0] || 'demo-widget';
   const widgetToken = params?.slug?.[1] || 'demo-token';
+  const agentId = params?.slug?.[2] || null;
 
   const clearNoReplyTimer = () => {
     if (noReplyTimerRef.current) {
@@ -305,6 +308,7 @@ export default function EnhancedChatWidget({ params }: any) {
         query: {
           widgetId,
           widgetAuthToken: widgetToken,
+          agentId: agentId,
           visitorId: localStorage.getItem('visitorId'),
         },
         transports: ["websocket", "polling"],
@@ -322,6 +326,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
       socketRef.current = socketInstance;
     } catch (e) {
+      console.error("Socket initialization error", e);
       setSocketError(true);
     }
 
@@ -329,7 +334,7 @@ export default function EnhancedChatWidget({ params }: any) {
       socketInstance?.disconnect();
       socketRef.current = null;
     };
-  }, [widgetId, widgetToken]);
+  }, [widgetId, widgetToken, agentId]);
 
   const handleCloseConversationClient = useCallback(() => {
     setConversationStatus('close');
@@ -366,7 +371,7 @@ export default function EnhancedChatWidget({ params }: any) {
       
       setConversation((prev: any[]) => {
         if (!prev.length) {
-          setConversationId(data.chatMessage[0]?.conversationId);
+          setConversationId(data.chatMessage?.conversation_id);
         }
         return [...prev, data.chatMessage];
       });
@@ -670,11 +675,12 @@ export default function EnhancedChatWidget({ params }: any) {
       console.log('👤 Agent chat mode: NOT setting isTyping (will be controlled by agent-typing socket events)');
     }
     
-    socket?.emit("visitor-send-message", messageData);
+    socket?.emit("visitor-send-message", { ...messageData, replyTo: replyingTo?._id || null });
     
     // Set flag to maintain focus after state updates
     shouldMaintainFocusRef.current = true;
     
+    setReplyingTo(null);
     setInputMessage('');
     startNoReplyTimer();
     
@@ -893,6 +899,12 @@ export default function EnhancedChatWidget({ params }: any) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const scrollWidgetToMessageId = (messageId: string) => {
+    const id = messageId?.toString?.() || messageId;
+    const el = messageRowRefsById.current[id];
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   const toggleWidget = () => {
@@ -1283,7 +1295,13 @@ export default function EnhancedChatWidget({ params }: any) {
                         {visitorExists || (!visitorExists && !(themeSettings as any)?.isPreChatFormEnabled) ? (
                           <div className="space-y-4">
                             {conversation.map((item: any, key: any) => (
-                              <div key={key}>
+                              <div
+                                key={item._id || key}
+                                ref={(el) => {
+                                  const mid = item._id?.toString?.();
+                                  if (mid) messageRowRefsById.current[mid] = el;
+                                }}
+                              >
                                 {/* System messages - centered and styled differently */}
                                 {item.sender_type === 'system' && (
                                   <div className="flex items-center justify-center py-2 animate-in slide-in-from-left duration-300">
@@ -1301,21 +1319,20 @@ export default function EnhancedChatWidget({ params }: any) {
                                   </div>
                                 )}
 
-                                {/* Agent/Bot messages */}
-                                {(item.sender_type === 'bot' ||
-                                  (item.sender_type === 'agent' && item.is_note === "false") ||
-                                  (item.sender_type === 'assistant' && item.is_note === "false")) && (
+                                {/* Agent/Bot messages: ai, humanAgent, client; legacy: bot, agent, assistant */}
+                                {(['ai', 'humanAgent', 'client', 'bot', 'agent', 'assistant'].includes(item.sender_type) &&
+                                  item.is_note !== "true") && (
                                     <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
                                       {themeSettings?.showLogo && (
                                         <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden relative"
                                           style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                                          {item.agentId ? (
-                                            item.agentId.avatar && item.agentId.avatar !== 'null' && item.agentId.avatar.trim() !== '' ? (
-                                              <img 
-                                                src={item.agentId.avatar.startsWith('http') 
-                                                  ? item.agentId.avatar 
-                                                  : `${process.env.NEXT_PUBLIC_API_HOST || process.env.NEXT_PUBLIC_FILE_HOST || ''}${item.agentId.avatar}`} 
-                                                alt={item.agentId.name || 'Agent'} 
+                                          {(item.sender_type === 'humanAgent' || item.sender_type === 'client' || item.sender_type === 'agent') && item.humanAgentId ? (
+                                            item.humanAgentId.avatar && item.humanAgentId.avatar !== 'null' && item.humanAgentId.avatar.trim() !== '' ? (
+                                              <img
+                                                src={item.humanAgentId.avatar.startsWith('http')
+                                                  ? item.humanAgentId.avatar
+                                                  : `${process.env.NEXT_PUBLIC_API_HOST || process.env.NEXT_PUBLIC_FILE_HOST || ''}${item.humanAgentId.avatar}`}
+                                                alt={item.humanAgentId.name || 'Agent'}
                                                 className="w-8 h-8 rounded-full object-cover"
                                                 onError={(e) => {
                                                   const target = e.target as HTMLImageElement;
@@ -1323,9 +1340,9 @@ export default function EnhancedChatWidget({ params }: any) {
                                                 }}
                                               />
                                             ) : (
-                                              <img 
-                                                src={defaultImage} 
-                                                alt={item.agentId.name || 'Agent'} 
+                                              <img
+                                                src={defaultImage}
+                                                alt={item.humanAgentId.name || 'Agent'}
                                                 className="w-8 h-8 rounded-full object-cover"
                                               />
                                             )
@@ -1343,6 +1360,33 @@ export default function EnhancedChatWidget({ params }: any) {
                                             color: getThemeColor(3, '#1e293b')
                                           }}
                                         >
+                                          {/* Reply quote for agent/bot messages */}
+                                          {item.replyTo && (
+                                            <button
+                                              type="button"
+                                              onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
+                                              title="Jump to original message"
+                                              style={{
+                                                borderLeft: '3px solid rgba(0,0,0,0.2)',
+                                                background: 'rgba(0,0,0,0.06)',
+                                                borderRadius: '4px',
+                                                padding: '4px 8px',
+                                                marginBottom: '6px',
+                                                width: '100%',
+                                                textAlign: 'left',
+                                                cursor: item.replyTo._id ? 'pointer' : 'default',
+                                                border: 'none',
+                                                font: 'inherit',
+                                              }}
+                                            >
+                                              <div style={{ fontSize: '10px', fontWeight: 600, marginBottom: '2px', opacity: 0.7 }}>
+                                                {item.replyTo.sender_type === 'visitor' ? 'You' : (item.replyTo.humanAgentId?.name || 'Agent')}
+                                              </div>
+                                              <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>
+                                                {item.replyTo.message?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '…'}
+                                              </div>
+                                            </button>
+                                          )}
                                           <div
                                             className="text-sm leading-relaxed"
                                             dangerouslySetInnerHTML={{
@@ -1353,8 +1397,31 @@ export default function EnhancedChatWidget({ params }: any) {
                                             }}
                                           />
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1 ml-2">
-                                          {item.createdAt && formatTime(item.createdAt)}
+                                        <div className="flex items-center gap-2 mt-1 ml-2">
+                                          <span className="text-xs text-gray-500">
+                                            {item.createdAt && formatTime(item.createdAt)}
+                                          </span>
+                                          {conversationStatus === 'open' && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setReplyingTo({
+                                                _id: item._id,
+                                                message: item.message,
+                                                sender_type: item.sender_type,
+                                                senderName: item.humanAgentId?.name || 'Agent',
+                                              })}
+                                              style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                fontSize: '11px',
+                                                color: '#9ca3af',
+                                                cursor: 'pointer',
+                                                padding: '0 2px',
+                                              }}
+                                            >
+                                              ↩ Reply
+                                            </button>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1371,6 +1438,33 @@ export default function EnhancedChatWidget({ params }: any) {
                                           color: getThemeColor(5, '#ffffff')
                                         }}
                                       >
+                                        {/* Reply quote inside visitor bubble */}
+                                        {item.replyTo && (
+                                          <button
+                                            type="button"
+                                            onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
+                                            title="Jump to original message"
+                                            style={{
+                                              borderLeft: '3px solid rgba(255,255,255,0.5)',
+                                              background: 'rgba(255,255,255,0.15)',
+                                              borderRadius: '4px',
+                                              padding: '4px 8px',
+                                              marginBottom: '6px',
+                                              width: '100%',
+                                              textAlign: 'left',
+                                              cursor: item.replyTo._id ? 'pointer' : 'default',
+                                              border: 'none',
+                                              font: 'inherit',
+                                            }}
+                                          >
+                                            <div style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '2px' }}>
+                                              {item.replyTo.sender_type === 'visitor' ? 'You' : (item.replyTo.humanAgentId?.name || 'Agent')}
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                              {item.replyTo.message?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '…'}
+                                            </div>
+                                          </button>
+                                        )}
                                         <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: item.message }} />
                                       </div>
                                       <div className="text-xs text-gray-500 mt-1 mr-2 text-right">
@@ -1391,24 +1485,28 @@ export default function EnhancedChatWidget({ params }: any) {
 
                             {/* Typing indicator */}
                             {isTyping && (() => {
-                              // Find the most recent agent message to get agentId
-                              const recentAgentMessage = [...conversation].reverse().find((msg: any) => 
-                                msg.agentId && (msg.sender_type === 'agent' || msg.sender_type === 'assistant')
-                              );
-                              const typingAgentId = recentAgentMessage?.agentId;
-                              
+                              // In agent mode (aiChat=false): find the most recent human agent message
+                              // and use their humanAgentId for the avatar.
+                              // In AI mode (aiChat=true): show the bot icon.
+                              const recentHumanAgentMsg = !aiChat
+                                ? [...conversation].reverse().find((msg: any) =>
+                                    msg.humanAgentId && (msg.sender_type === 'humanAgent' || msg.sender_type === 'client' || msg.sender_type === 'agent')
+                                  )
+                                : null;
+                              const typingHumanAgent = recentHumanAgentMsg?.humanAgentId;
+
                               return (
                                 <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
                                   {themeSettings?.showLogo && (
                                     <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden relative"
                                       style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
-                                      {typingAgentId ? (
-                                        typingAgentId.avatar && typingAgentId.avatar !== 'null' && typingAgentId.avatar.trim() !== '' ? (
-                                          <img 
-                                            src={typingAgentId.avatar.startsWith('http') 
-                                              ? typingAgentId.avatar 
-                                              : `${process.env.NEXT_PUBLIC_API_HOST || process.env.NEXT_PUBLIC_FILE_HOST || ''}${typingAgentId.avatar}`} 
-                                            alt={typingAgentId.name || 'Agent'} 
+                                      {typingHumanAgent ? (
+                                        typingHumanAgent.avatar && typingHumanAgent.avatar !== 'null' && typingHumanAgent.avatar.trim() !== '' ? (
+                                          <img
+                                            src={typingHumanAgent.avatar.startsWith('http')
+                                              ? typingHumanAgent.avatar
+                                              : `${process.env.NEXT_PUBLIC_API_HOST || process.env.NEXT_PUBLIC_FILE_HOST || ''}${typingHumanAgent.avatar}`}
+                                            alt={typingHumanAgent.name || 'Agent'}
                                             className="w-8 h-8 rounded-full object-cover"
                                             onError={(e) => {
                                               const target = e.target as HTMLImageElement;
@@ -1416,9 +1514,9 @@ export default function EnhancedChatWidget({ params }: any) {
                                             }}
                                           />
                                         ) : (
-                                          <img 
-                                            src={defaultImage} 
-                                            alt={typingAgentId.name || 'Agent'} 
+                                          <img
+                                            src={defaultImage}
+                                            alt={typingHumanAgent.name || 'Agent'}
                                             className="w-8 h-8 rounded-full object-cover"
                                           />
                                         )
@@ -1691,6 +1789,51 @@ export default function EnhancedChatWidget({ params }: any) {
                               </div>
                             ) : (
                               <>
+                                {/* Reply context bar */}
+                                {replyingTo && (
+                                  <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    borderLeft: '3px solid #3b82f6',
+                                    background: '#eff6ff',
+                                    borderRadius: '4px',
+                                    padding: '6px 10px',
+                                    marginBottom: '8px',
+                                    gap: '8px',
+                                  }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => replyingTo._id && scrollWidgetToMessageId(replyingTo._id)}
+                                      disabled={!replyingTo._id}
+                                      title="Jump to message in chat"
+                                      style={{
+                                        flex: 1,
+                                        minWidth: 0,
+                                        textAlign: 'left',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: replyingTo._id ? 'pointer' : 'default',
+                                        padding: 0,
+                                        font: 'inherit',
+                                      }}
+                                    >
+                                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#1d4ed8', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        Replying to {replyingTo.senderName || 'Agent'}
+                                      </div>
+                                      <div style={{ fontSize: '12px', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {replyingTo.message?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '…'}
+                                      </div>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setReplyingTo(null)}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
+
                                 {/* Normal Input area */}
                                 <div className="flex items-end space-x-2">
                                   <div className="flex-1 relative">

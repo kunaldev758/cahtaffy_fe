@@ -79,7 +79,9 @@ export default function AgentSidebar() {
       localStorage.removeItem('role');
       localStorage.removeItem('agent');
       localStorage.removeItem('userId');
-      
+      localStorage.removeItem('humanAgentId');
+      localStorage.removeItem('currentAgentId');
+
       // Also remove any client-related items that might have been set
       localStorage.removeItem('clientAgent');
       localStorage.removeItem('client');
@@ -101,6 +103,8 @@ export default function AgentSidebar() {
       localStorage.removeItem('role');
       localStorage.removeItem('agent');
       localStorage.removeItem('userId');
+      localStorage.removeItem('humanAgentId');
+      localStorage.removeItem('currentAgentId');
       router.push('/agent-login');
     }
   };
