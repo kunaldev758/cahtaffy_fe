@@ -217,6 +217,11 @@ export default function ClientProfileMenu({
             </button>
 
             <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false)
+                router.push('/profile')
+              }}
               className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
             >
               <User className="w-4 h-4 text-[#64748B]" />

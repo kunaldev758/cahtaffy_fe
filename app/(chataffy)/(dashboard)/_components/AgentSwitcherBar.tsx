@@ -19,6 +19,54 @@ type Agent = {
 // Routes where the bar should appear (dashboard has its own integrated header)
 const SHOW_ON_PATHS = ['/setup', '/inbox', '/training', '/humanAgent']
 
+type PageHeading = { title: string; subtitle?: string }
+
+/** Longest-prefix match: page title + subtitle on the left of the top bar */
+const PAGE_HEADINGS: Record<string, PageHeading> = {
+  '/setup/widget': {
+    title: 'Agent Management',
+    subtitle:
+      'Give your AI assistant a unique personality and style. You can always refine it later in settings.',
+  },
+  '/setup/training': {
+    title: 'Agent training',
+    subtitle: 'Manage pages, documents, and FAQs your agent learns from.',
+  },
+  '/training': {
+    title: 'Agent training',
+    subtitle: 'Manage pages, documents, and FAQs your agent learns from.',
+  },
+  '/inbox': {
+    title: 'Inbox',
+    subtitle: 'Manage your inbox.',
+  },
+  '/humanAgent': {
+    title: 'Human Agent Management',
+    subtitle: 'Manage human agents and assign them to websites (AI agents)',
+  },
+}
+
+function pageHeadingForPath(pathname: string | null): PageHeading | null {
+  if (!pathname) return null
+  const keys = Object.keys(PAGE_HEADINGS).sort((a, b) => b.length - a.length)
+  for (const prefix of keys) {
+    if (pathname === prefix || pathname.startsWith(prefix + '/')) {
+      return PAGE_HEADINGS[prefix]
+    }
+  }
+  return null
+}
+
+function initialsFromDisplayName(name: string): string {
+  const t = name.trim()
+  if (!t || t === 'Loading...' || t === 'No agent selected') return '?'
+  const parts = t.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return t.slice(0, 2).toUpperCase()
+}
+
 export default function AgentSwitcherBar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -90,6 +138,8 @@ export default function AgentSwitcherBar() {
 
   if (!shouldShow) return null
 
+  const pageHeading = pageHeadingForPath(pathname ?? null)
+
   // On /humanAgent, if a human agent is logged in, restrict the list to their assigned agents
   const visibleAgents =
     isHumanAgentPage && assignedAgentIds.length > 0
@@ -103,6 +153,8 @@ export default function AgentSwitcherBar() {
     : currentAgentId
     ? 'Loading...'
     : 'No agent selected'
+
+  const triggerInitials = initialsFromDisplayName(displayName)
 
   const handleSwitch = (agentId: string) => {
     if (agentId === currentAgentId) { setIsOpen(false); return }
@@ -137,31 +189,49 @@ export default function AgentSwitcherBar() {
   }
 
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-2.5 flex items-center gap-3">
-      {/* Label */}
-      <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide shrink-0">
+    <div className="flex items-center justify-between gap-6 border-b border-[#E8ECF0] bg-[#F8F9FB] px-5 py-3 md:px-6">
+      {/* Page title (setup pages) */}
+      <div className="min-w-0 flex-1">
+        {pageHeading ? (
+          <>
+            <h1 className="text-[17px] font-bold leading-tight tracking-tight text-[#0F172A] md:text-lg">
+              {pageHeading.title}
+            </h1>
+            {pageHeading.subtitle ? (
+              <p className="mt-0.5 max-w-2xl text-[13px] leading-snug text-[#64748B]">
+                {pageHeading.subtitle}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <div className="h-px w-px shrink-0 overflow-hidden" aria-hidden />
+        )}
+      </div>
+
+      {/* Agent switcher + notifications */}
+      <div className="flex shrink-0 items-center gap-3">
+      <span className="hidden text-xs font-semibold uppercase tracking-wide text-[#94A3B8] sm:inline">
         Active Agent
       </span>
 
-
-      {/* Divider */}
-      <span className="w-px h-4 bg-gray-200 shrink-0" />
+      <span className="hidden h-4 w-px bg-[#D1D5DB] sm:block" />
 
       {/* Dropdown trigger */}
       <div className="relative" ref={dropdownRef}>
         <button
+          type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-[#F9F9F9] hover:bg-gray-100 transition-colors text-sm font-medium text-[#111827] min-w-[200px] max-w-xs"
+          className="flex max-w-[min(280px,42vw)] min-w-[180px] items-center gap-2.5 rounded-xl border border-[#D1D5DB] bg-white px-3 py-2 text-sm font-medium text-[#111827] shadow-sm transition-colors hover:border-[#B8C0CC] hover:bg-[#FAFBFC] sm:min-w-[220px]"
         >
           {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-[#64748B] shrink-0" />
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#64748B]" />
           ) : (
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#EEF2FF]">
-              <Globe className="w-3 h-3 text-[#4B56F2]" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[11px] font-bold text-[#4338CA]">
+              {triggerInitials}
             </div>
           )}
 
-          <span className="flex-1 text-left truncate">{displayName}</span>
+          <span className="min-w-0 flex-1 truncate text-left">{displayName}</span>
 
           {/* Training indicator */}
           {currentAgent?.dataTrainingStatus === 1 && (
@@ -172,7 +242,7 @@ export default function AgentSwitcherBar() {
           )}
 
           <ChevronDown
-            className={`w-4 h-4 text-[#64748B] shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 shrink-0 text-[#64748B] transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
           />
         </button>
 
@@ -239,11 +309,11 @@ export default function AgentSwitcherBar() {
       {/* Quick status pill */}
       {!isLoading && currentAgent && (
         <span
-          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
             currentAgent.dataTrainingStatus === 1
               ? 'bg-[#FFFBEB] text-[#D97706]'
               : currentAgent.isActive
-              ? 'bg-[#ECFDF5] text-[#059669]'
+              ? 'bg-[#ECFDF5] text-[#15803D]'
               : 'bg-gray-100 text-gray-500'
           }`}
         >
@@ -255,11 +325,8 @@ export default function AgentSwitcherBar() {
         </span>
       )}
 
-      {/* Spacer pushes notification bell to the right */}
-      <div className="flex-1" />
-
-      {/* Notification Bell */}
-      <NotificationBell />
+      <NotificationBell badgeStyle="dot" />
+      </div>
     </div>
   )
 }

@@ -56,7 +56,12 @@ function getInboxPath(pathname: string): string {
   return "/inbox";
 }
 
-export default function NotificationBell() {
+type NotificationBellProps = {
+  /** Top bar mock uses a dot; inbox-style header can use numeric badge */
+  badgeStyle?: "count" | "dot";
+};
+
+export default function NotificationBell({ badgeStyle = "count" }: NotificationBellProps) {
   const { socket } = useSocket();
   const router = useRouter();
   const pathname = usePathname();
@@ -259,10 +264,20 @@ export default function NotificationBell() {
           }
         }}
         className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-[#F9F9F9] hover:bg-gray-100 transition-colors"
-        aria-label="Notifications"
+        aria-label={
+          unseenCount > 0
+            ? `Notifications, ${unseenCount} unread`
+            : "Notifications"
+        }
       >
         <Bell className="w-4 h-4 text-[#4B56F2]" />
-        {unseenCount > 0 && (
+        {unseenCount > 0 && badgeStyle === "dot" && (
+          <span
+            className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"
+            aria-hidden
+          />
+        )}
+        {unseenCount > 0 && badgeStyle === "count" && (
           <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none">
             {unseenCount > 99 ? "99+" : unseenCount}
           </span>

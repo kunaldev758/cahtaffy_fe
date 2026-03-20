@@ -513,7 +513,7 @@ export default function EnhancedTrainingPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      {/* <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Training</h1>
@@ -526,29 +526,7 @@ export default function EnhancedTrainingPage() {
             )}
           </div>
           <div className="flex items-center space-x-4">
-            {/* Plan Information */}
-            {/* {clientData && (
-              <Card className="min-w-48">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-600">Plan</span>
-                    <Badge variant={clientData.plan === 'free' ? 'secondary' : 'default'}>
-                      {clientData.plan.toUpperCase()}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Status: {clientData.planStatus}
-                  </div>
-                  {clientData.currentDataSize > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Data: {formatDataSize(clientData.currentDataSize)}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )} */}
-
-            {/* Add Content Button */}
+      
             <Button 
               onClick={() => setShowModal(true)}
               className="bg-blue-600 hover:bg-blue-700"
@@ -559,7 +537,7 @@ export default function EnhancedTrainingPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Upgrade Plan Alerts */}
       {clientData?.upgradePlanStatus && (

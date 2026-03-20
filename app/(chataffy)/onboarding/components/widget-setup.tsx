@@ -287,7 +287,7 @@ function WidgetPreview({ widgetState, agentState, logoSrc }: { widgetState: Widg
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-type WidgetSetupProps = { onFinish: () => void }
+type WidgetSetupProps = { onFinish?: () => void }
 
 export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
   const [agentId, setAgentId] = useState<string | null>(null)
@@ -306,20 +306,34 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
 
   const checkboxUiClass = "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white [&_svg]:h-[14px] [&_svg]:w-[14px]"
 
-  // ── Bootstrap agentId from localStorage ──────────────────────────────────
+  // ── Keep agentId in sync with localStorage + AgentSwitcherBar ────────────
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const id = localStorage.getItem('currentAgentId')
-      setAgentId(id)
+    if (typeof window === 'undefined') return
+    const syncFromStorage = () => setAgentId(localStorage.getItem('currentAgentId'))
+    syncFromStorage()
+    const handleAgentChanged = (e: Event) => {
+      const raw = (e as CustomEvent<{ agentId?: string | null }>).detail?.agentId
+      const next =
+        raw !== undefined && raw !== null && String(raw) !== ''
+          ? String(raw)
+          : localStorage.getItem('currentAgentId')
+      setAgentId(next)
     }
+    window.addEventListener('agent-changed', handleAgentChanged as EventListener)
+    return () => window.removeEventListener('agent-changed', handleAgentChanged as EventListener)
   }, [])
 
-  // ── Fetch widget + agent data once agentId is available ──────────────────
-  console.log(agentId, "agentId from widget setup")
+  // ── Fetch widget + agent data when agentId changes ────────────────────────
   useEffect(() => {
     if (!agentId) return
       ; (async () => {
+        dispatchWidget({ type: 'SET_ALL', payload: { ...widgetInitialState } })
+        setAgentData({ ...agentInitialState })
+        setLogoSrc('/images/widget/human-avatar.png')
+        setFieldErrors({})
+        setLogoErrors([])
+        setEmbedScript('')
         try {
           const [widgetRes, agentRes] = await Promise.all([
             getThemeSettings(agentId),
@@ -331,9 +345,10 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
             dispatchWidget({ type: 'SET_ALL', payload: d })
             if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
             // Build embed script
+          console.log(d,"this is my d")
             const wid = d.widgetId || d._id
             if (wid) {
-              setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}widget/${wid}"></script>`)
+              setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}openai/widget/${wid}/${d.widgetToken}/${agentId}"></script>`)
             }
           }
 
@@ -357,12 +372,12 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
       })()
   }, [agentId])
 
-  // Default embed script fallback
+  // Default embed script only when no agent is selected (avoids wrong URL while loading after switch)
   useEffect(() => {
-    if (!embedScript) {
+    if (!embedScript && !agentId) {
       setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}widget/"></script>`)
     }
-  }, [embedScript])
+  }, [embedScript, agentId])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -475,7 +490,7 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
 
       if (widgetRes?.status_code === 200 && agentRes?.status_code === 200) {
         toast.success('Settings saved successfully!')
-        onFinish()
+        onFinish?.()
       } else {
         toast.error('Failed to save settings. Please try again.')
       }

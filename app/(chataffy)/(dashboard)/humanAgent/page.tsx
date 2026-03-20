@@ -354,7 +354,7 @@ export default function HumanAgentPage() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-white">
-        <div className="bg-white shadow-sm border-b border-slate-200">
+        {/* <div className="bg-white shadow-sm border-b border-slate-200">
           <div className="px-6 py-6">
             <div className="flex items-center justify-between">
               <div>
@@ -370,7 +370,7 @@ export default function HumanAgentPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         <div className="p-6">
           <div className="max-w-7xl mx-auto">

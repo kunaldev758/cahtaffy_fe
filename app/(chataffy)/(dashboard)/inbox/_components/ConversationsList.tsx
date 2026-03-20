@@ -83,7 +83,7 @@ export default function ConversationsList({
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-semibold text-gray-900 mb-4">Inbox</h1>
+        {/* <h1 className="text-xl font-semibold text-gray-900 mb-4">Inbox</h1> */}
         
         {/* Search */}
         <div className="relative mb-4">

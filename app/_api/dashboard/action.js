@@ -317,6 +317,18 @@ export async function getClientData() {
   return data;
 }
 
+export async function getClientProfile() {
+  return await fetchData('client/profile');
+}
+
+export async function updateClientProfileGeneral(payload) {
+  return await fetchData('client/profile/general', payload);
+}
+
+export async function updateClientPassword(payload) {
+  return await fetchData('client/profile/password', payload);
+}
+
 export async function continueScrapping() {
   const data = await fetchData('continueAfterUpgrade');
   return data;
