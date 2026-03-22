@@ -221,6 +221,21 @@ export async function updateAgentSettingsApi(data) {
   return await fetchData('updateAgentSettings', data);
 }
 
+/**
+ * Persist the current onboarding step for an agent so that a page refresh
+ * restores the user to the correct screen.
+ * @param {string} agentId
+ * @param {'source'|'train'|'widget'} step
+ * @param {string} [websiteUrl]
+ * @param {string[]} [extractedUrls]
+ */
+export async function updateOnboardingStepApi(agentId, step, websiteUrl, extractedUrls) {
+  const payload = { agentId, onboardingStep: step };
+  if (websiteUrl     !== undefined) payload.onboardingWebsiteUrl    = websiteUrl;
+  if (extractedUrls  !== undefined) payload.onboardingExtractedUrls = extractedUrls;
+  return await fetchData('updateAgentSettings', payload);
+}
+
 
 export async function logoutApi() {
   cookies().delete('token')
@@ -348,5 +363,9 @@ export async function createOrder(value,currency,plan_name,billing_cycle) {
 
 export async function sendEmailForOfflineChat(visitorDetails, contactNote,userId) {
   return await fetchDatawithoutToken(`sendEmailForOfflineChat`, { message:contactNote,visitorDetails:visitorDetails ,userId:userId});
+}
+
+export async function toggleWidgetStatusApi(agentId, isActive) {
+  return await fetchData('widget/toggle-status', { agentId, isActive });
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   X,
   Send,
@@ -914,12 +914,27 @@ export default function EnhancedChatWidget({ params }: any) {
     }
   };
 
-  const positionStyles: any = {
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    zIndex: 1000
-  };
+  const isBarLauncher = themeSettings?.widgetType === 'bar';
+  const alignLeft = themeSettings?.align === 'left';
+  const displayBarMessage =
+    (themeSettings?.displayBarMessage && String(themeSettings.displayBarMessage).trim()) ||
+    "We're Online! Chat Now!";
+
+  const launcherContainerStyle = useMemo((): import('react').CSSProperties => {
+    if (isBarLauncher) {
+      return { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 };
+    }
+    return {
+      position: 'fixed',
+      bottom: '20px',
+      zIndex: 1000,
+      ...(alignLeft ? { left: '20px', right: 'auto' } : { right: '20px', left: 'auto' }),
+    };
+  }, [isBarLauncher, alignLeft]);
+
+  const chatPanelPositionClass = isBarLauncher
+    ? 'absolute bottom-full left-1/2 mb-2 w-[400px] max-w-[calc(100vw-20px)] -translate-x-1/2'
+    : `absolute bottom-20 w-[400px] ${alignLeft ? 'left-0' : 'right-0'}`;
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -1111,34 +1126,63 @@ export default function EnhancedChatWidget({ params }: any) {
   return (
     <>
       {botVisible && (
-        <div style={positionStyles} className="font-sans">
-          {/* Chat Widget Button */}
-          <div className="relative">
-            <button
-              onClick={toggleWidget}
-              className="relative w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-out focus:outline-none focus:ring-4 focus:ring-blue-300 group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full animate-pulse opacity-75"></div>
-
-              <div className="relative z-10 flex items-center justify-center w-full h-full">
-                {showWidget ? (
-                  <X className="w-7 h-7 text-white transform rotate-0 group-hover:rotate-90 transition-transform duration-300" />
-                ) : (
-                  <MessageCircle className="w-7 h-7 text-white transform group-hover:scale-110 transition-transform duration-300" />
-                )}
-              </div>
-
-              {!showWidget && unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 min-w-[22px] h-[22px] bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
-                  <span className="text-white text-xs font-bold px-1">{unreadCount > 9 ? '9+' : unreadCount}</span>
+        <div style={launcherContainerStyle} className={`font-sans ${isBarLauncher ? 'w-full' : ''}`}>
+          {/* Chat Widget launcher: bubble or bar */}
+          <div className={isBarLauncher ? 'relative w-full' : 'relative'}>
+            {isBarLauncher ? (
+              <button
+                type="button"
+                onClick={toggleWidget}
+                className="relative flex w-full items-center justify-between gap-3 rounded-t-2xl px-5 py-4 shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                style={{
+                  backgroundColor: getThemeColor(0, '#2563eb'),
+                  color: getThemeColor(1, '#ffffff'),
+                }}
+              >
+                <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold">
+                  {displayBarMessage}
+                </span>
+                <div className="relative flex shrink-0 items-center">
+                  {showWidget ? (
+                    <X className="h-6 w-6" style={{ color: getThemeColor(1, '#ffffff') }} />
+                  ) : (
+                    <MessageCircle className="h-6 w-6" style={{ color: getThemeColor(1, '#ffffff') }} />
+                  )}
+                  {!showWidget && unreadCount > 0 && (
+                    <div className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1">
+                      <span className="text-xs font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </button>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={toggleWidget}
+                className="group relative h-16 w-16 transform rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-300"
+              >
+                <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-br from-blue-400 to-purple-500 opacity-75"></div>
+
+                <div className="relative z-10 flex h-full w-full items-center justify-center">
+                  {showWidget ? (
+                    <X className="h-7 w-7 rotate-0 text-white transition-transform duration-300 group-hover:rotate-90" />
+                  ) : (
+                    <MessageCircle className="h-7 w-7 text-white transition-transform duration-300 group-hover:scale-110" />
+                  )}
+                </div>
+
+                {!showWidget && unreadCount > 0 && (
+                  <div className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1">
+                    <span className="text-xs font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                  </div>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Chat Window */}
           {showWidget && (
-            <div className={`absolute bottom-20 right-0 w-[400px] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-16' : 'h-[650px]'
+            <div className={`${chatPanelPositionClass} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-16' : 'h-[650px]'
               }`}>
 
               {/* No Internet Banner */}

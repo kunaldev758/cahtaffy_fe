@@ -62,15 +62,16 @@ const widgetInitialState = {
     { id: 5, name: 'ai_bubble', value: '#F3F4F6' },
     { id: 6, name: 'ai_bubble_text', value: '#111827' },
   ],
-  position: { align: 'right', sideSpacing: 20, bottomSpacing: 20 },
+  align: 'right' as 'left' | 'right',
+  widgetType: 'bubble' as 'bubble' | 'bar',
+  displayBarMessage: "We're Online! Chat Now!",
 }
 
 type WidgetState = typeof widgetInitialState
 type WidgetAction =
-  | { type: 'SET_ALL'; payload: Partial<WidgetState> }
+  | { type: 'SET_ALL'; payload: Partial<WidgetState> & { position?: { align?: string } } }
   | { type: 'SET'; field: keyof WidgetState; value: any }
   | { type: 'UPDATE_COLOR'; id: number; value: string }
-  | { type: 'UPDATE_POSITION'; payload: Partial<WidgetState['position']> }
   | { type: 'ADD_FIELD'; payload: any }
   | { type: 'REMOVE_FIELD'; id: number }
   | { type: 'TOGGLE_FIELD_REQUIRED'; id: number }
@@ -78,21 +79,34 @@ type WidgetAction =
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
   switch (action.type) {
     case 'SET_ALL': {
-      const p = action.payload
+      const p = action.payload as Partial<WidgetState> & { position?: { align?: string } }
+      const { position: legacyPosition, ...rest } = p
+      const legacyAlign =
+        legacyPosition?.align === 'left' || legacyPosition?.align === 'right' ? legacyPosition.align : null
+      const nextAlign =
+        p.align === 'left' || p.align === 'right'
+          ? p.align
+          : legacyAlign ?? state.align
+      const nextWidgetType =
+        p.widgetType === 'bar' || p.widgetType === 'bubble' ? p.widgetType : state.widgetType
+      const nextDisplayBar =
+        p.displayBarMessage !== undefined
+          ? String(p.displayBarMessage).trim() || widgetInitialState.displayBarMessage
+          : state.displayBarMessage
       return {
         ...state,
-        ...p,
+        ...rest,
         fields: ((p.fields as any)?.length ? p.fields! : state.fields),
         colorFields: ((p.colorFields as any)?.length ? p.colorFields! : state.colorFields),
-        position: ((p.position as any) ? p.position! : state.position),
+        align: nextAlign,
+        widgetType: nextWidgetType,
+        displayBarMessage: nextDisplayBar,
       }
     }
     case 'SET':
       return { ...state, [action.field]: action.value }
     case 'UPDATE_COLOR':
       return { ...state, colorFields: state.colorFields.map(f => f.id === action.id ? { ...f, value: action.value } : f) }
-    case 'UPDATE_POSITION':
-      return { ...state, position: { ...state.position, ...action.payload } }
     case 'ADD_FIELD':
       return { ...state, fields: [...state.fields, action.payload] }
     case 'REMOVE_FIELD':
@@ -287,12 +301,14 @@ function WidgetPreview({ widgetState, agentState, logoSrc }: { widgetState: Widg
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-type WidgetSetupProps = { onFinish?: () => void }
+type WidgetSetupProps = {
+  onFinish?: () => void
+  isScrapingInProgress?: boolean
+}
 
-export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
+export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSetupProps) {
   const [agentId, setAgentId] = useState<string | null>(null)
   const [widgetState, dispatchWidget] = useReducer(widgetReducer, widgetInitialState)
-  const [widgetLauncherStyle, setWidgetLauncherStyle] = useState<'bubble' | 'bar'>('bubble')
   const [agentData, setAgentData] = useState<AgentState>(agentInitialState)
   const [logoSrc, setLogoSrc] = useState('/images/widget/human-avatar.png')
   const [logoErrors, setLogoErrors] = useState<string[]>([])
@@ -344,8 +360,6 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
             const d = widgetRes.data
             dispatchWidget({ type: 'SET_ALL', payload: d })
             if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
-            // Build embed script
-          console.log(d,"this is my d")
             const wid = d.widgetId || d._id
             if (wid) {
               setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}openai/widget/${wid}/${d.widgetToken}/${agentId}"></script>`)
@@ -475,7 +489,9 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
             isPreChatFormEnabled: widgetState.isPreChatFormEnabled,
             fields: widgetState.fields,
             colorFields: widgetState.colorFields,
-            position: widgetState.position,
+            align: widgetState.align,
+            widgetType: widgetState.widgetType,
+            displayBarMessage: widgetState.displayBarMessage,
           },
         }),
         updateAgentSettingsApi({
@@ -505,6 +521,15 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
 
   return (
     <>
+      {isScrapingInProgress && (
+        <div className="mb-4 flex items-center gap-3 rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3">
+          <span className="animate-spin inline-block h-4 w-4 shrink-0 rounded-full border-2 border-[#D97706] border-t-transparent" />
+          <p className="text-[13px] font-medium text-[#92400E]">
+            Your knowledge base is being trained in the background. You can configure the widget while it finishes.
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-[24px]">
 
         {/* ── Left panel ────────────────────────────────────────────────── */}
@@ -697,7 +722,7 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
                         { id: 'bubble' as const, icon: '/images/new/widget-bouble-icon.svg', label: 'Bubble widget launcher' },
                         { id: 'bar' as const, icon: '/images/new/widget-bar-icon.svg', label: 'Bar widget launcher' },
                       ].map(option => {
-                        const isSelected = widgetLauncherStyle === option.id
+                        const isSelected = widgetState.widgetType === option.id
                         return (
                           <label key={option.id} className="cursor-pointer">
                             <input
@@ -705,7 +730,7 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
                               name="widget-launcher-style"
                               value={option.id}
                               checked={isSelected}
-                              onChange={() => setWidgetLauncherStyle(option.id)}
+                              onChange={() => dispatchWidget({ type: 'SET', field: 'widgetType', value: option.id })}
                               className="sr-only"
                             />
                             <div
@@ -735,7 +760,7 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
                         { id: 'left' as const, icon: '/images/new/widget-left-icon.svg', label: 'Align widget left' },
                         { id: 'right' as const, icon: '/images/new/widget-right-icon.svg', label: 'Align widget right' },
                       ].map(option => {
-                        const isSelected = widgetState.position.align === option.id
+                        const isSelected = widgetState.align === option.id
                         return (
                           <label key={option.id} className="cursor-pointer">
                             <input
@@ -743,7 +768,7 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
                               name="widget-position-align"
                               value={option.id}
                               checked={isSelected}
-                              onChange={() => dispatchWidget({ type: 'UPDATE_POSITION', payload: { align: option.id } })}
+                              onChange={() => dispatchWidget({ type: 'SET', field: 'align', value: option.id })}
                               className="sr-only"
                             />
                             <div
@@ -770,16 +795,18 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
                   </div>
                 </div>
 
-                {widgetLauncherStyle === 'bar' && (
+                {widgetState.widgetType === 'bar' && (
                   <div className='flex-1'>
                     <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">
                       Widget Text
                     </label>
                     <input
                       type="text"
-                      defaultValue="We’re Online! Chat Now!"
+                      value={widgetState.displayBarMessage}
+                      onChange={e => dispatchWidget({ type: 'SET', field: 'displayBarMessage', value: e.target.value })}
                       className="h-[40px] w-full rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] leading-5 text-[#111827] outline-none placeholder:text-[#94A3B8]"
                       placeholder="Enter widget text"
+                      maxLength={200}
                     />
                   </div>
                 )}
@@ -909,14 +936,26 @@ export default function WidgetSetup({ onFinish }: WidgetSetupProps) {
         {/* ── Right panel — Live Preview ──────────────────────────────── */}
         <div className="w-[358px] shrink-0">
           <div className="sticky top-6">
-            <div className={`flex flex-col items-${widgetState.position.align === 'left' ? 'start' : 'end'} gap-3 rounded-[14px] bg-[#F1F5F9] min-h-[400px] relative`}>
+            <div className={`flex flex-col gap-3 rounded-[14px] bg-[#F1F5F9] min-h-[400px] relative ${widgetState.align === 'left' ? 'items-start' : 'items-end'}`}>
 
-              <div className="mt-6 w-full flex flex-col items-end gap-3">
+              <div className={`mt-6 w-full flex flex-col gap-3 ${widgetState.align === 'left' ? 'items-start' : 'items-end'}`}>
                 <WidgetPreview widgetState={widgetState} agentState={agentData} logoSrc={logoSrc} />
-                <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full shadow-lg cursor-pointer"
-                  style={{ backgroundColor: widgetState.colorFields[0]?.value ?? '#000000' }}>
-                  <span className="material-symbols-outlined !text-[26px]" style={{ color: widgetState.colorFields[1]?.value ?? '#FFFFFF' }}>chat_bubble</span>
-                </div>
+                {widgetState.widgetType === 'bar' ? (
+                  <div
+                    className="flex w-full max-w-[320px] cursor-pointer items-center justify-between gap-3 rounded-[12px] px-4 py-3 shadow-lg"
+                    style={{ backgroundColor: widgetState.colorFields[0]?.value ?? '#000000' }}
+                  >
+                    <span className="text-[13px] font-medium truncate" style={{ color: widgetState.colorFields[1]?.value ?? '#FFFFFF' }}>
+                      {widgetState.displayBarMessage || "We're Online! Chat Now!"}
+                    </span>
+                    <span className="material-symbols-outlined shrink-0 !text-[22px]" style={{ color: widgetState.colorFields[1]?.value ?? '#FFFFFF' }}>chat_bubble</span>
+                  </div>
+                ) : (
+                  <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full shadow-lg cursor-pointer"
+                    style={{ backgroundColor: widgetState.colorFields[0]?.value ?? '#000000' }}>
+                    <span className="material-symbols-outlined !text-[26px]" style={{ color: widgetState.colorFields[1]?.value ?? '#FFFFFF' }}>chat_bubble</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

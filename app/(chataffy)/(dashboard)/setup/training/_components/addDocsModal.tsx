@@ -73,7 +73,8 @@ export default function AddContentModal({ showModal, onHide, agentId }: any) {
         <Modal.Footer className="flex justify-content-space-between">
           <button type="button" className="custom-btn default-btn" onClick={onHide}>Cancel</button>
           <button type="button" className="custom-btn" onClick={handleButtonOnClick} disabled={buttonLoading}>
-            {buttonLoading ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> : 'Save'}
+            {/* {buttonLoading ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> : 'Save'} */}
+            Save
           </button>
         </Modal.Footer>
       </Modal>

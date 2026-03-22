@@ -167,9 +167,10 @@ export default function Home(Props: any) {
           Cancel
         </button>
         <button type="button" className="custom-btn" onClick={handleButtonOnClick} disabled={buttonLoading}>
-          {buttonLoading ?
+          {/* {buttonLoading ?
             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            : `Save ${faqs.length} FAQ${faqs.length > 1 ? 's' : ''}`}
+            : `Save ${faqs.length} FAQ${faqs.length > 1 ? 's' : ''}`} */}
+            {`Save ${faqs.length} FAQ${faqs.length > 1 ? 's' : ''}`}
         </button>
       </Modal.Footer>
     </Modal>

@@ -301,7 +301,7 @@ const Message = ({
 
   let message;
   switch(messageData.sender_type) {
-    case 'system':
+    case 'agent-connect':
       message = (
         <div className="message-box system-message my-4">
           <div className="d-flex align-items-center justify-content-center">
@@ -339,6 +339,7 @@ const Message = ({
     case 'client':
     case 'agent':
     case 'assistant':
+    case 'system':
       // Human agent messages: humanAgent, client (legacy: agent). AI: ai (legacy: bot, assistant)
       const isAgentMessage = ['humanAgent', 'client', 'agent'].includes(messageData.sender_type);
       const agentSource = messageData.humanAgentId || messageData.agentId;

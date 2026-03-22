@@ -1,6 +1,6 @@
 "use client";
-import { Search, Bot } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
+import { Search, SlidersHorizontal } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
 import Image from "next/image";
 import { Conversation } from "./types/inbox";
@@ -20,13 +20,35 @@ interface ConversationsListProps {
   openConversationId: string | null;
   searchText: string;
   status: string;
+  rating: string;
+  handledBy: string;
   sortBy: string;
   onConversationClick: (conversation: Conversation, visitorName: string, index: number) => void;
   onSearchInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSearchInputClick: () => void;
-  onStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onStatusChange: (status: string) => void;
+  onRatingChange: (rating: string) => void;
+  onHandledByChange: (handledBy: string) => void;
   onSortChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
+
+const formatTime = (dateStr: string) => {
+  const now = new Date();
+  const d = new Date(dateStr);
+  const diff = now.getTime() - d.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  const weeks = Math.floor(diff / (7 * 86400000));
+  const months = Math.floor(diff / (30 * 86400000));
+
+  if (minutes < 1) return "JUST NOW";
+  if (minutes < 60) return `${minutes}M AGO`;
+  if (hours < 24) return `${hours}H AGO`;
+  if (days < 7) return `${days}D AGO`;
+  if (weeks < 4) return `${weeks}W AGO`;
+  return `${months}MO AGO`;
+};
 
 export default function ConversationsList({
   conversationsList,
@@ -34,95 +56,213 @@ export default function ConversationsList({
   openConversationId,
   searchText,
   status,
+  rating,
+  handledBy,
   sortBy,
   onConversationClick,
   onSearchInputChange,
   onSearchInputClick,
   onStatusChange,
+  onRatingChange,
+  onHandledByChange,
   onSortChange,
 }: ConversationsListProps) {
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+
   const getAvatarColor = (index: number) => {
     const colors = [
       "bg-purple-100 text-purple-600",
-      "bg-blue-100 text-blue-600", 
+      "bg-blue-100 text-blue-600",
       "bg-green-100 text-green-600",
       "bg-yellow-100 text-yellow-600",
       "bg-pink-100 text-pink-600",
-      "bg-indigo-100 text-indigo-600"
+      "bg-indigo-100 text-indigo-600",
     ];
     return colors[index % colors.length];
   };
 
   const sortConversations = (conversations: Conversation[]) => {
     const sorted = [...conversations];
-    
     if (sortBy === "lastActivity") {
-      // Sort by updatedAt (descending - most recent first)
       return sorted.sort((a, b) => {
         const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
         const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
         return dateB - dateA;
       });
     } else if (sortBy === "dateStarted") {
-      // Sort by createdAt (descending - most recent first)
       return sorted.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return dateB - dateA;
       });
     }
-    
     return sorted;
   };
 
-  const displayConversations = searchConversationsList.data.length 
+  const displayConversations = searchConversationsList.data.length
     ? sortConversations(searchConversationsList.data)
     : sortConversations(conversationsList.data);
 
-  return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-      {/* Header */}
-      <div className="p-6 border-b border-gray-200">
-        {/* <h1 className="text-xl font-semibold text-gray-900 mb-4">Inbox</h1> */}
-        
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search conversations..."
-            value={searchText}
-            onChange={onSearchInputChange}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                onSearchInputClick();
-              }
-            }}
-          />
-        </div>
+  const hasActiveFilters =
+    status !== "open" || rating !== "all" || handledBy !== "both";
 
-        {/* Filters */}
-        <div className="flex gap-3">
-          <select 
-            value={sortBy}
-            onChange={onSortChange}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+  const FilterPill = ({
+    label,
+    active,
+    onClick,
+  }: {
+    label: string;
+    active: boolean;
+    onClick: () => void;
+  }) => (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+        active
+          ? "border-blue-500 text-blue-600 bg-blue-50 font-medium"
+          : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+      {/* Header */}
+      <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
+        <h1 className="text-lg font-semibold text-gray-900">Chat Logs</h1>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              setShowFilter((v) => !v);
+              setShowSearch(false);
+            }}
+            className={`p-2 rounded-lg transition-colors relative ${
+              showFilter || hasActiveFilters
+                ? "bg-blue-50 text-blue-600"
+                : "text-gray-500 hover:bg-gray-100"
+            }`}
+            title="Advance filter"
           >
-            <option value="lastActivity">Last Activity</option>
-            <option value="dateStarted">Date Started</option>
-          </select>
-          
-          <select 
-            value={status}
-            onChange={onStatusChange}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <SlidersHorizontal className="w-4 h-4" />
+            {hasActiveFilters && !showFilter && (
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-500 rounded-full" />
+            )}
+          </button>
+          <button
+            onClick={() => {
+              setShowSearch((v) => !v);
+              setShowFilter(false);
+            }}
+            className={`p-2 rounded-lg transition-colors ${
+              showSearch
+                ? "bg-blue-50 text-blue-600"
+                : "text-gray-500 hover:bg-gray-100"
+            }`}
+            title="Search"
           >
-            <option value="open">Open</option>
-            <option value="close">Closed</option>
-          </select>
+            <Search className="w-4 h-4" />
+          </button>
         </div>
       </div>
+
+      {/* Search Bar */}
+      {showSearch && (
+        <div className="px-4 py-3 border-b border-gray-100">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchText}
+              onChange={onSearchInputChange}
+              autoFocus
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSearchInputClick();
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Advance Filter Panel */}
+      {showFilter && (
+        <div className="px-4 py-4 border-b border-gray-100 bg-gray-50">
+          <h3 className="text-sm font-semibold text-gray-800 mb-3">
+            Advance filter
+          </h3>
+
+          {/* STATUS */}
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              STATUS
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <FilterPill
+                label="All"
+                active={status === "all"}
+                onClick={() => onStatusChange("all")}
+              />
+              <FilterPill
+                label="Open"
+                active={status === "open"}
+                onClick={() => onStatusChange("open")}
+              />
+              <FilterPill
+                label="Closed"
+                active={status === "close"}
+                onClick={() => onStatusChange("close")}
+              />
+            </div>
+          </div>
+
+          {/* RATING */}
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              RATING
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <FilterPill
+                label="All"
+                active={rating === "all"}
+                onClick={() => onRatingChange("all")}
+              />
+              <FilterPill
+                label="Good"
+                active={rating === "good"}
+                onClick={() => onRatingChange("good")}
+              />
+              <FilterPill
+                label="Bad"
+                active={rating === "bad"}
+                onClick={() => onRatingChange("bad")}
+              />
+            </div>
+          </div>
+
+          {/* HANDLE BY */}
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              HANDLE BY
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <FilterPill
+                label="Both"
+                active={handledBy === "both"}
+                onClick={() => onHandledByChange("both")}
+              />
+              <FilterPill
+                label="AI"
+                active={handledBy === "ai"}
+                onClick={() => onHandledByChange("ai")}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Conversation List */}
       <div className="flex-1 overflow-y-auto">
@@ -130,86 +270,121 @@ export default function ConversationsList({
           <div className="p-4 space-y-4">
             {[...Array(8)].map((_, index) => (
               <div className="flex items-center space-x-3" key={index}>
-                <div className="w-10 h-10 rounded-full">
-                  <Skeleton circle height={40} width={40} />
-                </div>
+                <Skeleton circle height={40} width={40} />
                 <div className="flex-1">
-                  <Skeleton height={16} width="60%" />
-                  <Skeleton height={14} width="80%" className="mt-1" />
+                  <Skeleton height={14} width="55%" />
+                  <Skeleton height={12} width="75%" className="mt-1" />
                 </div>
               </div>
             ))}
           </div>
+        ) : displayConversations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 text-gray-400">
+            <p className="text-sm">No conversations found</p>
+          </div>
         ) : (
-          <>
-            {displayConversations.map((conversation: Conversation, index: number) => (
-              <div
-                key={conversation._id}
-                onClick={async () => await onConversationClick(conversation, conversation?.visitor?.name, index)}
-                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  openConversationId === conversation._id ? 'bg-blue-50 border-r-2 border-r-blue-500' : ''
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm ${getAvatarColor(index)}`}>
-                    {conversation?.visitor?.name?.[0] || 'U'}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900 truncate">
-                          {conversation?.visitor?.name}
-                        </h3>
-                        {conversation.agentId && typeof conversation.agentId === 'object' && conversation.agentId.avatar && conversation.agentId.avatar !== '' && conversation.agentId.avatar !== null ? (
-                          <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
+          displayConversations.map((conversation: Conversation, index: number) => (
+            <div
+              key={conversation._id}
+              onClick={async () =>
+                await onConversationClick(
+                  conversation,
+                  conversation?.visitor?.name,
+                  index
+                )
+              }
+              className={`px-4 py-3.5 border-b border-gray-100 cursor-pointer transition-colors ${
+                openConversationId === conversation._id
+                  ? "bg-blue-50 border-r-2 border-r-blue-500"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {/* Avatar */}
+                <div
+                  className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-sm ${getAvatarColor(index)}`}
+                >
+                  {conversation?.visitor?.name?.[0]?.toUpperCase() || "U"}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Name row */}
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm font-medium text-gray-900 truncate">
+                        {conversation?.visitor?.name}
+                      </span>
+                      {/* Handling indicator icon */}
+                      {conversation.aiChat ? (
+                        <Image
+                          src="/images/new/sparkle-icon.svg"
+                          alt="AI"
+                          width={14}
+                          height={14}
+                          className="flex-shrink-0 opacity-70"
+                        />
+                      ) : (
+                        /* Agent avatar if available, else default agent icon */
+                        conversation.agentId &&
+                        typeof conversation.agentId === "object" ? (
+                          <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
                             <Image
-                              src={`${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${conversation.agentId.avatar}`}
-                              alt={conversation.agentId.name || 'Agent'}
+                              src={
+                                conversation.agentId.avatar
+                                  ? `${
+                                      process.env.NEXT_PUBLIC_API_HOST ||
+                                      "http://localhost:9001"
+                                    }${conversation.agentId.avatar}`
+                                  : defaultImage
+                              }
+                              alt={conversation.agentId.name || "Agent"}
                               width={16}
                               height={16}
                               className="w-4 h-4 object-cover"
                               unoptimized
                               onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = defaultImage;
+                                (e.target as HTMLImageElement).src =
+                                  defaultImage;
                               }}
                             />
                           </div>
-                        ) : conversation.agentId && typeof conversation.agentId === 'object' && (!conversation.agentId.avatar || conversation.agentId.avatar === '' || conversation.agentId.avatar === null) ? (
-                          <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
-                            <Image
-                              src={defaultImage}
-                              alt="Agent"
-                              width={16}
-                              height={16}
-                              className="w-4 h-4 object-cover"
-                              unoptimized
-                            />
-                          </div>
                         ) : (
-                          <Bot className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                        {conversation.updatedAt ? formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true }) : 'just now'}
-                      </span>
+                          <Image
+                            src="/images/profile-icon.svg"
+                            alt="Agent"
+                            width={14}
+                            height={14}
+                            className="flex-shrink-0 opacity-60"
+                          />
+                        )
+                      )}
                     </div>
-                    
-                    <p className="text-sm text-gray-600 truncate">
-                      {conversation?.visitor?.lastMessage || conversation?.lastMessage}
-                    </p>
-                    
-                    {conversation.newMessage > 0 && conversation._id !== openConversationId && (
-                      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full mt-1">
+                    <span className="text-[10px] font-medium text-gray-400 ml-2 flex-shrink-0 tracking-wide">
+                      {conversation.updatedAt
+                        ? formatTime(conversation.updatedAt)
+                        : "JUST NOW"}
+                    </span>
+                  </div>
+
+                  {/* Last message */}
+                  <p className="text-xs text-gray-500 truncate leading-relaxed">
+                    {conversation?.lastMessage ||
+                      conversation?.visitor?.lastMessage ||
+                      "No messages yet"}
+                  </p>
+
+                  {/* Unread badge */}
+                  {conversation.newMessage > 0 &&
+                    conversation._id !== openConversationId && (
+                      <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 mt-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
                         {conversation.newMessage}
                       </span>
                     )}
-                  </div>
                 </div>
               </div>
-            ))}
-          </>
+            </div>
+          ))
         )}
       </div>
     </div>

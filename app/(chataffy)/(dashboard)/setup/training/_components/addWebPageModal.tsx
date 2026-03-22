@@ -114,9 +114,10 @@ export default function Home(Props: any) {
           onHide()
         }}>Cancel</button>
         <button type="button" className="custom-btn" onClick={handleButtonOnClick} disabled={buttonLoading}>
-          {buttonLoading ?
+          {/* {buttonLoading ?
             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            : 'Fetch External URLs'}
+            : 'Fetch External URLs'} */}
+            Fetch External URLs
         </button>
       </Modal.Footer>
     </Modal>

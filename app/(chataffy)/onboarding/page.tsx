@@ -8,16 +8,18 @@ import { Spinner } from "@/components/ui/spinner"
 import TrainSetup from './components/train-setup'
 import WidgetSetup from './components/widget-setup'
 import { completeOnboardingApi } from '../../_api/login/action'
-import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi } from '../../_api/dashboard/action'
+import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi, getAgentSettingsApi, updateOnboardingStepApi } from '../../_api/dashboard/action'
+import { useSocket } from '../../socketContext'
 import '../../globals.css'
 
 type SetupTab = 'web' | 'docs' | 'faqs'
 type SetupStep = 'source' | 'train' | 'widget'
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
 
 export default function OnboardingPage() {
     const router = useRouter()
+    const { socket } = useSocket()
     const [activeTab, setActiveTab] = useState<SetupTab>('web')
     const [currentStep, setCurrentStep] = useState<SetupStep>('source')
     const [isCardVisible, setIsCardVisible] = useState(true)
@@ -40,6 +42,9 @@ export default function OnboardingPage() {
     const [isFetchingUrls, setIsFetchingUrls] = useState(false)
     const [isTrainingUrls, setIsTrainingUrls] = useState(false)
 
+    // Real-time training progress from socket (used in widget step)
+    const [isScrapingInProgress, setIsScrapingInProgress] = useState(false)
+
     // Agent ID from localStorage
     const [agentId, setAgentId] = useState<string | null>(null)
     useEffect(() => {
@@ -47,6 +52,40 @@ export default function OnboardingPage() {
             setAgentId(localStorage.getItem('currentAgentId'))
         }
     }, [])
+
+    // Restore onboarding step from DB on mount so a page refresh lands on the
+    // correct screen instead of always resetting to 'source'
+    useEffect(() => {
+        if (!agentId) return
+        getAgentSettingsApi(agentId).then((res) => {
+            if (res?.status && res?.data) {
+                const { onboardingStep, onboardingWebsiteUrl, onboardingExtractedUrls } = res.data
+                if (onboardingStep === 'train' && Array.isArray(onboardingExtractedUrls) && onboardingExtractedUrls.length > 0) {
+                    setWebsiteUrl(onboardingWebsiteUrl || '')
+                    setExtractedUrls(onboardingExtractedUrls)
+                    setFetchStep('done')
+                    transitionToStep('train')
+                } else if (onboardingStep === 'widget') {
+                    transitionToStep('widget')
+                }
+            }
+        }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [agentId])
+
+    // Listen for real-time scraping progress via socket
+    useEffect(() => {
+        if (!socket || currentStep !== 'widget') return
+        const handleTrainingEvent = ({ agent }: { agent?: { dataTrainingStatus?: number } }) => {
+            if (agent?.dataTrainingStatus === 1) {
+                setIsScrapingInProgress(true)
+            } else if (agent?.dataTrainingStatus === 0) {
+                setIsScrapingInProgress(false)
+            }
+        }
+        socket.on('training-event', handleTrainingEvent)
+        return () => { socket.off('training-event', handleTrainingEvent) }
+    }, [socket, currentStep])
 
     const isDocSnippets = activeTab === 'docs'
     const isFaqs = activeTab === 'faqs'
@@ -136,6 +175,8 @@ export default function OnboardingPage() {
                     updateAgentSettingsApi({ agentId, agentName }).catch(() => {})
                 }
                 if (res.urls.length > 0) {
+                    // Persist step so a refresh brings the user back to the train screen
+                    updateOnboardingStepApi(agentId, 'train', normalizedUrl, res.urls).catch(() => {})
                     transitionToStep('train')
                 } else {
                     toast.error('No URLs found. Please try a different website.')
@@ -164,6 +205,7 @@ export default function OnboardingPage() {
             const res = await startSitemapScrapingApi(agentId, selectedUrls)
             if (res?.success) {
                 toast.success('Training started successfully')
+                updateOnboardingStepApi(agentId, 'widget').catch(() => {})
                 transitionToStep('widget')
             } else {
                 toast.error(res?.error || res?.message || 'Failed to start training')
@@ -205,6 +247,7 @@ export default function OnboardingPage() {
             const res = await openaiCreateSnippet(formData, agentId)
             if (res?.status !== false && !res?.errorCode) {
                 toast.success(res?.message || 'Document added successfully')
+                updateOnboardingStepApi(agentId, 'widget').catch(() => {})
                 transitionToStep('widget')
             } else {
                 toast.error(res?.error || res?.message || 'Failed to add document')
@@ -231,6 +274,7 @@ export default function OnboardingPage() {
             const res = await openaiCreateFaq(validFaqs, agentId)
             if (res?.status !== false && !res?.errorCode) {
                 toast.success('FAQs added successfully')
+                updateOnboardingStepApi(agentId, 'widget').catch(() => {})
                 transitionToStep('widget')
             } else {
                 toast.error(res?.message || res?.error || 'Failed to add FAQs')
@@ -260,7 +304,7 @@ export default function OnboardingPage() {
                         isTraining={isTrainingUrls}
                     />
                 ) : currentStep === 'widget' ? (
-                    <WidgetSetup onFinish={handleFinish} />
+                    <WidgetSetup onFinish={handleFinish} isScrapingInProgress={isScrapingInProgress} />
                 ) : (
                     <>
                     {isDocSnippets ? (

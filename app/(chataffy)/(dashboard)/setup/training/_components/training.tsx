@@ -1,52 +1,29 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, useMemo } from 'react'
 import { useSocket } from "../../../../../socketContext"
 import { toast } from 'react-toastify'
-import { logoutApi } from '@/app/_api/dashboard/action'
-import { continueScrapping } from '@/app/_api/dashboard/action'
+import { continueScrapping, deleteTrainingDataApi, retrainTrainingDataApi } from '@/app/_api/dashboard/action'
 
 // Components
 import AddcontentModal from './addContentModal'
 import ContentDetailsModal from './contentDetailsModal'
 
 // UI Components
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { DataTable } from '@/components/ui/data-table'
-import { ColumnDef } from '@tanstack/react-table'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 // Icons
-import { 
-  PlusIcon, 
-  MoreHorizontalIcon, 
-  EditIcon, 
-  TrashIcon, 
-  EyeIcon, 
-  AlertCircle, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Zap,
-  Database,
-  FileText,
-  HelpCircle,
-  Globe,
-  Loader2,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight
+import {
+  Globe, FileText, HelpCircle, Plus, Search, Eye,
+  RotateCcw, Trash2, Loader2, CheckCircle, Clock,
+  XCircle, Zap, AlertCircle, ChevronLeft, ChevronRight, Database, Link as LinkIcon
 } from 'lucide-react'
 
-// Types
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface TrainingItem {
   _id: string
   title: string
@@ -61,7 +38,6 @@ interface TrainingItem {
   isActive?: boolean
 }
 
-// Client model fields (from Client collection)
 interface ClientData {
   userId?: string
   currentDataSize: number
@@ -78,11 +54,10 @@ interface ClientData {
   totalAmountPaid?: number
 }
 
-// Agent model fields (from Agent collection)
 interface AgentData {
   _id?: string
   userId?: string
-  dataTrainingStatus: number // 0-NoCurrentScrapping, 1-RunningScrapping
+  dataTrainingStatus: number
   scrapingStartTime?: string | Date
   pagesAdded: {
     success: number
@@ -108,16 +83,40 @@ interface ScrapingProgress {
   error?: boolean
 }
 
-interface ErrorItem {
-  id: string
-  message: string
-  type: 'error' | 'warning'
-  timestamp: Date
-  source?: string
+// ─── Circular Progress SVG ────────────────────────────────────────────────────
+
+const CircularProgress = ({ percentage }: { percentage: number }) => {
+  const size = 68
+  const radius = 26
+  const circumference = 2 * Math.PI * radius
+  const strokeDashoffset = circumference - (Math.min(Math.max(percentage, 0), 100) / 100) * circumference
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E2E8F0" strokeWidth="6" />
+      <circle
+        cx={size / 2} cy={size / 2} r={radius}
+        fill="none" stroke="#4686FE" strokeWidth="6"
+        strokeDasharray={circumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+      />
+      <text
+        x={size / 2} y={size / 2}
+        textAnchor="middle" dominantBaseline="middle"
+        fill="#111827" fontSize="12" fontWeight="700"
+      >
+        {percentage}%
+      </text>
+    </svg>
+  )
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function EnhancedTrainingPage() {
-  const router = useRouter()
   const { socket } = useSocket()
 
   // Modal states
@@ -129,50 +128,36 @@ export default function EnhancedTrainingPage() {
   const [clientData, setClientData] = useState<ClientData | null>(null)
   const [agentData, setAgentData] = useState<AgentData | null>(null)
   const [agentId, setAgentId] = useState<string | null>(null)
-  const [trainingList, setTrainingList] = useState<{ 
-    data: TrainingItem[], 
-    loading: boolean,
-    totalCount: number,
-    currentPage: number,
+  const [trainingList, setTrainingList] = useState<{
+    data: TrainingItem[]
+    loading: boolean
+    totalCount: number
+    currentPage: number
     totalPages: number
-  }>({ 
-    data: [], 
-    loading: true,
-    totalCount: 0,
-    currentPage: 1,
-    totalPages: 0
-  })
+  }>({ data: [], loading: true, totalCount: 0, currentPage: 1, totalPages: 0 })
 
-  // Pagination states
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(20) // You can make this configurable if needed
+  const [pageSize] = useState(20)
 
-  // Filter states
-  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>("all")
-  const [actionTypeFilter, setActionTypeFilter] = useState<string>("all")
-  
-  // Progress and error states
-  const [showContinueScrapping,setShowContinueScrapping] =useState(false)
-  const [errors, setErrors] = useState<ErrorItem[]>([])
+  // Filter / search
+  const [searchValue, setSearchValue] = useState('')
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('all')
+  const [actionTypeFilter, setActionTypeFilter] = useState<string>('all')
+
+  // Progress & alert states
+  const [showContinueScrapping, setShowContinueScrapping] = useState(false)
   const [scrapingProgress, setScrapingProgress] = useState<ScrapingProgress | null>(null)
 
-  // Helper functions
-  const addError = (message: string, type: 'error' | 'warning' = 'error', source?: string) => {
-    const newError: ErrorItem = {
-      id: Date.now().toString(),
-      message,
-      type,
-      timestamp: new Date(),
-      source
-    }
-    setErrors(prev => [newError, ...prev.slice(0, 4)]) // Keep only last 5 errors
-  }
+  // Row selection
+  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({})
 
-  const clearErrors = () => {
-    setErrors([])
-  }
+  // Per-row loading states
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const [retrainingIds, setRetrainingIds] = useState<Set<string>>(new Set())
 
-  // Load agentId from localStorage
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setAgentId(localStorage.getItem('currentAgentId'))
@@ -180,7 +165,7 @@ export default function EnhancedTrainingPage() {
   }, [])
 
   const getSourceTypeFromNumber = (type: number): TrainingItem['sourceType'] => {
-    switch(type) {
+    switch (type) {
       case 0: return 'Web Pages'
       case 1: return 'Files'
       case 2: return 'Doc/Snippets'
@@ -189,211 +174,164 @@ export default function EnhancedTrainingPage() {
     }
   }
 
-  const getStatusLabel = (status: number) => {
-    const statusMap: Record<number, { label: string; className: string; icon: React.ReactNode }> = {
-      0: { label: "Pending", className: "bg-yellow-100 text-yellow-800", icon: <Clock className="w-3 h-3" /> },
-      1: { label: "Completed", className: "bg-green-100 text-green-800", icon: <CheckCircle className="w-3 h-3" /> },
-      2: { label: "Failed", className: "bg-red-100 text-red-800", icon: <XCircle className="w-3 h-3" /> },
-    }
-    return statusMap[status] || statusMap[0]
+  const formatDate = (dateValue: string) => {
+    if (!dateValue) return '-'
+    const date = new Date(dateValue)
+    if (isNaN(date.getTime())) return '-'
+    const d = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const t = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return `${d}, ${t}`
   }
 
-  const getTrainingStatusMessage = (dataTrainingStatus: number) => {
-    switch(dataTrainingStatus) {
-      case 0:
-        return { message: "No training in progress", color: "text-gray-600", icon: <CheckCircle className="w-4 h-4" /> }
-      case 1:
-        return { message: "Training in progress...", color: "text-blue-600", icon: <Loader2 className="w-4 h-4 animate-spin" /> }
-      default:
-        return { message: "Unknown status", color: "text-gray-600", icon: <Clock className="w-4 h-4" /> }
+  const getStatusConfig = (status: number) => {
+    const map: Record<number, { label: string; className: string }> = {
+      0: { label: 'Pending', className: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
+      1: { label: 'Completed', className: 'bg-green-50 text-green-700 border border-green-200' },
+      2: { label: 'Failed', className: 'bg-red-50 text-red-700 border border-red-200' },
     }
+    return map[status] ?? map[0]
   }
 
-  const handleContinueScrapping = async () => {
-    try {
-      setShowContinueScrapping(false);
-      const data = await continueScrapping()
-      if(data?.success == false){
-        addError('Failed to continue scrapping. Please try again.', 'error', 'Scrapping');
-      }
-      // Handle the response data as needed
-    } catch (error) {
-      console.error('Error in continue scrapping:', error);
-      addError('Failed to continue scrapping. Please try again.', 'error', 'Scrapping');
-    }
+  // ── Filtered rows (client-side search) ───────────────────────────────────────
+
+  const filteredData = useMemo(() => {
+    if (!searchValue.trim()) return trainingList.data
+    const kw = searchValue.toLowerCase()
+    return trainingList.data.filter(item =>
+      item.title.toLowerCase().includes(kw) ||
+      (item.url && item.url.toLowerCase().includes(kw))
+    )
+  }, [trainingList.data, searchValue])
+
+  // ── Selection helpers ─────────────────────────────────────────────────────────
+
+  const allSelected = filteredData.length > 0 && filteredData.every(item => selectedRows[item._id])
+  const hasPartialSelection = filteredData.some(item => selectedRows[item._id]) && !allSelected
+  const selectedCount = Object.values(selectedRows).filter(Boolean).length
+  const selectedIds = Object.entries(selectedRows).filter(([, v]) => v).map(([k]) => k)
+
+  const handleSelectAll = (checked: boolean) => {
+    const updated: Record<string, boolean> = { ...selectedRows }
+    filteredData.forEach(item => { updated[item._id] = checked })
+    setSelectedRows(updated)
   }
 
-  // Action handlers
+  const handleSelectRow = (id: string, checked: boolean) => {
+    setSelectedRows(prev => ({ ...prev, [id]: checked }))
+  }
+
+  // ── Action handlers ───────────────────────────────────────────────────────────
+
   const handleViewContent = (item: TrainingItem) => {
     setSelectedItemId(item._id)
     setShowContentModal(true)
   }
 
-  // Pagination handlers
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
+  const refreshList = () => {
+    socket?.emit('get-training-list', {
+      skip: (currentPage - 1) * pageSize,
+      limit: pageSize,
+      sourcetype: sourceTypeFilter,
+      actionType: actionTypeFilter,
+    })
   }
 
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1)
+  const handleDelete = async (ids: string[]) => {
+    if (!agentId) { toast.error('Agent ID not found'); return }
+    setDeletingIds(prev => new Set([...prev, ...ids]))
+    try {
+      const res = await deleteTrainingDataApi(ids, agentId)
+      if (res?.success) {
+        toast.success('Delete job queued successfully')
+        setSelectedRows({})
+        refreshList()
+      } else {
+        toast.error(res?.error || 'Failed to delete training data')
+      }
+    } catch {
+      toast.error('Failed to delete training data')
+    } finally {
+      setDeletingIds(prev => {
+        const next = new Set(prev)
+        ids.forEach(id => next.delete(id))
+        return next
+      })
     }
   }
 
-  const handleNextPage = () => {
-    if (currentPage < trainingList.totalPages) {
-      setCurrentPage(currentPage + 1)
+  const handleRetrain = async (ids: string[]) => {
+    if (!agentId) { toast.error('Agent ID not found'); return }
+    setRetrainingIds(prev => new Set([...prev, ...ids]))
+    try {
+      const res = await retrainTrainingDataApi(ids, agentId)
+      if (res?.success) {
+        toast.success('Retrain job queued successfully')
+        setSelectedRows({})
+      } else {
+        toast.error(res?.error || 'Failed to retrain training data')
+      }
+    } catch {
+      toast.error('Failed to retrain training data')
+    } finally {
+      setRetrainingIds(prev => {
+        const next = new Set(prev)
+        ids.forEach(id => next.delete(id))
+        return next
+      })
     }
   }
 
-  // Column definitions
-  const columns: ColumnDef<TrainingItem>[] = [
-    {
-      id: "select",
-      // header: ({ table }) => (
-        // <Checkbox
-        //   checked={table.getIsAllPageRowsSelected()}
-        //   onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        //   aria-label="Select all"
-        // />
-      // ),
-      // cell: ({ row }) => (
-        // <Checkbox
-        //   checked={row.getIsSelected()}
-        //   onCheckedChange={(value) => row.toggleSelected(!!value)}
-        //   aria-label="Select row"
-        // />
-      // ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: "title",
-      header: "Title/URL",
-      cell: ({ row }) => {
-        const item = row.original
-        return (
-          <div className="space-y-1">
-            <div 
-              className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer truncate max-w-[300px]" 
-              title={item.title}
-              onClick={() => handleViewContent(item)}
-            >
-              {item.title}
-            </div>
-            {item.url && (
-              <div className="text-xs text-gray-500 truncate max-w-[300px]" title={item.url}>
-                {item.url}
-              </div>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: "sourceType",
-      header: "Type",
-      cell: ({ row }) => {
-        const sourceType = row.getValue("sourceType") as string
-        const variants: Record<string, string> = {
-          "Web Pages": "bg-blue-100 text-blue-800",
-          "Doc/Snippets": "bg-green-100 text-green-800",
-          "FAQs": "bg-purple-100 text-purple-800",
-          "Files": "bg-orange-100 text-orange-800",
-        }
-        
-        return (
-          <Badge variant="secondary" className={variants[sourceType] || "bg-gray-100 text-gray-800"}>
-            {sourceType}
-          </Badge>
-        )
-      },
-    },
-    {
-      accessorKey: "lastEdit",
-      header: "Last Edit",
-      cell: ({ row }) => {
-        const dateValue = row.getValue("lastEdit")
-        if (!dateValue) return <div className="text-sm text-gray-400">-</div>
-        
-        const date = new Date(dateValue as any)
-        if (isNaN(date.getTime())) return <div className="text-sm text-gray-400">-</div>
-        
-        return (
-          <div className="text-sm text-gray-600">
-            {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: "trainingStatus",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.original.trainingStatus
-        const config = getStatusLabel(status)
-        
-        return (
-          <Badge variant="secondary" className={`${config.className} flex items-center gap-1`}>
-            {config.icon}
-            {config.label}
-          </Badge>
-        )
-      },
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => {
-        const item = row.original
-        
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <MoreHorizontalIcon className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => handleViewContent(item)}>
-                <EyeIcon className="mr-2 h-4 w-4" />
-                View Content
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      },
-    },
-  ]
+  const handleBulkDelete = () => handleDelete(selectedIds)
 
-  // Socket event handlers
+  const handleBulkRetrain = () => {
+    const webPageIds = selectedIds.filter(id => {
+      const item = trainingList.data.find(d => d._id === id)
+      return item?.type === 0
+    })
+    if (webPageIds.length === 0) {
+      toast.warning('No web pages selected for retraining')
+      return
+    }
+    handleRetrain(webPageIds)
+  }
+
+  const handleContinueScrapping = async () => {
+    setShowContinueScrapping(false)
+    try {
+      const data = await continueScrapping()
+      if (data?.success === false) toast.error('Failed to continue scrapping. Please try again.')
+    } catch {
+      toast.error('Failed to continue scrapping. Please try again.')
+    }
+  }
+
+  // ── Pagination ────────────────────────────────────────────────────────────────
+
+  const handlePageChange = (page: number) => setCurrentPage(page)
+  const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(currentPage - 1) }
+  const handleNextPage = () => { if (currentPage < trainingList.totalPages) setCurrentPage(currentPage + 1) }
+
+  // ── Socket ────────────────────────────────────────────────────────────────────
+
   const setupSocketListeners = () => {
     if (!socket) return
 
-    // Basic connection and data fetching
-    socket.on('client-connect-response', function () {
+    socket.on('client-connect-response', () => {
       socket.emit('get-agent-data')
       socket.emit('get-client-data')
-      socket.emit('get-training-list', { 
-        skip: (currentPage - 1) * pageSize, 
+      socket.emit('get-training-list', {
+        skip: (currentPage - 1) * pageSize,
         limit: pageSize,
         sourcetype: sourceTypeFilter,
-        actionType: actionTypeFilter 
+        actionType: actionTypeFilter,
       })
     })
 
-    // Agent data response (from Agent model)
-    socket.on('get-agent-data-response', function ({ agentData: data }: any) {
-      setAgentData(data)
-    })
-    // Client data response (from Client model)
-    socket.on('get-client-data-response', function ({ clientData: data }: any) {
-      setClientData(data)
-    })
+    socket.on('get-agent-data-response', ({ agentData: data }: any) => setAgentData(data))
+    socket.on('get-client-data-response', ({ clientData: data }: any) => setClientData(data))
 
-    socket.on('get-training-list-response', function ({ data }: any) {
-      console.log(data, "get-training-list-response data");
+    socket.on('get-training-list-response', ({ data }: any) => {
+      console.log(data, 'get-training-list-response data')
       const transformedData: TrainingItem[] = data?.data?.entries?.map((item: any) => ({
         _id: item._id,
         title: item.title || item.webPage?.url || 'Untitled',
@@ -406,582 +344,520 @@ export default function EnhancedTrainingPage() {
         fileSize: item.fileSize,
         type: item.type,
       })) || []
-      
-      const totalCount = data?.data?.pagination?.total || 0;
-      const totalPages = Math.ceil(totalCount / pageSize);
-      
-      setTrainingList({ 
-        data: transformedData, 
-        loading: false,
-        totalCount,
-        currentPage,
-        totalPages
-      })
+
+      const totalCount = data?.data?.pagination?.total || 0
+      const totalPages = Math.ceil(totalCount / pageSize)
+
+      setTrainingList({ data: transformedData, loading: false, totalCount, currentPage, totalPages })
     })
 
-    socket.on('show-continue-scrapping-button',function({data}:any) {
-      console.log("show-continue-scrapping-button'")
-      setShowContinueScrapping(true);
-    })
+    socket.on('show-continue-scrapping-button', () => setShowContinueScrapping(true))
 
-    // Main training event handler - handles all training-related updates
-    // Backend may send 'agent' (from ScrapingController) or 'client' (from jobService)
-    socket.on('training-event', function({ client, agent, message, scrapingProgress: progress }: { client?: ClientData, agent?: AgentData, message?: string, scrapingProgress?: ScrapingProgress }) {
-      // Handle scraping progress updates
+    socket.on('training-event', ({ client, agent, message, scrapingProgress: progress }: any) => {
       if (progress) {
         setScrapingProgress(progress)
-        
-        // Clear progress when processing is complete and not in error state
         if (!progress.isProcessing && progress.percentage === 100 && !progress.error && !progress.stoppedReason) {
-          setTimeout(() => {
-            setScrapingProgress(null)
-          }, 5000) // Clear after 5 seconds
-        }
-        
-        // Handle error states
-        if (progress.error) {
-          addError('An error occurred during scraping/training.', 'error', 'Scraping')
+          setTimeout(() => setScrapingProgress(null), 5000)
         }
       } else if (agent?.dataTrainingStatus === 0) {
-        // Clear progress when training status is 0 and no progress is provided
         setScrapingProgress(null)
       }
-      
-      // Update agent data (training status, pages, files, faqs from Agent model)
+
       if (agent) {
-        if (agent.dataTrainingStatus === 1 && agentData?.dataTrainingStatus !== 1 && agentData?.dataTrainingStatus !== null && progress == undefined) {
+        if (
+          agent.dataTrainingStatus === 1 &&
+          agentData?.dataTrainingStatus !== 1 &&
+          agentData?.dataTrainingStatus !== null &&
+          progress == undefined
+        ) {
           toast.info('Training started...')
-        } else if (agent.dataTrainingStatus === 0 && agentData?.dataTrainingStatus !== 0 && agentData?.dataTrainingStatus !== null) {
+        } else if (
+          agent.dataTrainingStatus === 0 &&
+          agentData?.dataTrainingStatus !== 0 &&
+          agentData?.dataTrainingStatus !== null
+        ) {
           setScrapingProgress(null)
-          if (message) {
-            toast.error(message)
-            addError(message, 'error', 'Training')
-          } else {
-            toast.success('Training completed successfully!')
-          }
+          if (message) { toast.error(message) } else { toast.success('Training completed successfully!') }
         }
         setAgentData(agent)
       }
-      
-      // Update client data (plan, storage limits from Client model)
-      if (client) {
-        if (client.upgradePlanStatus?.storageLimitExceeded) {
-          addError('Storage limit exceeded. Please upgrade your plan to continue.', 'warning', 'Storage')
-        }
-        setClientData(client)
-      }
 
-      // Refresh data after training events
+      if (client) { setClientData(client) }
+
       socket.emit('get-training-list-count')
-      socket.emit('get-training-list', { 
-        skip: (currentPage - 1) * pageSize, 
+      socket.emit('get-training-list', {
+        skip: (currentPage - 1) * pageSize,
         limit: pageSize,
         sourcetype: sourceTypeFilter,
-        actionType: actionTypeFilter 
+        actionType: actionTypeFilter,
       })
     })
 
-    // Connect
     socket.emit('client-connect')
     socket.emit('continue-scrapping-button')
   }
 
-  useEffect(() => {
-    setupSocketListeners()
-  }, [socket])
+  useEffect(() => { setupSocketListeners() }, [socket])
 
   useEffect(() => {
     if (socket) {
-      socket.emit('get-training-list', { 
+      socket.emit('get-training-list', {
         skip: (currentPage - 1) * pageSize,
         limit: pageSize,
         sourcetype: sourceTypeFilter,
-        actionType: actionTypeFilter 
+        actionType: actionTypeFilter,
       })
     }
   }, [sourceTypeFilter, actionTypeFilter, currentPage, socket])
 
-  // Calculate totals and percentages (from AgentData)
-  const totalItems = agentData ? (agentData.pagesAdded.total + agentData.filesAdded + agentData.faqsAdded) : 0
-  const totalSuccess = agentData ? (agentData.pagesAdded.success + agentData.filesAdded + agentData.faqsAdded) : 0
-  const totalFailed = agentData ? agentData.pagesAdded.failed : 0
-  const successRate = totalItems > 0 ? (totalSuccess / totalItems) * 100 : 0
+  // ── Checkbox styles ───────────────────────────────────────────────────────────
 
-  const trainingStatus = agentData ? getTrainingStatusMessage(agentData.dataTrainingStatus) : null
+  const checkboxUiClass =
+    'h-[18px] w-[18px] rounded-[5px] border border-[#CBD5E1] shadow-none ' +
+    'data-[state=checked]:border-[#111827] data-[state=checked]:bg-[#111827] data-[state=checked]:text-white ' +
+    'data-[state=indeterminate]:border-[#111827] data-[state=indeterminate]:bg-[#111827] data-[state=indeterminate]:text-white ' +
+    '[&_svg]:h-[12px] [&_svg]:w-[12px]'
 
-  console.log(trainingList.data,"trainingList.data")
+  const headerCheckboxUiClass =
+    checkboxUiClass +
+    ' data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]'
+
+  const isTrainingActive = agentData?.dataTrainingStatus === 1 || (scrapingProgress?.isProcessing ?? false)
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      {/* <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Training</h1>
-            <p className="text-sm text-gray-600 mt-1">Manage your AI training data and content</p>
-            {trainingStatus && (
-              <div className={`flex items-center gap-2 mt-2 text-sm ${trainingStatus.color}`}>
-                {trainingStatus.icon}
-                {trainingStatus.message}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center space-x-4">
-      
-            <Button 
-              onClick={() => setShowModal(true)}
-              className="bg-blue-600 hover:bg-blue-700"
-              disabled={agentData?.dataTrainingStatus === 1 || clientData?.upgradePlanStatus?.storageLimitExceeded}
-            >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              Add Content
-            </Button>
-          </div>
-        </div>
-      </div> */}
+    <div className="min-h-screen bg-[#F8FAFC] p-6" style={{ paddingBottom: selectedCount > 0 ? '80px' : '24px' }}>
 
-      {/* Upgrade Plan Alerts */}
-      {clientData?.upgradePlanStatus && (
-        <div className="mx-6 mt-4 space-y-2">
-          {clientData.upgradePlanStatus.storageLimitExceeded && (
-            <Alert className="border-orange-200 bg-orange-50">
-              <Zap className="h-4 w-4" />
-              <AlertDescription>
-                <div className="flex items-center justify-between">
-                  <span>Storage limit exceeded. Upgrade your plan to continue training.</span>
-                  {/* <Button size="sm" variant="outline">
-                    Upgrade Plan
-                  </Button> */}
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
+      {/* ── Alerts ── */}
+      {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+        <Alert className="border-orange-200 bg-orange-50 mb-4">
+          <Zap className="h-4 w-4" />
+          <AlertDescription>Storage limit exceeded. Upgrade your plan to continue training.</AlertDescription>
+        </Alert>
       )}
 
-  {showContinueScrapping && (
-        <div className="mx-6 mt-4 space-y-2">
-          <Alert className="border-orange-200 bg-orange-50">
-            <Zap className="h-4 w-4" />
-            <AlertDescription>
-              <div className="flex items-center justify-between">
-                <span>Continue your scrapping Some Pages are still left to train.</span>
-                <Button size="sm" variant="outline" onClick={handleContinueScrapping}>
-                  Continue Scrapping
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
-
-      {/* Scraping Progress Tracker */}
-      {scrapingProgress && (
-        <div className="mx-6 mt-4">
-          <Card className="border-blue-200 bg-blue-50/50">
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {scrapingProgress.phase === 'training' ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                        <h3 className="text-sm font-semibold text-blue-900">Training Phase</h3>
-                      </>
-                    ) : (
-                      <>
-                        <Globe className="w-4 h-4 text-blue-600" />
-                        <h3 className="text-sm font-semibold text-blue-900">Scraping Progress</h3>
-                      </>
-                    )}
-                    {scrapingProgress.stoppedReason && (
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs">
-                        Stopped
-                      </Badge>
-                    )}
-                    {scrapingProgress.error && (
-                      <Badge variant="secondary" className="bg-red-100 text-red-800 text-xs">
-                        Error
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-sm font-medium text-blue-900">
-                    {scrapingProgress.percentage}%
-                  </div>
-                </div>
-                
-                <Progress 
-                  value={scrapingProgress.percentage} 
-                  className="h-2"
-                />
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                  <div>
-                    <span className="text-gray-600">Processed:</span>
-                    <span className="ml-1 font-medium text-gray-900">
-                      {scrapingProgress.processed} / {scrapingProgress.total}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Elapsed:</span>
-                    <span className="ml-1 font-medium text-gray-900">
-                      {scrapingProgress.elapsedTime}
-                    </span>
-                  </div>
-                  {scrapingProgress.estimatedTimeRemaining && (
-                    <div>
-                      <span className="text-gray-600">Remaining:</span>
-                      <span className="ml-1 font-medium text-gray-900">
-                        {scrapingProgress.estimatedTimeRemaining}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-gray-600">Status:</span>
-                    <span className="ml-1 font-medium text-gray-900">
-                      {scrapingProgress.isProcessing ? 'Processing' : 'Complete'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-
-      {/* Error Block */}
-      {errors.length > 0 && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 mx-6 mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-              <h3 className="text-sm font-medium text-red-800">Recent Errors</h3>
+      {showContinueScrapping && (
+        <Alert className="border-orange-200 bg-orange-50 mb-4">
+          <Zap className="h-4 w-4" />
+          <AlertDescription>
+            <div className="flex items-center justify-between">
+              <span>Continue your scrapping. Some pages are still left to train.</span>
+              <button
+                onClick={handleContinueScrapping}
+                className="text-sm font-medium text-orange-700 underline ml-4"
+              >
+                Continue Scrapping
+              </button>
             </div>
-            <Button variant="ghost" size="sm" onClick={clearErrors}>
-              Clear All
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {errors.map((error) => (
-              <Alert key={error.id} className="border-red-200">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-medium">{error.source}: </span>
-                      {error.message}
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {error.timestamp.toLocaleTimeString()}
-                    </span>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            ))}
-          </div>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* Main Content */}
-      <div className="p-6">
-        {/* Training Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {/* Web Pages Summary */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center text-base font-medium">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                  <Globe className="w-5 h-5 text-blue-600" />
-                </div>
-                Web Pages
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total:</span>
-                  <span className="font-medium">{agentData?.pagesAdded.total || 0}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Success:</span>
-                  <span className="font-medium text-green-600">{agentData?.pagesAdded.success || 0}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Failed:</span>
-                  <span className="font-medium text-red-600">{agentData?.pagesAdded.failed || 0}</span>
-                </div>
-                {/* {agentData?.pagesAdded.total > 0 && (
-                  <Progress 
-                    value={(agentData.pagesAdded.success / agentData.pagesAdded.total) * 100} 
-                    className="h-2 mt-2" 
-                  />
-                )} */}
+      {/* ── Summary Cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+        {/* Web Pages */}
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Globe className="w-5 h-5 text-blue-500" />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Files Summary */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center text-base font-medium">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                  <FileText className="w-5 h-5 text-green-600" />
+              <div>
+                <div className="text-2xl font-bold text-[#111827] leading-tight">
+                  {agentData?.pagesAdded.total ?? 0}
                 </div>
-                Files
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total Added:</span>
-                  <span className="font-medium">{agentData?.filesAdded || 0}</span>
-                </div>
-                {/* <div className="flex justify-between text-sm">
-                  <span>Data Size:</span>
-                  <span className="font-medium text-blue-600">
-                    {formatDataSize(clientData?.currentDataSize || 0)}
-                  </span>
-                </div> */}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* FAQs Summary */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center text-base font-medium">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                  <HelpCircle className="w-5 h-5 text-purple-600" />
-                </div>
-                FAQs
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total Added:</span>
-                  <span className="font-medium">{agentData?.faqsAdded || 0}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Overall Summary */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center text-base font-medium">
-                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
-                  <TrendingUp className="w-5 h-5 text-gray-600" />
-                </div>
-                Overall
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total Items:</span>
-                  <span className="font-medium">{totalItems}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Success:</span>
-                  <span className="font-medium text-green-600">{totalSuccess}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Failed:</span>
-                  <span className="font-medium text-red-600">{totalFailed}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Success Rate:</span>
-                  <span className="font-medium text-blue-600">{successRate.toFixed(1)}%</span>
-                </div>
-                {totalItems > 0 && (
-                  <Progress value={successRate} className="h-2 mt-2" />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Data Table Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
-              <CardTitle>Training Data</CardTitle>
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Training Status Indicator */}
-                {agentData && (
-                  <div className="flex items-center gap-2">
-                    {agentData.dataTrainingStatus === 1 ? (
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        Training Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Ready
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {/* Filters */}
-                <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Select source type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Show All Sources</SelectItem>
-                    <SelectItem value="Web Pages">Web Pages</SelectItem>
-                    <SelectItem value="Doc/Snippets">Doc/Snippets</SelectItem>
-                    <SelectItem value="FAQs">FAQs</SelectItem>
-                    <SelectItem value="Files">Files</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={actionTypeFilter} onValueChange={setActionTypeFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="success">Success</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    {/* <SelectItem value="processing">Processing</SelectItem> */}
-                  </SelectContent>
-                </Select>
+                <div className="text-[13px] text-[#64748B]">Total Web Pages</div>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            {trainingList.loading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center space-x-4">
-                    <Skeleton className="h-4 w-4" />
-                    <Skeleton className="h-4 w-[300px]" />
-                    <Skeleton className="h-4 w-[100px]" />
-                    <Skeleton className="h-4 w-[150px]" />
-                    <Skeleton className="h-4 w-[100px]" />
-                    <Skeleton className="h-4 w-[50px]" />
-                  </div>
-                ))}
-              </div>
-            ) : trainingList.data.length === 0 ? (
-              <div className="text-center py-12">
-                <Database className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Training Data</h3>
-                <p className="text-gray-500 mb-4">
-                  Start by adding content to train your AI chatbot.
-                </p>
-                <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700">
-                  <PlusIcon className="w-4 h-4 mr-2" />
-                  Add Your First Content
-                </Button>
-              </div>
-            ) : (
-              <>
-                <DataTable 
-                  columns={columns} 
-                  data={trainingList.data}
-                  searchKey="title"
-                  searchPlaceholder="Search training data..."
-                  showPagination={false}
-                  // manualPagination={true}
-                />
-                {/* Pagination Controls */}
-                {trainingList.totalPages > 1 && (
-                  <div className="flex items-center justify-between space-x-2 py-4">
-                    <div className="flex items-center space-x-2">
-                      <p className="text-sm font-medium">
-                        Showing {((currentPage - 1) * pageSize) + 1} to{' '}
-                        {Math.min(currentPage * pageSize, trainingList.totalCount)} of{' '}
-                        {trainingList.totalCount} results
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handlePrevPage}
-                        disabled={currentPage <= 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
-                      </Button>
-                      
-                      {/* Page Numbers */}
-                      <div className="flex items-center space-x-1">
-                        {Array.from({ length: Math.min(5, trainingList.totalPages) }, (_, i) => {
-                          const pageNumber = i + 1;
-                          if (trainingList.totalPages <= 5) {
-                            return (
-                              <Button
-                                key={pageNumber}
-                                variant={currentPage === pageNumber ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handlePageChange(pageNumber)}
-                                className="w-8 h-8 p-0"
-                              >
-                                {pageNumber}
-                              </Button>
-                            );
-                          } else {
-                            // More complex pagination logic for many pages
-                            let displayPage;
-                            if (i === 0) displayPage = 1;
-                            else if (i === 4) displayPage = trainingList.totalPages;
-                            else if (currentPage <= 3) displayPage = i + 1;
-                            else if (currentPage >= trainingList.totalPages - 2) displayPage = trainingList.totalPages - 4 + i;
-                            else displayPage = currentPage - 2 + i;
-                            
-                            return (
-                              <Button
-                                key={i}
-                                variant={currentPage === displayPage ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handlePageChange(displayPage)}
-                                className="w-8 h-8 p-0"
-                              >
-                                {displayPage}
-                              </Button>
-                            );
-                          }
-                        })}
-                      </div>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleNextPage}
-                        disabled={currentPage >= trainingList.totalPages}
-                      >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
+            {(agentData?.pagesAdded.failed ?? 0) > 0 && (
+              <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-md leading-none">
+                {agentData?.pagesAdded.failed} Failed
+              </span>
             )}
-          </CardContent>
-        </Card>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full h-2 bg-[#F1F5F9] rounded-full overflow-hidden mb-3">
+            <div
+              className="h-full bg-[#111827] rounded-full transition-all duration-500"
+              style={{
+                width: `${(agentData?.pagesAdded.total ?? 0) > 0
+                  ? Math.round(((agentData?.pagesAdded.success ?? 0) / (agentData?.pagesAdded.total ?? 1)) * 100)
+                  : 0}%`
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="text-[#64748B]">Data Status</span>
+            <span className="text-[#16A34A] font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-[#16A34A] rounded-full" />
+              {agentData?.pagesAdded.success ?? 0} Synced
+            </span>
+          </div>
+        </div>
+
+        {/* Files */}
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
+                <FileText className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-[#111827] leading-tight">
+                  {agentData?.filesAdded ?? 0}
+                </div>
+                <div className="text-[13px] text-[#64748B]">Total Files</div>
+              </div>
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full h-2 bg-[#F1F5F9] rounded-full overflow-hidden mb-3">
+            <div
+              className="h-full bg-[#111827] rounded-full transition-all duration-500"
+              style={{ width: (agentData?.filesAdded ?? 0) > 0 ? '100%' : '0%' }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="text-[#64748B]">Data Status</span>
+            <span className="text-[#64748B] font-medium">{agentData?.filesAdded ?? 0} Synced</span>
+          </div>
+        </div>
+
+        {/* FAQs */}
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                <HelpCircle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-[#111827] leading-tight">
+                  {agentData?.faqsAdded ?? 0}
+                </div>
+                <div className="text-[13px] text-[#64748B]">Total FAQs</div>
+              </div>
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full h-2 bg-[#F1F5F9] rounded-full overflow-hidden mb-3">
+            <div
+              className="h-full bg-[#111827] rounded-full transition-all duration-500"
+              style={{ width: (agentData?.faqsAdded ?? 0) > 0 ? '100%' : '0%' }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="text-[#64748B]">Data Status</span>
+            <span className="text-[#64748B] font-medium">{agentData?.faqsAdded ?? 0} Synced</span>
+          </div>
+        </div>
 
       </div>
 
-      {/* Modals */}
-      <AddcontentModal
-        showModal={showModal}
-        onHide={() => setShowModal(false)}
-      />
+      {/* ── Table Card ── */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden">
+
+        {/* Toolbar */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-4 border-b border-[#F1F5F9]">
+          {/* Search */}
+          <div className="h-10 rounded-lg border border-[#E2E8F0] bg-white px-3 flex items-center gap-2 w-full md:w-64">
+            <Search className="w-4 h-4 text-[#94A3B8] flex-shrink-0" />
+            <input
+              value={searchValue}
+              onChange={e => setSearchValue(e.target.value)}
+              placeholder="Search Pages"
+              className="text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] w-full bg-transparent"
+            />
+          </div>
+
+          <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
+            {/* Add Content */}
+            <button
+              onClick={() => setShowModal(true)}
+              disabled={isTrainingActive || clientData?.upgradePlanStatus?.storageLimitExceeded}
+              className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Content
+            </button>
+
+            {/* Source filter */}
+            <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
+              <SelectTrigger className="h-10 w-44 text-[13px] border-[#E2E8F0]">
+                <SelectValue placeholder="Show All Sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Show All Sources</SelectItem>
+                <SelectItem value="Web Pages">Web Pages</SelectItem>
+                <SelectItem value="Doc/Snippets">Doc/Snippets</SelectItem>
+                <SelectItem value="FAQs">FAQs</SelectItem>
+                <SelectItem value="Files">Files</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Status filter */}
+            <Select value={actionTypeFilter} onValueChange={setActionTypeFilter}>
+              <SelectTrigger className="h-10 w-32 text-[13px] border-[#E2E8F0]">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="success">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Table Header */}
+        <div className="h-11 bg-[#F8FAFC] border-b border-[#F1F5F9] px-4 grid items-center gap-3"
+          style={{ gridTemplateColumns: '36px 1fr 130px 170px 120px 108px' }}>
+          <Checkbox
+            className={headerCheckboxUiClass}
+            checked={allSelected ? true : hasPartialSelection ? 'indeterminate' : false}
+            onCheckedChange={checked => handleSelectAll(checked === true)}
+          />
+          <span className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Source Name</span>
+          <span className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Type</span>
+          <span className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Last Synced</span>
+          <span className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Status</span>
+          <span className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide text-right">Action</span>
+        </div>
+
+        {/* Table Body */}
+        {trainingList.loading ? (
+          <div className="divide-y divide-[#F1F5F9]">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[54px] px-4 grid items-center gap-3"
+                style={{ gridTemplateColumns: '36px 1fr 130px 170px 120px 108px' }}
+              >
+                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-16 ml-auto" />
+              </div>
+            ))}
+          </div>
+        ) : filteredData.length === 0 ? (
+          <div className="py-16 flex flex-col items-center justify-center text-center">
+            <Database className="w-10 h-10 text-[#CBD5E1] mb-3" />
+            <p className="text-[15px] font-medium text-[#111827] mb-1">No Training Data</p>
+            <p className="text-[13px] text-[#64748B]">Start by adding content to train your AI chatbot.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#F1F5F9]">
+            {filteredData.map(item => {
+              const statusConfig = getStatusConfig(item.trainingStatus)
+              const isDeleting = deletingIds.has(item._id)
+              const isRetraining = retrainingIds.has(item._id)
+              const isWebPage = item.type === 0
+
+              return (
+                <div
+                  key={item._id}
+                  className="min-h-[54px] px-4 py-2 grid items-center gap-3 hover:bg-[#F8FAFC] transition-colors"
+                  style={{ gridTemplateColumns: '36px 1fr 130px 170px 120px 108px' }}
+                >
+                  {/* Checkbox */}
+                  <Checkbox
+                    className={checkboxUiClass}
+                    checked={!!selectedRows[item._id]}
+                    onCheckedChange={checked => handleSelectRow(item._id, checked === true)}
+                  />
+
+                  {/* Source Name */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isWebPage ? (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-[#EEF2FF]"
+                        title={item.url}
+                      >
+                        <LinkIcon className="w-[14px] h-[14px] text-[#94A3B8]" />
+                      </a>
+                    ) : (
+                      <FileText className="flex-shrink-0 w-[14px] h-[14px] text-[#94A3B8]" />
+                    )}
+                    <span
+                      className="text-[13px] text-[#111827] truncate"
+                      title={item.title}
+                    >
+                      {item.title}
+                    </span>
+                  </div>
+
+                  {/* Type */}
+                  <span className="text-[12px] text-[#64748B] font-medium truncate">{item.sourceType}</span>
+
+                  {/* Last Synced */}
+                  <span className="text-[12px] text-[#64748B]">{formatDate(item.lastEdit)}</span>
+
+                  {/* Status */}
+                  <div>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${statusConfig.className}`}>
+                      {statusConfig.label}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-0.5">
+                    <button
+                      onClick={() => handleViewContent(item)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#111827] hover:bg-[#F1F5F9] transition-colors"
+                      title="View content"
+                    >
+                      <Eye className="w-[15px] h-[15px]" />
+                    </button>
+
+                    {isWebPage && (
+                      <button
+                        onClick={() => handleRetrain([item._id])}
+                        disabled={isRetraining}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#111827] hover:bg-[#F1F5F9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Retrain"
+                      >
+                        {isRetraining
+                          ? <Loader2 className="w-[15px] h-[15px] animate-spin" />
+                          : <RotateCcw className="w-[15px] h-[15px]" />
+                        }
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleDelete([item._id])}
+                      disabled={isDeleting}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Delete"
+                    >
+                      {isDeleting
+                        ? <Loader2 className="w-[15px] h-[15px] animate-spin" />
+                        : <Trash2 className="w-[15px] h-[15px]" />
+                      }
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {trainingList.totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[#F1F5F9]">
+            <p className="text-[13px] text-[#64748B]">
+              Showing {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, trainingList.totalCount)} of {trainingList.totalCount}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage <= 1}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {Array.from({ length: Math.min(5, trainingList.totalPages) }, (_, i) => {
+                let pg: number
+                if (trainingList.totalPages <= 5) pg = i + 1
+                else if (currentPage <= 3) pg = i + 1
+                else if (currentPage >= trainingList.totalPages - 2) pg = trainingList.totalPages - 4 + i
+                else pg = currentPage - 2 + i
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(pg)}
+                    className={`h-8 w-8 flex items-center justify-center rounded-lg text-[13px] font-medium transition-colors ${
+                      currentPage === pg
+                        ? 'bg-[#111827] text-white'
+                        : 'border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                )
+              })}
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage >= trainingList.totalPages}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Training Progress Card (fixed bottom-left) ── */}
+      {isTrainingActive && (
+        <div className={`fixed left-6 bg-white rounded-xl border border-[#E2E8F0] shadow-lg p-4 flex items-center gap-4 z-50 min-w-[280px] ${selectedCount > 0 ? 'bottom-20' : 'bottom-6'}`}>
+          <CircularProgress percentage={scrapingProgress?.percentage ?? 0} />
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[14px] font-semibold text-[#111827]">Training Progress</p>
+            {scrapingProgress ? (
+              <>
+                <p className="text-[12px] text-[#64748B]">
+                  Processing {scrapingProgress.processed}/{scrapingProgress.total} pages
+                </p>
+                {scrapingProgress.estimatedTimeRemaining && (
+                  <p className="text-[12px] text-[#64748B]">
+                    Estimated time: {scrapingProgress.estimatedTimeRemaining}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-[12px] text-[#64748B]">Preparing training job...</p>
+            )}
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#16A34A] mt-0.5">
+              <span className="w-1.5 h-1.5 bg-[#16A34A] rounded-full animate-pulse" />
+              Running
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Action Bar ── */}
+      {selectedCount > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E2E8F0] px-6 py-3 flex items-center justify-between z-40 shadow-lg">
+          <p className="text-[13px] text-[#64748B]">
+            <span className="font-semibold text-[#111827]">{selectedCount} selected</span>
+            {' '}will apply to selected content
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBulkDelete}
+              className="inline-flex items-center gap-2 h-9 px-4 text-[13px] font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+            <button
+              onClick={handleBulkRetrain}
+              className="inline-flex items-center gap-2 h-9 px-4 text-[13px] font-semibold text-white bg-[#111827] rounded-lg hover:bg-[#1f2937] transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Retrain Selection
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modals ── */}
+      <AddcontentModal showModal={showModal} onHide={() => setShowModal(false)} />
 
       {selectedItemId && (
         <ContentDetailsModal
           show={showContentModal}
-          onHide={() => {
-            setShowContentModal(false)
-            setSelectedItemId(null)
-          }}
+          onHide={() => { setShowContentModal(false); setSelectedItemId(null) }}
           itemId={selectedItemId}
         />
       )}

@@ -30,7 +30,7 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
     urls.map((url, i) => ({
       id: String(i),
       url,
-      isMain: i === 0,
+      // isMain: i === 0,
     })),
     [urls]
   )
@@ -136,11 +136,11 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
                     {row.url}
                   </p>
 
-                  {row.isMain && (
+                  {/* {row.isMain && (
                     <Badge className="ml-auto rounded-[6px] bg-[#F1F5F9] text-[12px] text-[#64748B] shadow-none hover:bg-[#F1F5F9]">
                       Main
                     </Badge>
-                  )}
+                  )} */}
                 </div>
               </div>
             ))}

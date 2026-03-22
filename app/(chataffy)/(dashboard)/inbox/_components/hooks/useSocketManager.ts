@@ -25,6 +25,8 @@ interface SocketManagerProps {
 
   // Current state values
   status: string;
+  rating: string;
+  handledBy: string;
   openConversationId: string | null;
   openVisitorId: string | null;
   isAIChat: boolean;
@@ -43,6 +45,8 @@ export const useSocketManager = ({
   setIsConversationAvailable,
   setAITyping,
   status,
+  rating,
+  handledBy,
   openConversationId,
   openVisitorId,
   isAIChat,
@@ -225,15 +229,19 @@ export const useSocketManager = ({
     };
 
     const handleNewMessageCount = (data: any) => {
-      // Backend now sends { conversationId } — patch only that conversation's count
-      // in local state instead of re-fetching the entire list from the server.
-      const { conversationId } = data || {};
+      // Backend now sends { conversationId, lastMessage } — patch only that conversation's
+      // count and lastMessage in local state instead of re-fetching the entire list.
+      const { conversationId, lastMessage } = data || {};
       if (conversationId) {
         setConversationsList((prev: any) => ({
           ...prev,
           data: prev.data?.map((conv: any) =>
             conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
-              ? { ...conv, newMessage: (conv.newMessage || 0) + 1 }
+              ? {
+                  ...conv,
+                  newMessage: (conv.newMessage || 0) + 1,
+                  ...(lastMessage !== undefined ? { lastMessage } : {}),
+                }
               : conv
           ),
         }));
@@ -272,17 +280,17 @@ export const useSocketManager = ({
       console.log("Conversation closed event received:", data);
       setOpenConversationStatus("close");
 
-      // Only refresh the currently active tab — the other tab will refresh when
-      // the user switches to it. Emitting both at once caused two rapid
-      // setConversationsList calls which flickered the list.
-      const userId = localStorage.getItem("userId");
-      if (userId) {
-        if (status === "open") {
-          socket.emit("get-open-conversations-list", { userId });
-        } else {
-          socket.emit("get-close-conversations-list", { userId });
+      socket.emit(
+        "get-filtered-conversations-list",
+        { status, rating, handledBy },
+        (response: any) => {
+          if (response?.success) {
+            const filtered = response.conversations.filter((conv: any) => conv.is_started === true);
+            setIsConversationAvailable(filtered.length > 0);
+            setConversationsList({ data: filtered, loading: false });
+          }
         }
-      }
+      );
     };
 
     const handleVisitorBlocked = (data: any) => {
@@ -296,9 +304,9 @@ export const useSocketManager = ({
     socket.on("new-message-count", handleNewMessageCount);
     socket.on("note-append-message", handleNoteAppendMessage);
     socket.on("ai-chat-status-update", handleAiChatStatusUpdate);
-    socket.on('conversation-close-triggered', handleConversationClose);
-    socket.on('visitor-blocked', handleVisitorBlocked);
-    socket.on('visitor-conversation-close', handleConversationClose);
+    socket.on("conversation-close-triggered", handleConversationClose);
+    socket.on("visitor-blocked", handleVisitorBlocked);
+    socket.on("visitor-conversation-close", handleConversationClose);
 
     // Handle agent connection notifications
     const handleAgentConnectionNotification = (data: any) => {
@@ -435,49 +443,37 @@ export const useSocketManager = ({
       socket.off("agent-connection-cancelled", handleAgentConnectionCancelled);
       socket.off("note-append-message", handleNoteAppendMessage);
       socket.off("ai-chat-status-update", handleAiChatStatusUpdate);
-      socket.off('conversation-close-triggered', handleConversationClose);
-      socket.off('visitor-blocked', handleVisitorBlocked);
-      socket.off('visitor-conversation-close', handleConversationClose);
+      socket.off("conversation-close-triggered", handleConversationClose);
+      socket.off("visitor-blocked", handleVisitorBlocked);
+      socket.off("visitor-conversation-close", handleConversationClose);
     };
-  }, [status, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setAITyping]);
+  }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setAITyping]);
 
   const setupConversationListHandlers = useCallback(() => {
     const socket = socketRef.current;
-    // const { socket } = useSocket();
     if (!socket) return;
-
-    const handleOpenConversationsListResponse = (data: any) => {
-      if (status !== 'open') return;
-      const filteredConversations = data.conversations.filter((conv: any) => conv.is_started === true);
-      setIsConversationAvailable(filteredConversations.length > 0);
-      setConversationsList({ data: filteredConversations, loading: false });
-    };
-
-    const handleCloseConversationsListResponse = (data: any) => {
-      if (status !== 'close') return;
-      const filteredConversations = data.conversations.filter((conv: any) => conv.is_started === true);
-      setIsConversationAvailable(filteredConversations.length > 0);
-      setConversationsList({ data: filteredConversations, loading: false });
-    };
 
     const handleVisitorConnectListUpdate = () => {
       if (!socket.connected) return;
-      const userId = localStorage.getItem("userId");
-      if (userId && status === "open") {
-        socket.emit("get-open-conversations-list", { userId });
-      }
+      socket.emit(
+        "get-filtered-conversations-list",
+        { status, rating, handledBy },
+        (response: any) => {
+          if (response?.success) {
+            const filtered = response.conversations.filter((conv: any) => conv.is_started === true);
+            setIsConversationAvailable(filtered.length > 0);
+            setConversationsList({ data: filtered, loading: false });
+          }
+        }
+      );
     };
 
-    socket.on("get-open-conversations-list-response", handleOpenConversationsListResponse);
-    socket.on("get-close-conversations-list-response", handleCloseConversationsListResponse);
     socket.on("visitor-connect-list-update", handleVisitorConnectListUpdate);
 
     return () => {
-      socket.off("get-open-conversations-list-response", handleOpenConversationsListResponse);
-      socket.off("get-close-conversations-list-response", handleCloseConversationsListResponse);
       socket.off("visitor-connect-list-update", handleVisitorConnectListUpdate);
     };
-  }, [status, setConversationsList, setIsConversationAvailable]);
+  }, [status, rating, handledBy, setConversationsList, setIsConversationAvailable]);
 
   const setupTagsHandler = useCallback(() => {
     const socket = socketRef.current;
@@ -503,25 +499,30 @@ export const useSocketManager = ({
   // Socket emission functions
   const emitGetConversationsList = useCallback(() => {
     const socket = socketRef.current;
-    // const { socket } = useSocket();
     if (!socket) return;
 
     const doEmit = () => {
-      const userId = localStorage.getItem("userId");
-      if (status === "open") {
-        socket.emit("get-open-conversations-list", { userId });
-      } else {
-        socket.emit("get-close-conversations-list", { userId });
-      }
+      socket.emit(
+        "get-filtered-conversations-list",
+        { status, rating, handledBy },
+        (response: any) => {
+          if (response?.success) {
+            const filtered = response.conversations.filter((conv: any) => conv.is_started === true);
+            setIsConversationAvailable(filtered.length > 0);
+            setConversationsList({ data: filtered, loading: false });
+          } else {
+            setConversationsList({ data: [], loading: false });
+          }
+        }
+      );
     };
 
-    // If the socket is already connected emit immediately, otherwise wait for connect
     if (socket.connected) {
       doEmit();
     } else {
       socket.once("connect", doEmit);
     }
-  }, [status]);
+  }, [status, rating, handledBy, setConversationsList, setIsConversationAvailable]);
 
   const emitGetConversationTags = useCallback((conversationId?: string) => {
     const socket = socketRef.current;
@@ -844,10 +845,10 @@ export const useSocketManager = ({
     };
   }, [setupMessageHandlers, setupConversationListHandlers, setupTagsHandler, socketVersion]);
 
-  // Auto-fetch conversations list when status changes or socket is re-created
+  // Auto-fetch conversations list when filters change or socket is re-created
   useEffect(() => {
     emitGetConversationsList();
-  }, [status, isAIChat, emitGetConversationsList, socketVersion]);
+  }, [status, rating, handledBy, isAIChat, emitGetConversationsList, socketVersion]);
 
   // Auto-fetch notes and old conversations when conversation changes
   useEffect(() => {

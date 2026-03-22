@@ -14,6 +14,17 @@ export function middleware(request: NextRequest) {
     pathname = pathname.slice(basePathPrefix.length) || "/";
   }
 
+  // With basePath, URLs look like /chataffy/cahtaffy_fe/_next/... — the matcher still
+  // runs middleware here, so we must not redirect static assets or the session probe.
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/audio") ||
+    pathname === "/favicon.ico"
+  ) {
+    return NextResponse.next();
+  }
+
   const cookieStore = cookies();
   const hasToken = cookieStore.has("token");
   const currentUserRole = cookieStore.get("role")?.value;

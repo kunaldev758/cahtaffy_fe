@@ -14,6 +14,8 @@ export interface Conversation {
     newMessage: number;
     is_started: boolean;
     aiChat: boolean;
+    feedback?: boolean | null;
+    comment?: string;
     agentId?: string | {
       _id: string;
       name: string;

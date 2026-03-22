@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X, User, Mail, Pencil, Trash, Plus, Search, Filter, UserX, Shield, Clock, Globe } from "lucide-react";
+import { useState, useEffect, useRef } from 'react'
+import { X, User, Mail, Pencil, Trash, Plus, Search, UserX, Clock, UserPlus, ChevronDown } from "lucide-react";
 import { toast } from 'react-toastify'
 import { useSocket } from '@/app/socketContext'
 import 'react-toastify/dist/ReactToastify.css'
@@ -25,6 +25,7 @@ export interface HumanAgentType {
   lastActive?: string;
   isClient?: boolean;
   assignedAgents?: string[];
+  avatar?: string | null;
 }
 
 export interface AIAgentType {
@@ -49,6 +50,16 @@ interface FormErrors {
   name?: string;
   email?: string;
   assignedAgents?: string;
+}
+
+function resolveHumanAgentAvatarUrl(avatar?: string | null): string | null {
+  if (avatar == null) return null;
+  const trimmed = String(avatar).trim();
+  if (!trimmed || trimmed === 'null') return null;
+  if (trimmed.startsWith('http')) return trimmed;
+  const base = process.env.NEXT_PUBLIC_API_HOST || process.env.NEXT_PUBLIC_FILE_HOST || '';
+  if (!base) return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${base.replace(/\/$/, '')}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
 }
 
 // ErrorBoundary component
@@ -97,6 +108,9 @@ export default function HumanAgentPage() {
     assignedAgents: []
   });
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const headerSelectAllRef = useRef<HTMLInputElement>(null);
 
   // Fetch human agents
   const fetchAgents = async () => {
@@ -287,6 +301,7 @@ export default function HumanAgentPage() {
   };
 
   const openEditModal = (agent: HumanAgentType) => {
+    if (agent.isClient) return;
     setSelectedAgent(agent);
     const normalizedIds = (agent.assignedAgents || []).map((id) =>
       typeof id === 'string' ? id : (id as any)?.toString?.() || ''
@@ -310,7 +325,6 @@ export default function HumanAgentPage() {
   };
 
   const filteredAgents = agents.filter((agent: HumanAgentType) => {
-    // if (agent.isClient === true) return false;
     const matchesSearch =
       agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agent.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -318,19 +332,104 @@ export default function HumanAgentPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'approved':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case 'pending':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+  const selectableFilteredIds = filteredAgents.filter((a) => !a.isClient).map((a) => String(a._id));
+
+  useEffect(() => {
+    const allowedIds = agents.filter((a) => !a.isClient).map((a) => String(a._id));
+    setSelectedRowIds((prev) => prev.filter((id) => allowedIds.includes(id)));
+  }, [agents]);
+
+  useEffect(() => {
+    const el = headerSelectAllRef.current;
+    if (!el) return;
+    const some = selectedRowIds.some((id) => selectableFilteredIds.includes(id));
+    const all =
+      selectableFilteredIds.length > 0 && selectableFilteredIds.every((id) => selectedRowIds.includes(id));
+    el.indeterminate = some && !all;
+  }, [selectedRowIds, selectableFilteredIds]);
+
+  const toggleRowSelected = (agent: HumanAgentType) => {
+    if (agent.isClient) return;
+    const id = String(agent._id);
+    setSelectedRowIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const allSelected =
+      selectableFilteredIds.length > 0 && selectableFilteredIds.every((id) => selectedRowIds.includes(id));
+    if (allSelected) {
+      setSelectedRowIds((prev) => prev.filter((id) => !selectableFilteredIds.includes(id)));
+    } else {
+      setSelectedRowIds((prev) => {
+        const merged = [...prev, ...selectableFilteredIds];
+        return merged.filter((id, i) => merged.indexOf(id) === i);
+      });
     }
   };
 
-  const getActiveStatusColor = (isActive: boolean): string => {
-    return isActive ? 'bg-green-100 text-green-800 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200';
+  const handleBulkDelete = async () => {
+    const toDelete = selectedRowIds.filter((id) => {
+      const a = agents.find((ag) => String(ag._id) === id);
+      return a && !a.isClient;
+    });
+    if (!toDelete.length) {
+      setBulkDeleteOpen(false);
+      return;
+    }
+    try {
+      for (const id of toDelete) {
+        socket?.emit('agent-deleted', { id });
+        const result = await deleteAgent(id);
+        if (result === 'error') {
+          toast.error('Unauthorized: Please login again');
+          setBulkDeleteOpen(false);
+          return;
+        }
+      }
+      if (toDelete.length) {
+        toast.success(toDelete.length === 1 ? 'Team member removed' : `${toDelete.length} team members removed`);
+      }
+      setSelectedRowIds((prev) => prev.filter((id) => !toDelete.includes(id)));
+      setBulkDeleteOpen(false);
+      fetchAgents();
+    } catch {
+      toast.error('Failed to delete team member(s)');
+      setBulkDeleteOpen(false);
+    }
+  };
+
+  const handleRemoveAssignedWebsite = async (agent: HumanAgentType, websiteId: string) => {
+    if (agent.isClient) return;
+    const current = (agent.assignedAgents || []).map((id) => (typeof id === 'string' ? id : String((id as any)?.toString?.() ?? '')));
+    const next = current.filter((id) => id !== String(websiteId));
+    if (next.length === 0) {
+      toast.warn('Keep at least one website assigned');
+      return;
+    }
+    try {
+      await updateHumanAgent(agent._id, { name: agent.name, assignedAgents: next });
+      toast.success('Website unassigned');
+      fetchAgents();
+    } catch (e) {
+      toast.error('Failed to update assignments');
+    }
+  };
+
+  const getAccountStatusPresentation = (agent: HumanAgentType) => {
+    if (agent.status === 'pending') {
+      return {
+        label: 'Pending',
+        className: 'bg-amber-50 text-amber-600 border-amber-100',
+        icon: 'clock' as const,
+        dotActive: false,
+      };
+    }
+    return {
+      label: 'Online',
+      className: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+      icon: 'dot' as const,
+      dotActive: true,
+    };
   };
 
   const getAgentName = (agentId: string) => {
@@ -353,157 +452,254 @@ export default function HumanAgentPage() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-white">
-        {/* <div className="bg-white shadow-sm border-b border-slate-200">
-          <div className="px-6 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Human Agent Management</h1>
-                <p className="text-slate-600 mt-1">Manage human agents and assign them to websites (AI agents)</p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="bg-indigo-50 px-3 py-2 rounded-lg">
-                  <span className="text-sm font-medium text-indigo-700">
-                    {agents.filter((a) => !a.isClient).length} Total Agents
-                  </span>
+      <div className="min-h-screen w-full bg-[#F8F9FA]">
+        <div className="p-6 md:p-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-1 sm:max-w-2xl">
+                <div className="relative flex-1 min-w-[200px] max-w-md">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={2} />
+                  <input
+                    type="text"
+                    placeholder="Search team members"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-full bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-shadow"
+                  />
+                </div>
+                <div className="relative shrink-0">
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'approved')}
+                    className="appearance-none pl-4 pr-10 py-2.5 text-sm border border-slate-200 rounded-full bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer min-w-[140px]"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="approved">Approved</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                  <ChevronDown
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    size={18}
+                    strokeWidth={2}
+                  />
                 </div>
               </div>
-            </div>
-          </div>
-        </div> */}
-
-        <div className="p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-                    <input
-                      type="text"
-                      placeholder="Search agents..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2.5 w-64 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                  <div className="relative">
-                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="pl-10 pr-8 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all appearance-none bg-white"
-                    >
-                      <option value="all">All Status</option>
-                      <option value="approved">Approved</option>
-                      <option value="pending">Pending</option>
-                    </select>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="inline-flex items-center px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-200 transition-all duration-200 shadow-sm"
-                >
-                  <Plus size={20} className="mr-2" />
-                  Add New Human Agent
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium text-white bg-[#1A1C1E] hover:bg-[#0d0e10] transition-colors shadow-sm shrink-0"
+              >
+                <UserPlus size={18} strokeWidth={2} />
+                Add New Team Member
+              </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="text-left py-4 px-6 font-semibold text-slate-700">Agent</th>
-                      <th className="text-left py-4 px-6 font-semibold text-slate-700">Assigned Websites</th>
-                      <th className="text-left py-4 px-6 font-semibold text-slate-700">Status</th>
-                      <th className="text-left py-4 px-6 font-semibold text-slate-700">Activity</th>
-                      <th className="text-left py-4 px-6 font-semibold text-slate-700">Last Active</th>
-                      <th className="text-right py-4 px-6 font-semibold text-slate-700">Actions</th>
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="w-12 py-4 pl-5 pr-2">
+                        <input
+                          ref={headerSelectAllRef}
+                          type="checkbox"
+                          checked={
+                            selectableFilteredIds.length > 0 &&
+                            selectableFilteredIds.every((id) => selectedRowIds.includes(id))
+                          }
+                          onChange={toggleSelectAllFiltered}
+                          className="h-4 w-4 rounded-full border-slate-300 text-[#1A1C1E] focus:ring-slate-900/20"
+                        />
+                      </th>
+                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Team
+                      </th>
+                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Role
+                      </th>
+                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Status
+                      </th>
+                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Activity
+                      </th>
+                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Assign website
+                      </th>
+                      <th className="text-right py-4 pr-5 pl-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Action
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredAgents.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12">
-                          <div className="flex flex-col items-center space-y-3">
-                            <UserX size={48} className="text-slate-300" />
-                            <p className="text-slate-500 font-medium">No human agents found</p>
-                            <p className="text-slate-400 text-sm">Add a human agent and assign them to websites</p>
+                        <td colSpan={7} className="text-center py-16">
+                          <div className="flex flex-col items-center gap-3">
+                            <UserX size={44} className="text-slate-200" strokeWidth={1.5} />
+                            <p className="text-slate-600 font-medium">No team members found</p>
+                            <p className="text-slate-400 text-sm">Invite agents or adjust your filters</p>
                           </div>
                         </td>
                       </tr>
                     ) : (
-                      filteredAgents.map((agent: HumanAgentType) => (
-                        <tr key={agent._id} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-4 px-6">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                                <User size={20} className="text-white" />
+                      filteredAgents.map((agent: HumanAgentType) => {
+                        const rowId = String(agent._id);
+                        const statusUi = getAccountStatusPresentation(agent);
+                        const avatarUrl = resolveHumanAgentAvatarUrl(agent.avatar);
+                        const isClientRow = Boolean(agent.isClient);
+                        return (
+                          <tr key={rowId} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-4 pl-5 pr-2 align-middle">
+                              <input
+                                type="checkbox"
+                                disabled={isClientRow}
+                                checked={!isClientRow && selectedRowIds.includes(rowId)}
+                                onChange={() => toggleRowSelected(agent)}
+                                className="h-4 w-4 rounded-full border-slate-300 text-[#1A1C1E] focus:ring-slate-900/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                              />
+                            </td>
+                            <td className="py-4 px-3 align-middle">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-100 flex items-center justify-center">
+                                  {avatarUrl ? (
+                                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                                  ) : (
+                                    <User className="h-5 w-5 text-slate-400" strokeWidth={1.75} />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-slate-900 truncate">{agent.name}</p>
+                                  <p className="text-sm text-slate-500 truncate">{agent.email}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-semibold text-slate-900">{agent.name}</p>
-                                <p className="text-slate-500 text-sm">{agent.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex flex-wrap gap-1">
-                              {agent.assignedAgents?.length ? (
-                                agent.assignedAgents.map((aid) => (
+                            </td>
+                            <td className="py-4 px-3 align-middle">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  isClientRow
+                                    ? 'bg-[#EBF5FF] text-[#3B82F6]'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {isClientRow ? 'Admin' : 'Agent'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-3 align-middle">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusUi.className}`}
+                              >
+                                {statusUi.icon === 'clock' ? (
+                                  <Clock size={12} strokeWidth={2} className="shrink-0" />
+                                ) : (
                                   <span
-                                    key={aid}
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
-                                  >
-                                    <Globe size={10} className="mr-1" />
-                                    {getAgentName(aid)}
-                                  </span>
-                                ))
+                                    className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                      statusUi.dotActive ? 'bg-emerald-500' : 'bg-slate-400'
+                                    }`}
+                                  />
+                                )}
+                                {statusUi.label}
+                              </span>
+                            </td>
+                            <td className="py-4 px-3 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={agent.isActive}
+                                onClick={() => handleStatusToggle(rowId, agent.isActive)}
+                                className={`relative inline-flex h-7 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400 ${
+                                  agent.isActive ? 'bg-emerald-500' : 'bg-slate-200'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                                    agent.isActive ? 'translate-x-5' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </td>
+                            <td className="py-4 px-3 align-middle max-w-[220px]">
+                              {isClientRow ? (
+                                <span className="text-slate-300 select-none">&nbsp;</span>
                               ) : (
-                                <span className="text-slate-400 text-sm">None</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {agent.assignedAgents?.length ? (
+                                    agent.assignedAgents.map((aid) => {
+                                      const aidStr = typeof aid === 'string' ? aid : String((aid as any)?.toString?.() ?? aid);
+                                      return (
+                                        <span
+                                          key={aidStr}
+                                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 pl-2 pr-1 py-0.5 text-xs text-slate-600"
+                                        >
+                                          <span className="truncate max-w-[120px]">{getAgentName(aidStr)}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveAssignedWebsite(agent, aidStr)}
+                                            className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                                            aria-label="Remove website"
+                                          >
+                                            <X size={12} strokeWidth={2} />
+                                          </button>
+                                        </span>
+                                      );
+                                    })
+                                  ) : (
+                                    <span className="text-slate-400 text-xs">—</span>
+                                  )}
+                                </div>
                               )}
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(agent.status)}`}>
-                              {agent.status === 'approved' ? <Shield size={12} className="mr-1" /> : <Clock size={12} className="mr-1" />}
-                              {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getActiveStatusColor(agent.isActive)}`}>
-                              <div className={`w-2 h-2 rounded-full mr-1.5 ${agent.isActive ? 'bg-green-500' : 'bg-slate-400'}`}></div>
-                              {agent.isActive ? 'Online' : 'Offline'}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6 text-slate-600 text-sm">
-                            {agent.lastActive ? new Date(agent.lastActive).toLocaleDateString() : 'Never'}
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center justify-end space-x-2">
-                              <button
-                                onClick={() => openEditModal(agent)}
-                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-                              >
-                                <Pencil size={14} className="mr-1" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => setConfirmDeleteId(agent._id)}
-                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                              >
-                                <Trash size={14} className="mr-1" />
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td className="py-4 pr-5 pl-3 align-middle">
+                              <div className="flex items-center justify-end gap-0.5">
+                                <button
+                                  type="button"
+                                  disabled={isClientRow}
+                                  onClick={() => openEditModal(agent)}
+                                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-35 disabled:pointer-events-none transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil size={18} strokeWidth={1.75} />
+                                </button>
+                                {isClientRow ? (
+                                  <span className="inline-flex w-[42px]" aria-hidden />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(agent._id)}
+                                    className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash size={18} strokeWidth={1.75} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {selectedRowIds.length > 0 && (
+                <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/90 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {selectedRowIds.length} selected
+                    </p>
+                    <p className="text-xs text-slate-500">Actions apply to selected rows</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setBulkDeleteOpen(true)}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
+                  >
+                    <Trash size={18} strokeWidth={1.75} />
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -730,6 +926,52 @@ export default function HumanAgentPage() {
                         setConfirmDeleteId(null);
                       }
                     }}
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {bulkDeleteOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scaleIn">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Trash size={20} className="text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Delete team members</h3>
+                    <p className="text-sm text-slate-500">This cannot be undone.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBulkDeleteOpen(false)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+              <div className="p-6">
+                <p className="text-slate-700">
+                  Delete {selectedRowIds.length} selected team member{selectedRowIds.length === 1 ? '' : 's'}?
+                </p>
+                <div className="flex justify-end gap-3 pt-6">
+                  <button
+                    type="button"
+                    onClick={() => setBulkDeleteOpen(false)}
+                    className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkDelete()}
                     className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
                   >
                     Delete

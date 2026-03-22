@@ -50,6 +50,8 @@ export default function Inbox(Props: any) {
   });
   const [visitorDetails, setVisitorDetails] = useState<any>();
   const [status, setStatus] = useState("open");
+  const [rating, setRating] = useState("all");
+  const [handledBy, setHandledBy] = useState("both");
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState("lastActivity");
   const [addTag, setAddTag] = useState<boolean>(false);
@@ -299,6 +301,8 @@ export default function Inbox(Props: any) {
     setIsConversationAvailable,
     setAITyping: setIsAITyping,
     status,
+    rating,
+    handledBy,
     openConversationId,
     openVisitorId,
     isAIChat,
@@ -659,8 +663,16 @@ export default function Inbox(Props: any) {
     }
   };
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatus(e.target.value);
+  const handleStatusChange = (value: string) => {
+    setStatus(value);
+  };
+
+  const handleRatingChange = (value: string) => {
+    setRating(value);
+  };
+
+  const handleHandledByChange = (value: string) => {
+    setHandledBy(value);
   };
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -724,7 +736,7 @@ export default function Inbox(Props: any) {
           hasOpenedFirstRef.current = true;
           await openConversation(conv, conv?.visitor?.name, 0);
         }
-      } else if (conversationsList?.data?.length > 0 && status === "open") {
+      } else if (conversationsList?.data?.length > 0 && (status === "open" || status === "all")) {
         hasOpenedFirstRef.current = true;
         await openConversation(conversationsList?.data[0], conversationsList?.data[0]?.visitor?.name, 0);
       }
@@ -801,47 +813,35 @@ export default function Inbox(Props: any) {
         openConversationId={openConversationId}
         searchText={searchText}
         status={status}
+        rating={rating}
+        handledBy={handledBy}
         sortBy={sortBy}
         onConversationClick={handleConversationClick}
         onSearchInputChange={handleSearchInputChange}
         onSearchInputClick={handleSearchInputClick}
         onStatusChange={handleStatusChange}
+        onRatingChange={handleRatingChange}
+        onHandledByChange={handleHandledByChange}
         onSortChange={handleSortChange}
       />
 
       {isConversationAvailable ? (
         <>
           {conversationMessages?.data?.length > 1 ? (
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col relative">
               <ChatHeader
                 visitorName={conversationMessages.visitorName}
                 isAIChat={isAIChat}
                 openConversationStatus={openConversationStatus}
                 tags={tags}
-                addTag={addTag}
                 inputAddTag={inputAddTag}
                 onToggleAI={handleToggle}
                 onCloseConversation={handleCloseConversation}
                 onBlockVisitor={handleBlockVisitor}
-                onAddTag={handleAddTag}
                 onAddTagClick={handleAddTagClick}
                 onTagDelete={handleTagDelete}
                 onInputAddTagChange={handleInputAddTagChange}
-                setAddTag={setAddTag}
                 canReply={canReply}
-              />
-
-              <MessagesArea
-                ref={containerRef}
-                conversationMessages={conversationMessages}
-                expandedSources={expandedSources}
-                setExpandedSources={setExpandedSources}
-                messageRefs={messageRefs}
-                currentConversation={currentConversation}
-                isAITyping={isAITyping}
-                onReviseAnswer={handleReviseAnswer}
-                onReply={handleReply}
-                onJumpToReply={handleScrollToMessage}
               />
 
               {agentConnectionRequest && agentConnectionRequest.conversationId === openConversationId && (
@@ -858,6 +858,19 @@ export default function Inbox(Props: any) {
                   }}
                 />
               )}
+
+              <MessagesArea
+                ref={containerRef}
+                conversationMessages={conversationMessages}
+                expandedSources={expandedSources}
+                setExpandedSources={setExpandedSources}
+                messageRefs={messageRefs}
+                currentConversation={currentConversation}
+                isAITyping={isAITyping}
+                onReviseAnswer={handleReviseAnswer}
+                onReply={handleReply}
+                onJumpToReply={handleScrollToMessage}
+              />
               <MessageInput
                 inputMessage={inputMessage}
                 wordCount={wordCount}
