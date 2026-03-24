@@ -150,21 +150,35 @@ export default function HumanAgentPage() {
     if (!socket) return;
 
     const handleAgentStatusUpdate = (updatedAgent: any) => {
+      const uid = updatedAgent?.id ?? updatedAgent?._id;
+      if (uid == null) return;
+      const last =
+        updatedAgent.lastActive != null
+          ? typeof updatedAgent.lastActive === 'string'
+            ? updatedAgent.lastActive
+            : new Date(updatedAgent.lastActive).toISOString()
+          : undefined;
       setAgents((prevAgents) =>
         prevAgents.map((agent) =>
-          agent._id === updatedAgent.id || agent._id?.toString() === updatedAgent.id
-            ? { ...agent, isActive: updatedAgent.isActive, lastActive: updatedAgent.lastActive }
+          String(agent._id) === String(uid)
+            ? {
+                ...agent,
+                isActive: updatedAgent.isActive,
+                ...(last !== undefined ? { lastActive: last } : {}),
+              }
             : agent
         )
       );
     };
 
     socket.on('human-agent-status-updated', handleAgentStatusUpdate);
-    socket.on('agent-status-updated', handleAgentStatusUpdate); // fallback for client agents
+    socket.on('agent-status-updated', handleAgentStatusUpdate);
+    socket.on('client-status-updated', handleAgentStatusUpdate);
 
     return () => {
       socket.off('human-agent-status-updated', handleAgentStatusUpdate);
       socket.off('agent-status-updated', handleAgentStatusUpdate);
+      socket.off('client-status-updated', handleAgentStatusUpdate);
     };
   }, [socket]);
 
@@ -287,13 +301,7 @@ export default function HumanAgentPage() {
       const newStatus = !currentStatus;
       await updateAgentStatus(id, newStatus);
       toast.success('Agent status updated successfully');
-      setAgents((prevAgents) =>
-        prevAgents.map((agent) =>
-          agent._id === id || agent._id?.toString() === id
-            ? { ...agent, isActive: newStatus, lastActive: newStatus ? new Date().toISOString() : agent.lastActive }
-            : agent
-        )
-      );
+      // UI updates from socket events (human-agent-status-updated / agent-status-updated / client-status-updated)
     } catch (error: any) {
       toast.error('Failed to update agent status');
       fetchAgents();
@@ -425,7 +433,7 @@ export default function HumanAgentPage() {
       };
     }
     return {
-      label: 'Online',
+      label: 'Approved',
       className: 'bg-emerald-50 text-emerald-600 border-emerald-100',
       icon: 'dot' as const,
       dotActive: true,

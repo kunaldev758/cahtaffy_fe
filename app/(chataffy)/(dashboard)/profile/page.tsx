@@ -293,8 +293,8 @@ export default function ClientProfileSettingsPage() {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent"
+                    disabled
+                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent bg-gray-100 cursor-not-allowed"
                     placeholder="you@example.com"
                   />
                 </div>

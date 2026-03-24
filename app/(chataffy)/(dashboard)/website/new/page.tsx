@@ -8,7 +8,7 @@ import { toast } from 'react-toastify'
 import { Spinner } from '@/components/ui/spinner'
 import TrainSetup from '../../../onboarding/components/train-setup'
 import WidgetSetup from '../../../onboarding/components/widget-setup'
-import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi } from '@/app/_api/dashboard/action'
+import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi, updateOnboardingStepApi } from '@/app/_api/dashboard/action'
 import { deleteAIAgentApi } from '@/app/_api/login/action'
 
 type SetupTab = 'web' | 'docs' | 'faqs'
@@ -31,6 +31,7 @@ export default function NewAgentOnboardingPage() {
   ])
   const [isCancelling, setIsCancelling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isIntentionalExit = useRef(false)
 
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [extractedUrls, setExtractedUrls] = useState<string[]>([])
@@ -50,6 +51,43 @@ export default function NewAgentOnboardingPage() {
       setAgentId(id)
     }
   }, [router])
+
+  const removeAgentFromStorage = (deletedId: string | null, prevAgentId: string | null) => {
+    if (deletedId) {
+      try {
+        const existing = JSON.parse(localStorage.getItem('agents') || '[]')
+        localStorage.setItem('agents', JSON.stringify(existing.filter((a: any) => a._id !== deletedId)))
+      } catch { /* keep array as-is */ }
+    }
+    if (prevAgentId) {
+      localStorage.setItem('currentAgentId', prevAgentId)
+    } else {
+      localStorage.removeItem('currentAgentId')
+    }
+    localStorage.removeItem('previousAgentId')
+    window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: prevAgentId ?? null } }))
+  }
+
+  // Auto-delete agent if user navigates away mid-flow without finishing
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isIntentionalExit.current) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (!isIntentionalExit.current) {
+        const newAgentId = localStorage.getItem('currentAgentId')
+        const prevAgentId = localStorage.getItem('previousAgentId')
+        if (newAgentId) {
+          deleteAIAgentApi(newAgentId).catch(() => {})
+        }
+        removeAgentFromStorage(newAgentId, prevAgentId)
+      }
+    }
+  }, [])
 
   const isDocSnippets = activeTab === 'docs'
   const isFaqs = activeTab === 'faqs'
@@ -87,6 +125,7 @@ export default function NewAgentOnboardingPage() {
   // Cancel: delete the newly created agent and restore previous
   const handleCancel = async () => {
     if (isCancelling) return
+    isIntentionalExit.current = true
     setIsCancelling(true)
     try {
       const newAgentId = localStorage.getItem('currentAgentId')
@@ -94,13 +133,7 @@ export default function NewAgentOnboardingPage() {
       if (newAgentId) {
         await deleteAIAgentApi(newAgentId)
       }
-      if (prevAgentId) {
-        localStorage.setItem('currentAgentId', prevAgentId)
-      } else {
-        localStorage.removeItem('currentAgentId')
-      }
-      localStorage.removeItem('previousAgentId')
-      window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: prevAgentId ?? null } }))
+      removeAgentFromStorage(newAgentId, prevAgentId)
       router.replace('/website')
     } catch {
       toast.error('Failed to cancel. Please try again.')
@@ -110,6 +143,7 @@ export default function NewAgentOnboardingPage() {
 
   // Complete: clear previousAgentId, stay with new agent, go to website
   const handleFinish = () => {
+    isIntentionalExit.current = true
     const confirmedAgentId = localStorage.getItem('currentAgentId')
     localStorage.removeItem('previousAgentId')
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: confirmedAgentId } }))
@@ -152,6 +186,7 @@ export default function NewAgentOnboardingPage() {
           updateAgentSettingsApi({ agentId, agentName }).catch(() => {})
         }
         if (res.urls.length > 0) {
+          updateOnboardingStepApi(agentId, 'train', normalizedUrl, res.urls).catch(() => {})
           transitionToStep('train')
         } else {
           toast.error('No URLs found. Please try a different website.')
@@ -176,6 +211,7 @@ export default function NewAgentOnboardingPage() {
       const res = await startSitemapScrapingApi(agentId, selectedUrls)
       if (res?.success) {
         toast.success('Training started successfully')
+        updateOnboardingStepApi(agentId, 'widget').catch(() => {})
         transitionToStep('widget')
       } else {
         toast.error(res?.error || res?.message || 'Failed to start training')
@@ -202,6 +238,7 @@ export default function NewAgentOnboardingPage() {
       const res = await openaiCreateSnippet(formData, agentId)
       if (res?.status !== false && !res?.errorCode) {
         toast.success(res?.message || 'Document added successfully')
+        updateOnboardingStepApi(agentId, 'widget').catch(() => {})
         transitionToStep('widget')
       } else {
         toast.error(res?.error || res?.message || 'Failed to add document')
@@ -221,6 +258,7 @@ export default function NewAgentOnboardingPage() {
       const res = await openaiCreateFaq(validFaqs, agentId)
       if (res?.status !== false && !res?.errorCode) {
         toast.success('FAQs added successfully')
+        updateOnboardingStepApi(agentId, 'widget').catch(() => {})
         transitionToStep('widget')
       } else {
         toast.error(res?.message || res?.error || 'Failed to add FAQs')

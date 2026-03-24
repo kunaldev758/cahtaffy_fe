@@ -1347,7 +1347,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 }}
                               >
                                 {/* System messages - centered and styled differently */}
-                                {item.sender_type === 'system' && (
+                                {item.sender_type === 'agent-connect' && (
                                   <div className="flex items-center justify-center py-2 animate-in slide-in-from-left duration-300">
                                     <div className="px-4 py-2 rounded-lg text-center" style={{ backgroundColor: '#f3f4f6' }}>
                                       <div
@@ -1364,7 +1364,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 )}
 
                                 {/* Agent/Bot messages: ai, humanAgent, client; legacy: bot, agent, assistant */}
-                                {(['ai', 'humanAgent', 'client', 'bot', 'agent', 'assistant'].includes(item.sender_type) &&
+                                {(['ai', 'humanAgent', 'client', 'bot', 'agent', 'assistant', 'system'].includes(item.sender_type) &&
                                   item.is_note !== "true") && (
                                     <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
                                       {themeSettings?.showLogo && (

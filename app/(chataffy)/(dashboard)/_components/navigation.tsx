@@ -75,6 +75,12 @@ export default function IntegratedSidebar() {
       const previousAgentId = localStorage.getItem('currentAgentId') ?? ''
       localStorage.setItem('previousAgentId', previousAgentId)
       localStorage.setItem('currentAgentId', newAgentId)
+      try {
+        const existing = JSON.parse(localStorage.getItem('agents') || '[]')
+        if (!existing.some((a: any) => a._id === newAgentId)) {
+          localStorage.setItem('agents', JSON.stringify([...existing, res.agent]))
+        }
+      } catch { /* keep existing agents array as-is */ }
       window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: newAgentId } }))
       router.push('/website/new')
     } catch {
@@ -189,6 +195,7 @@ export default function IntegratedSidebar() {
             clientId={clientData?._id}
             isActive={clientData?.isActive !== false}
             clientName={clientData?.name}
+            clientAvatar={clientData?.avatar}
           />
         </div>
       </div>
