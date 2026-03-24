@@ -1,26 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { DatePickerWithRange } from '@/components/datepicker'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Progress } from "@/components/ui/progress"
 import { useSocket } from '@/app/socketContext'
 import { type DateRange } from 'react-day-picker'
 import { subDays } from 'date-fns'
-import { ChevronDown, Globe, Check, Loader2, Plus } from 'lucide-react'
-import { getAIAgents } from '@/app/_api/dashboard/action'
-import { createAIAgentApi } from '@/app/_api/login/action'
-import { toast } from 'react-toastify'
-import NotificationBell from '../_components/NotificationBell'
-
-type Agent = {
-  _id: string
-  agentName: string
-  website_name: string
-  isActive: boolean
-  dataTrainingStatus: number
-}
+import TopHead from '../_components/TopHead'
 
 type MetricCard = {
   title: string
@@ -70,13 +57,6 @@ export default function Dashboard2Page() {
   const router = useRouter()
   const { socket } = useSocket()
 
-  // Agent switcher state
-  const [agents, setAgents] = useState<Agent[]>([])
-  const [isAgentDropdownOpen, setIsAgentDropdownOpen] = useState(false)
-  const [isAgentLoading, setIsAgentLoading] = useState(true)
-  const [isCreatingAgent, setIsCreatingAgent] = useState(false)
-  const agentDropdownRef = useRef<HTMLDivElement>(null)
-
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 7),
     to: new Date(),
@@ -103,7 +83,7 @@ export default function Dashboard2Page() {
   // Current agent id
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(null)
 
-  // Sync agentId from localStorage + load agents for switcher
+  // Sync agentId from localStorage + header website switcher
   useEffect(() => {
     const storedId = localStorage.getItem('currentAgentId')
     setCurrentAgentId(storedId)
@@ -114,62 +94,8 @@ export default function Dashboard2Page() {
     }
     window.addEventListener('agent-changed', handleAgentChanged)
 
-    // Load agents list
-    ;(async () => {
-      setIsAgentLoading(true)
-      try {
-        const data = await getAIAgents()
-        setAgents(Array.isArray(data) ? data : [])
-      } catch { /* silent */ } finally {
-        setIsAgentLoading(false)
-      }
-    })()
-
     return () => window.removeEventListener('agent-changed', handleAgentChanged)
   }, [])
-
-  // Close agent dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (agentDropdownRef.current && !agentDropdownRef.current.contains(e.target as Node)) {
-        setIsAgentDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const handleSwitchAgent = (agentId: string) => {
-    if (agentId === currentAgentId) { setIsAgentDropdownOpen(false); return }
-    localStorage.setItem('currentAgentId', agentId)
-    setCurrentAgentId(agentId)
-    window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId } }))
-    setIsAgentDropdownOpen(false)
-    toast.success(`Switched to ${agents.find((a) => a._id === agentId)?.agentName || 'agent'}`)
-  }
-
-  const handleNewAgent = async () => {
-    if (isCreatingAgent) return
-    setIsAgentDropdownOpen(false)
-    setIsCreatingAgent(true)
-    try {
-      const res = await createAIAgentApi()
-      if (!res?.status || !res?.agent?._id) { toast.error(res?.message || 'Failed to create agent'); return }
-      const newAgentId = res.agent._id
-      localStorage.setItem('previousAgentId', localStorage.getItem('currentAgentId') ?? '')
-      localStorage.setItem('currentAgentId', newAgentId)
-      window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: newAgentId } }))
-      router.push('/website/new')
-    } catch { toast.error('Failed to create agent. Please try again.') }
-    finally { setIsCreatingAgent(false) }
-  }
-
-  const currentAgent = agents.find((a) => a._id === currentAgentId)
-  const agentDisplayName = currentAgent
-    ? currentAgent.agentName || currentAgent.website_name || 'Unnamed Agent'
-    : currentAgentId ? 'Loading...' : 'No agent'
-  const agentInitials = agentDisplayName
-    .split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('')
 
   const fetchDashboardData = useCallback(() => {
     if (!socket || !currentAgentId) return
@@ -282,110 +208,14 @@ export default function Dashboard2Page() {
   ]
 
   return (
-    <div className="min-h-screen bg-white text-[#111827]">
-      <header className="flex flex-col gap-5 border-b border-[#F1F5F9] bg-[#F9F9F9] pr-[20px] py-[20px] lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-[14px]">
-            <h1 className="text-[24px] font-bold leading-5 text-[#111827]">Overview</h1>
-            <span
-              className={`inline-flex h-[22px] items-center gap-1 rounded-[4px] border px-[10px] text-center text-[12px] font-medium leading-[18px] ${
-                agentData?.dataTrainingStatus === 1
-                  ? 'border-[#FDE68A] bg-[#FFFBEB] text-[#D97706]'
-                  : 'border-[#34D399] bg-[#ECFDF5] text-[#059669]'
-              }`}
-            >
-              <CheckCircleIcon className="h-[13px] w-[13px]" />
-              {agentData?.dataTrainingStatus === 1 ? 'Training in progress' : 'No training in progress'}
-            </span>
-          </div>
-          <p className="text-[13px] leading-5 text-[#64748B]">
-            Welcome back, here&apos;s what&apos;s happening across your agents.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-[16px] lg:justify-end">
-          {/* Agent switcher */}
-          <div className="relative" ref={agentDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setIsAgentDropdownOpen((prev) => !prev)}
-              className="inline-flex h-[40px] min-w-[200px] items-center gap-[9px] rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] text-[#111827]"
-            >
-              {isAgentLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-[#64748B] shrink-0" />
-              ) : (
-                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[10px] font-bold text-[#4B56F2]">
-                  {agentInitials || <Globe className="h-3 w-3" />}
-                </span>
-              )}
-              <span className="flex-1 truncate text-left">{agentDisplayName}</span>
-              {currentAgent?.dataTrainingStatus === 1 && (
-                <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-[#D97706] animate-pulse" />
-              )}
-              <ChevronDown className={`h-4 w-4 shrink-0 text-[#64748B] transition-transform duration-150 ${isAgentDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isAgentDropdownOpen && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-[260px] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-lg">
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {agents.length === 0 && !isAgentLoading && (
-                    <p className="px-4 py-3 text-center text-sm text-[#64748B]">No agents found</p>
-                  )}
-                  {agents.map((agent) => {
-                    const name = agent.agentName || agent.website_name || 'Unnamed Agent'
-                    const isSelected = agent._id === currentAgentId
-                    const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('')
-                    return (
-                      <button
-                        key={agent._id}
-                        type="button"
-                        onClick={() => handleSwitchAgent(agent._id)}
-                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 ${isSelected ? 'bg-[#EEF2FF]' : ''}`}
-                      >
-                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EEF2FF] text-[11px] font-bold text-[#4B56F2]">
-                          {initials || <Globe className="h-4 w-4" />}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate text-[13px] font-medium text-[#111827]">{name}</p>
-                          {agent.website_name && agent.agentName && agent.agentName !== agent.website_name && (
-                            <p className="truncate text-[11px] text-[#94A3B8]">{agent.website_name}</p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {agent.dataTrainingStatus === 1 && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#D97706] animate-pulse" />
-                          )}
-                          {isSelected && <Check className="h-4 w-4 text-[#4B56F2]" />}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="border-t border-[#F1F5F9] p-2">
-                  <button
-                    type="button"
-                    onClick={handleNewAgent}
-                    disabled={isCreatingAgent}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold text-[#111827] hover:bg-gray-50 transition-colors disabled:opacity-60"
-                  >
-                    {isCreatingAgent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    {isCreatingAgent ? 'Creating...' : 'New AI agent'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DatePickerWithRange
-            value={dateRange}
-            onDateChange={(range) => {
-              if (range) setDateRange(range)
-            }}
-          />
-
-          <NotificationBell />
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#F9F9F9] text-[#111827]">
+      <TopHead
+        dateRange={dateRange}
+        onDateChange={(range) => {
+          if (range) setDateRange(range)
+        }}
+        trainingStatus={agentData?.dataTrainingStatus}
+      />
 
       <main className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-[24px]">
         {/* Metric cards */}
@@ -494,7 +324,7 @@ export default function Dashboard2Page() {
         </section>
 
         {/* Recent Chats + AI Performance */}
-        <section className="grid gap-6 xl:grid-cols-[1fr_1.16fr]">
+        <section className="grid gap-6 xl:grid-cols-[45%_1fr]">
           <div className="rounded-[20px] bg-white shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)]">
             <div className="flex items-start justify-between gap-4 px-[20px] py-[20px]">
               <div>
@@ -519,7 +349,7 @@ export default function Dashboard2Page() {
                   </div>
                 ) : (
                   recentChats.map((chat, index) => (
-                    <div key={index} className="border-t border-[#EDF2F7] px-[20px] py-[16px] first:border-t-0">
+                    <div key={index} className="border-t border-[#EDF2F7] px-[20px] py-[16px] first:border-t-0 first:pt-0">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex min-w-0 items-center gap-[16px]">
                           <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#E8E8E8] bg-white text-[18px] font-medium leading-5 text-[#64748B]">
@@ -527,7 +357,7 @@ export default function Dashboard2Page() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-[14px] font-bold leading-5 text-[#111827]">{chat.name}</p>
-                            <p className="mt-1 truncate text-[13px] leading-5 text-[#64748B]">{chat.message || 'No messages yet'}</p>
+                            <p className="mt-1 truncate text-[13px] leading-5 text-[#64748B] max-w-[350px]">{chat.message || 'No messages yet'}</p>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-[15px] text-[13px] leading-5 text-[#64748B]">

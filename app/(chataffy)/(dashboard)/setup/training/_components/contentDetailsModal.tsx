@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Progress } from '@/components/ui/progress'
-import { CheckCircle, XCircle, Clock, AlertCircle, FileText, Globe, MessageSquare, File, Zap } from 'lucide-react'
-import Image from 'next/image'
+import { AlertCircle, Calendar, Copy, ExternalLink, File, FileText, Globe, RotateCcw, ShieldCheck } from 'lucide-react'
 // import DOMPurify from "isomorphic-dompurify";
 import sanitizeHtml from 'sanitize-html'
 import { getDataField } from '../../../../../_api/dashboard/action'
@@ -37,6 +33,7 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
   const [contentData, setContentData] = useState<ContentData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const fetchContentData = async (id: string) => {
     try {
@@ -60,20 +57,32 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
 
   const getContentTypeInfo = (type: number) => {
     const types = {
-      0: { name: 'Web Page', icon: <Globe className="w-4 h-4" />, color: 'bg-blue-100 text-blue-800' },
-      1: { name: 'File', icon: <MessageSquare className="w-4 h-4" />, color: 'bg-purple-100 text-purple-800' },
-      2: { name: 'Doc/Snippets', icon: <FileText className="w-4 h-4" />, color: 'bg-green-100 text-green-800' },
-      3: { name: 'FAQ', icon: <File className="w-4 h-4" />, color: 'bg-orange-100 text-orange-800' }
+      0: {
+        name: 'Web Page',
+        icon: <span className="material-symbols-outlined text-[#64748B] !text-[20px]">language</span>,
+      },
+      1: {
+        name: 'File',
+        icon: <span className="material-symbols-outlined text-[#64748B] !text-[20px]">files</span>,
+      },
+      2: {
+        name: 'Doc/Snippets',
+        icon: <span className="material-symbols-outlined text-[#64748B] !text-[20px]">article</span>,
+      },
+      3: {
+        name: 'FAQ',
+        icon: <span className="material-symbols-outlined text-[#64748B] !text-[20px]">quiz</span>,
+      }
     }
     return types[type as keyof typeof types] || types[0]
   }
 
   const getTrainingStatusInfo = (status: number) => {
     const statuses = {
-      0: { name: 'Pending', icon: <Clock className="w-4 h-4" />, color: 'bg-yellow-100 text-yellow-800', progress: 25 },
-      1: { name: 'Completed', icon: <Clock className="w-4 h-4" />, color: 'bg-blue-100 text-blue-800', progress: 100 },
-      2: { name: 'Failed', icon: <Clock className="w-4 h-4" />, color: 'bg-red-100 text-red-800', progress: 0 },
-      10: { name: 'Upgrade Plan', icon: <CheckCircle className="w-4 h-4" />, color: 'bg-emerald-100 text-emerald-800', progress: 0 }
+      0: { name: 'Sync Pending', subtitle: 'Content is in processing queue.', dot: 'bg-[#D97706]' },
+      1: { name: 'Syns Completed', subtitle: 'All data has been successfully vectorized.', dot: 'bg-[#34D399]' },
+      2: { name: 'Sync Failed', subtitle: 'This content could not be synchronized.', dot: 'bg-[#EF4444]' },
+      10: { name: 'Upgrade Required', subtitle: 'Upgrade plan to continue synchronization.', dot: 'bg-[#6366F1]' }
     }
     return statuses[status as keyof typeof statuses] || statuses[0]
   }
@@ -88,15 +97,40 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const getRelativeTime = (dateString: string) => {
+    const date = new Date(dateString).getTime()
+    const now = Date.now()
+    const diff = Math.max(0, now - date)
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Just now'
+    if (mins < 60) return `${mins} minute${mins > 1 ? 's' : ''} ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`
+    const days = Math.floor(hrs / 24)
+    return `${days} day${days > 1 ? 's' : ''} ago`
+  }
+
+  const getRawContent = () => contentData?.content || contentData?.fileContent || ''
+
+  const handleCopyRaw = async () => {
+    try {
+      await navigator.clipboard.writeText(getRawContent())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1200)
+    } catch {
+      // ignore
+    }
   }
 
   if (!show) return null
 
   return (
     <Dialog open={show} onOpenChange={onHide}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[1040px] border border-[#E2E8F0] bg-[#F8FAFC] p-0 overflow-hidden">
+        <DialogHeader className="sr-only">
           <DialogTitle>Content Details</DialogTitle>
           <DialogDescription>
             View detailed information about this training item
@@ -104,40 +138,19 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
         </DialogHeader>
 
         {loading ? (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-[280px_1fr] min-h-[620px]">
+            <div className="border-r border-[#E2E8F0] bg-[#F8FAFC] p-[20px]">
+              <Skeleton className="h-10 w-10 rounded-[12px]" />
+              <Skeleton className="mt-5 h-7 w-36" />
+              <Skeleton className="mt-2 h-4 w-40" />
             </div>
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-4 w-24" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-32 w-full" />
-              </CardContent>
-            </Card>
+            <div className="p-[20px]">
+              <Skeleton className="h-8 w-1/2" />
+              <Skeleton className="mt-4 h-[420px] w-full rounded-[16px]" />
+            </div>
           </div>
         ) : error ? (
-          <Alert className="border-red-200">
+          <Alert className="m-6 border-red-200">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="flex items-center justify-between">
@@ -149,170 +162,142 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
             </AlertDescription>
           </Alert>
         ) : contentData ? (
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center text-base">
-                    <FileText className="w-5 h-5 mr-2" />
-                    Basic Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+          <div className="grid grid-cols-[300px_1fr]">
+            <aside className="border-r border-[#E2E8F0] bg-[#F8FAFC] p-[20px] flex flex-col justify-between gap-[20px]">
+              <div className='flex flex-col gap-[16px]'>
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] border border-[#4686FE] bg-[#EFF5FF] text-[#3B82F6]">
+                  <span className="material-symbols-outlined text-[#4686FE] !text-[20px]">
+                    database
+                  </span>
+                </div>
+
+                <div className='flex flex-col gap-[4px]'>
+                  <h3 className="text-[22px] leading-7 font-light text-[#111827]">Content Details</h3>
+                  <p className="text-[13px] font-normal text-[#64748B]">Source Identity & Metadata</p>
+                </div>
+              </div>
+
+              <div className="space-y-7">
+                <InfoBlock
+                  label="Resource Type"
+                  value={getContentTypeInfo(contentData.type).name}
+                  icon={getContentTypeInfo(contentData.type).icon}
+                />
+                <InfoBlock
+                  label="Data Size"
+                  value={formatBytes(contentData.dataSize)}
+                  icon={<File className="h-[18px] w-[18px]" />}
+                />
+                <InfoBlock
+                  label="Created"
+                  value={formatDate(contentData.createdAt)}
+                  icon={<Calendar className="h-[18px] w-[18px]" />}
+                />
+                <InfoBlock
+                  label="Last Synchronization"
+                  value={getRelativeTime(contentData.lastEdit)}
+                  icon={<RotateCcw className="h-[18px] w-[18px]" />}
+                />
+              </div>
+
+              <div className="flex flex-col gap-[16px]">
+                <Button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold">
+                  <span className="material-symbols-outlined text-[#ffffff] !text-[20px]">
+                    rotate_left
+                  </span>
+                  Retrain
+                </Button>
+                <Button variant="outline" onClick={onHide} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#ffffff] px-[20px] text-center text-[14px] leading-5 transition-colors duration-200  font-semibold text-[#111827]">
+                  Close
+                </Button>
+              </div>
+            </aside>
+
+            <section className="bg-[#ffffff] p-[20px] flex flex-col gap-[20px]">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#A7F3D0] bg-[#ECFDF5] text-[#34D399]">
+                    <ShieldCheck className="h-6 w-6" />
+                  </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Title</label>
-                    {/* <p className="text-sm text-gray-900 mt-1">{contentData.title?contentData.title:contentData?.webPage?.url}</p> */}
-                    <p className="text-sm text-gray-900 mt-1">
-                      {contentData.title ? (
-                        contentData.title
-                      ) : (
-                        <a
-                          href={contentData?.webPage?.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline flex items-center gap-1"
-                        >
-                          {contentData?.webPage?.url}
-                          <span className="inline-flex">
-                            <Image
-                              // src="/images/external-link-square-arrow.svg"
-                              src={`${process.env.NEXT_PUBLIC_APP_URL}images/external-link-square-arrow.svg`}
-                              alt="Open in new tab"
-                              width={16}
-                              height={16}
-                              className="w-4 h-4 ml-1"
-                              priority={false}
-                            />
-                          </span>
-                        </a>
-                      )}
+                    <p className="flex items-center gap-2 text-[14px] font-medium text-[#111827]">
+                      <span className={`h-2.5 w-2.5 rounded-full ${getTrainingStatusInfo(contentData.trainingStatus).dot}`} />
+                      {getTrainingStatusInfo(contentData.trainingStatus).name}
                     </p>
+                    <p className="mt-1 text-[13px] font-normal text-[#64748B]">{getTrainingStatusInfo(contentData.trainingStatus).subtitle}</p>
                   </div>
+                </div>
+                <div className="min-w-[220px]">
+                  <p className="text-[14px] font-medium text-[#111827]">Origin Endpoint</p>
+                  {contentData?.webPage?.url ? (
+                    <a
+                      href={contentData.webPage.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block truncate max-w-[220px] text-[14px] font-normal text-[#4686FE] hover:underline"
+                    >
+                      {contentData.webPage.url}
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-[14px] font-normal text-[#64748B]">N/A</p>
+                  )}
+                </div>
+              </div>
 
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Type</label>
-                    <div className="mt-1">
-                      <Badge className={`${getContentTypeInfo(contentData.type).color} flex items-center gap-1 w-fit`}>
-                        {getContentTypeInfo(contentData.type).icon}
-                        {getContentTypeInfo(contentData.type).name}
-                      </Badge>
-                    </div>
-                  </div>
+              <div className="mt-6 flex items-center justify-between">
+                <p className="flex items-center gap-2 text-[12px] font-bold tracking-wide text-[#111827]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#34D399]" />
+                  DATA STREAM OUTPUT
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCopyRaw}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-normal text-[#64748B] hover:text-[#111827]"
+                >
+                  <Copy className="h-4 w-4" />
+                  {copied ? 'Copied' : 'Copy RAW'}
+                </button>
+              </div>
 
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Data Size</label>
-                    <p className="text-sm text-gray-900 mt-1">{formatBytes(contentData.dataSize)}</p>
-                  </div>
+              <div className="rounded-[20px] bg-[#0B1736] p-6">
+                {(() => {
+                  const rawContent = getRawContent()
+                  const looksLikeHtml = typeof rawContent === 'string' && /<[^>]+>/i.test(rawContent.trim())
 
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Created</label>
-                    <p className="text-sm text-gray-900 mt-1">{formatDate(contentData.createdAt)}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Last Edit</label>
-                    <p className="text-sm text-gray-900 mt-1">{formatDate(contentData.lastEdit)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center text-base">
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    Training Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Current Status</label>
-                    <div className="mt-1">
-                      <Badge className={`${getTrainingStatusInfo(contentData.trainingStatus).color} flex items-center gap-1 w-fit`}>
-                        {getTrainingStatusInfo(contentData.trainingStatus).icon}
-                        {getTrainingStatusInfo(contentData.trainingStatus).name}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Progress</label>
-                    <div className="mt-2">
-                      <Progress value={getTrainingStatusInfo(contentData.trainingStatus).progress} className="h-2" />
-                      <p className="text-xs text-gray-500 mt-1">
-                        {getTrainingStatusInfo(contentData.trainingStatus).progress}% Complete
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Content Display */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-base">
-                  <FileText className="w-5 h-5 mr-2" />
-                  Content
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-50 p-4 rounded-lg border max-h-96 overflow-y-auto">
-                  {(() => {
-                    const rawContent =
-                      contentData.content || contentData?.fileContent || "";
-
-                    const looksLikeHtml =
-                      typeof rawContent === "string" && /<[^>]+>/i.test(rawContent.trim());
-
-                    if (looksLikeHtml) {
-                      const sanitizedHTML = sanitizeHtml(rawContent, {
-                        allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
-                        allowedAttributes: {
-                          a: ["href", "name", "target", "rel"],
-                          img: ["src", "alt"],
-                        },
-                        transformTags: {
-                          a: sanitizeHtml.simpleTransform("a", {
-                            target: "_blank",
-                            rel: "noopener noreferrer",
-                          }),
-                        },
-                      });
-
-                      return (
-                        <div
-                          className="text-sm text-gray-800 [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800"
-                          dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
-                        />
-                      );
-                    }
+                  if (looksLikeHtml) {
+                    const sanitizedHTML = sanitizeHtml(rawContent, {
+                      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+                      allowedAttributes: {
+                        a: ['href', 'name', 'target', 'rel'],
+                        img: ['src', 'alt'],
+                      },
+                      transformTags: {
+                        a: sanitizeHtml.simpleTransform('a', {
+                          target: '_blank',
+                          rel: 'noopener noreferrer',
+                        }),
+                      },
+                    })
 
                     return (
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
-                        {rawContent}
-                      </pre>
-                    );
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
+                      <div
+                        className="max-h-[430px] overflow-y-auto text-[24px] leading-9 text-[#E2E8F0] [&_a]:text-[#93C5FD] [&_a]:underline"
+                        dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
+                      />
+                    )
+                  }
 
-            {/* Actions */}
-            <div className="flex justify-end space-x-2 pt-4 border-t">
-              <Button variant="outline" onClick={onHide}>
-                Close
-              </Button>
-              {/* <Button onClick={() => {
-                // Implement edit functionality
-                console.log('Edit content:', contentData._id)
-              }}>
-                Edit Content
-              </Button> */}
-            </div>
+                  return (
+                    <pre className="max-h-[430px] overflow-y-auto whitespace-pre-wrap text-[14px] leading-6 text-[#E2E8F0]">
+                      {rawContent}
+                    </pre>
+                  )
+                })()}
+              </div>
+            </section>
           </div>
         ) : (
-          <Alert>
+          <Alert className="m-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               No content data available for this item.
@@ -321,5 +306,25 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function InfoBlock({
+  label,
+  value,
+  icon,
+}: {
+  label: string
+  value: string
+  icon: React.ReactNode
+}) {
+  return (
+    <div className='flex flex-col gap-2'>
+      <p className="text-[14px] font-medium text-[#111827]">{label}</p>
+      <p className="inline-flex items-center gap-2 text-[14px] font-normal text-[#64748B]">
+        {icon}
+        {value}
+      </p>
+    </div>
   )
 }

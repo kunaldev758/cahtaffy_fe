@@ -263,14 +263,14 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
             fetchNotifications();
           }
         }}
-        className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-[#F9F9F9] hover:bg-gray-100 transition-colors"
+        className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-[#fff] hover:bg-gray-100 transition-colors"
         aria-label={
           unseenCount > 0
             ? `Notifications, ${unseenCount} unread`
             : "Notifications"
         }
       >
-        <Bell className="w-4 h-4 text-[#4B56F2]" />
+        <Bell className="w-4 h-4 text-[#64748B]" />
         {unseenCount > 0 && badgeStyle === "dot" && (
           <span
             className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"

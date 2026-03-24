@@ -98,7 +98,7 @@ export default function IntegratedSidebar() {
     `w-5 h-5 flex-shrink-0 ${active ? 'text-white' : 'text-[#64748B]'}`
 
   return (
-    <div className="bg-[#F9F9F9] border-r border-gray-200 w-64 min-h-screen flex flex-col">
+    <div className="bg-[#F9F9F9] w-64 min-h-screen flex flex-col">
       {/* Logo */}
       <div className="px-5 py-5">
         <Link href="/dashboard" className="flex items-center gap-2.5">
