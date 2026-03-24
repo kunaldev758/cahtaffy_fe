@@ -232,8 +232,8 @@ function WidgetPreview({ widgetState, agentState, logoSrc }: { widgetState: Widg
       <div className="flex items-center justify-between gap-[12px] px-[20px] h-[70px] border-b border-[#d9d9d9]" style={{ backgroundColor: titleBarColor }}>
         <div className='flex items-center gap-[12px]'>
           {widgetState.showLogo && (
-            <div className='outline outline-2 outline-[#ffffff] rounded-full h-[38px] w-[38px]'>
-              <img src={logoSrc} alt="logo" className="h-[38px] w-[38px] rounded-full object-cover shrink-0"
+            <div className='rounded-full h-[38px] w-[38px] bg-white border border-[#d9d9d9]'>
+              <img src={logoSrc} alt="logo" className="h-full w-full rounded-full object-cover shrink-0"
                 onError={e => { (e.target as HTMLImageElement).src = '/images/widget/human-avatar.png' }} />
             </div>
           )}

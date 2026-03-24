@@ -18,6 +18,7 @@ type Agent = {
 
 // Routes where the bar should appear (dashboard has its own integrated header)
 const SHOW_ON_PATHS = ['/setup', '/inbox', '/training', '/humanAgent']
+const HIDE_ON_PATHS = ['/setup/training', '/training']
 
 type PageHeading = { title: string; subtitle?: string }
 
@@ -57,14 +58,11 @@ function pageHeadingForPath(pathname: string | null): PageHeading | null {
   return null
 }
 
-function initialsFromDisplayName(name: string): string {
-  const t = name.trim()
-  if (!t || t === 'Loading...' || t === 'No agent selected') return '?'
-  const parts = t.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return t.slice(0, 2).toUpperCase()
+function getInitials(name: string): string {
+  if (!name) return '??'
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export default function AgentSwitcherBar() {
@@ -80,7 +78,8 @@ export default function AgentSwitcherBar() {
   // IDs of AI agents assigned to the logged-in human agent (empty = show all)
   const [assignedAgentIds, setAssignedAgentIds] = useState<string[]>([])
 
-  const shouldShow = SHOW_ON_PATHS.some((p) => pathname === p || pathname?.startsWith(p + '/'))
+  const isHiddenPath = HIDE_ON_PATHS.some((p) => pathname === p || pathname?.startsWith(p + '/'))
+  const shouldShow = !isHiddenPath && SHOW_ON_PATHS.some((p) => pathname === p || pathname?.startsWith(p + '/'))
   const isHumanAgentPage = pathname === '/humanAgent' || pathname?.startsWith('/humanAgent/')
 
   // Load agents + read current agent from localStorage
@@ -154,7 +153,7 @@ export default function AgentSwitcherBar() {
     ? 'Loading...'
     : 'No agent selected'
 
-  const triggerInitials = initialsFromDisplayName(displayName)
+  const triggerInitials = getInitials(displayName)
 
   const handleSwitch = (agentId: string) => {
     if (agentId === currentAgentId) { setIsOpen(false); return }
@@ -210,122 +209,85 @@ export default function AgentSwitcherBar() {
 
       {/* Agent switcher + notifications */}
       <div className="flex shrink-0 items-center gap-3">
-      <span className="hidden text-xs font-semibold uppercase tracking-wide text-[#94A3B8] sm:inline">
-        Active Agent
-      </span>
-
-      <span className="hidden h-4 w-px bg-[#D1D5DB] sm:block" />
-
-      {/* Dropdown trigger */}
-      <div className="relative" ref={dropdownRef}>
-        <button
-          type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="flex max-w-[min(280px,42vw)] min-w-[180px] items-center gap-2.5 rounded-xl border border-[#D1D5DB] bg-white px-3 py-2 text-sm font-medium text-[#111827] shadow-sm transition-colors hover:border-[#B8C0CC] hover:bg-[#FAFBFC] sm:min-w-[220px]"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#64748B]" />
-          ) : (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[11px] font-bold text-[#4338CA]">
-              {triggerInitials}
-            </div>
-          )}
-
-          <span className="min-w-0 flex-1 truncate text-left">{displayName}</span>
-
-          {/* Training indicator */}
-          {currentAgent?.dataTrainingStatus === 1 && (
-            <span className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-[#D97706] bg-[#FFFBEB] px-1.5 py-0.5 rounded">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-pulse inline-block" />
-              Training
-            </span>
-          )}
-
-          <ChevronDown
-            className={`h-4 w-4 shrink-0 text-[#64748B] transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        {/* Dropdown */}
-        {isOpen && (
-          <div className="absolute left-0 top-full mt-1 z-50 w-72 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-            {/* Agent list */}
-            <div className="max-h-60 overflow-y-auto py-1">
-              {visibleAgents.length === 0 && !isLoading && (
-                <p className="px-4 py-3 text-sm text-[#64748B] text-center">No agents found</p>
-              )}
-              {visibleAgents.map((agent) => {
-                const name = agent.agentName || agent.website_name || 'Unnamed Agent'
-                const isSelected = agent._id === currentAgentId
-                return (
-                  <button
-                    key={agent._id}
-                    onClick={() => handleSwitch(agent._id)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${
-                      isSelected ? 'bg-[#EEF2FF]' : ''
-                    }`}
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EEF2FF]">
-                      <Globe className="w-4 h-4 text-[#4B56F2]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#111827] truncate">{name}</p>
-                      {agent.website_name && agent.agentName && agent.agentName !== agent.website_name && (
-                        <p className="text-xs text-[#94A3B8] truncate">{agent.website_name}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {agent.dataTrainingStatus === 1 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-pulse" />
-                      )}
-                      {isSelected && <Check className="w-4 h-4 text-[#4B56F2]" />}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Footer: New agent — hidden on human agent panel */}
-            {!isHumanAgentPage && (
-              <div className="border-t border-gray-100 p-2">
-                <button
-                  onClick={handleNewAgent}
-                  disabled={isCreating}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-[#111827] hover:bg-gray-50 transition-colors disabled:opacity-60"
-                >
-                  {isCreating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Plus className="w-4 h-4" />
-                  )}
-                  {isCreating ? 'Creating...' : 'New AI agent'}
-                </button>
-              </div>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="inline-flex h-[40px] min-w-[200px] items-center gap-[9px] rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] text-[#111827]"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-[#64748B] shrink-0" />
+            ) : (
+              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[10px] font-bold text-[#4B56F2]">
+                {triggerInitials || <Globe className="h-3 w-3" />}
+              </span>
             )}
-          </div>
-        )}
-      </div>
+            <span className="flex-1 truncate text-left">{displayName}</span>
+            {currentAgent?.dataTrainingStatus === 1 && (
+              <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-[#D97706] animate-pulse" />
+            )}
+            <ChevronDown className={`h-4 w-4 shrink-0 text-[#64748B] transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
 
-      {/* Quick status pill */}
-      {!isLoading && currentAgent && (
-        <span
-          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-            currentAgent.dataTrainingStatus === 1
-              ? 'bg-[#FFFBEB] text-[#D97706]'
-              : currentAgent.isActive
-              ? 'bg-[#ECFDF5] text-[#15803D]'
-              : 'bg-gray-100 text-gray-500'
-          }`}
-        >
-          {currentAgent.dataTrainingStatus === 1
-            ? 'Training...'
-            : currentAgent.isActive
-            ? 'Active'
-            : 'Inactive'}
-        </span>
-      )}
+          {isOpen && (
+            <div className="absolute right-0 top-full z-50 mt-2 w-[250px]">
+              <div className="overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)] p-[10px]">
+                <div className="max-h-[min(16rem,50vh)] overflow-y-auto">
+                  {visibleAgents.length === 0 && !isLoading && (
+                    <p className="py-6 text-center text-[13px] text-[#64748B]">No websites found</p>
+                  )}
+                  <ul className="flex flex-col gap-1.5">
+                    {visibleAgents.map((agent) => {
+                      const rowLabel = agent.website_name || agent.agentName || 'Unnamed Agent'
+                      const isSelected = agent._id === currentAgentId
+                      const initials = getInitials(rowLabel.replace(/^https?:\/\//i, '').split('/')[0] || rowLabel)
+                      return (
+                        <li key={agent._id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSwitch(agent._id)}
+                            className="flex w-full items-center gap-2 rounded-lg py-1.5 text-left"
+                          >
+                            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[10px] font-bold text-[#1E3A8A]">
+                              {initials === '??' ? <Globe className="h-4 w-4 text-[#4B56F2]" /> : initials}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#0F172A]">
+                              {rowLabel}
+                            </span>
+                            <span className="flex shrink-0 items-center gap-2">
+                              {agent.dataTrainingStatus === 1 && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#D97706] animate-pulse" title="Training" />
+                              )}
+                              {isSelected && <Check className="h-4 w-4 text-[#4B56F2]" aria-hidden />}
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
 
-      <NotificationBell badgeStyle="dot" />
+                {!isHumanAgentPage && (
+                  <button
+                    type="button"
+                    onClick={handleNewAgent}
+                    disabled={isCreating}
+                    className="mt-1.5 flex h-[40px] w-full items-center justify-center gap-2 rounded-lg bg-[#111827] text-[14px] font-semibold text-white shadow-sm transition-colors hover:bg-[#1f2937] disabled:opacity-60"
+                  >
+                    {isCreating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 text-white" strokeWidth={2.25} />
+                    )}
+                    {isCreating ? 'Creating...' : 'Add Website'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <NotificationBell badgeStyle="dot" />
       </div>
     </div>
   )
