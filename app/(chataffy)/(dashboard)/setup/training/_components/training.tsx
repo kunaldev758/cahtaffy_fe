@@ -903,7 +903,11 @@ export default function EnhancedTrainingPage() {
         )}
 
         {/* ── Modals ── */}
-        <AddcontentModal showModal={showModal} onHide={() => setShowModal(false)} />
+        <AddcontentModal
+          showModal={showModal}
+          onHide={() => setShowModal(false)}
+          onShow={() => setShowModal(true)}
+        />
 
         {selectedItemId && (
           <ContentDetailsModal
