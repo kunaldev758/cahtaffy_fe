@@ -251,10 +251,16 @@ export const useSocketManager = ({
     const handleNoteAppendMessage = ({ note }: any) => {
       console.log(note, "new note data");
 
-      setNotesList((prev: any) => [
-        ...prev,
-        { message: note.message, createdAt: note.createdAt || Date.now() }
-      ]);
+      // setNotesList((prev: any) => [
+      //   ...prev,
+      //   { message: note.message, createdAt: note.createdAt || Date.now() }
+      // ]);
+      const noteRow = {
+        ...note,
+        message: note.message,
+        createdAt: note.createdAt ?? Date.now(),
+      };
+      setNotesList((prev: any) => [...prev, noteRow]);
 
       // Include all note fields; use note's sender_type from backend (humanAgent/client)
       const noteMessage = {
@@ -298,6 +304,44 @@ export const useSocketManager = ({
       setOpenConversationStatus("close");
     };
 
+    const handleVisitorCloseChat = (data: any) => {
+      console.log("Visitor closed chat event received:", data);
+      setOpenConversationStatus("close");
+
+      // Refresh the conversations list so the closed conversation is removed / updated
+      socket.emit(
+        "get-filtered-conversations-list",
+        { status, rating, handledBy },
+        (response: any) => {
+          if (response?.success) {
+            const filtered = response.conversations.filter((conv: any) => conv.is_started === true);
+            setIsConversationAvailable(filtered.length > 0);
+            setConversationsList({ data: filtered, loading: false });
+          }
+        }
+      );
+    };
+
+    const handleConversationFeedbackUpdate = (data: any) => {
+      const { conversationId, feedback, comment } = data || {};
+      console.log("Conversation feedback update received:", data);
+      if (conversationId) {
+        // Patch the feedback fields on the matching conversation in the list
+        setConversationsList((prev: any) => ({
+          ...prev,
+          data: prev.data?.map((conv: any) =>
+            conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+              ? { ...conv, feedback, ...(comment !== undefined ? { comment } : {}) }
+              : conv
+          ),
+        }));
+        // Dispatch a window event so the open conversation panel can also react if needed
+        window.dispatchEvent(
+          new CustomEvent("conversation-feedback-update", { detail: data })
+        );
+      }
+    };
+
     // Register event listeners
     socket.on("conversation-append-message", handleAppendMessage);
     socket.on("intermediate-response", handleIntermediateResponse);
@@ -307,6 +351,8 @@ export const useSocketManager = ({
     socket.on("conversation-close-triggered", handleConversationClose);
     socket.on("visitor-blocked", handleVisitorBlocked);
     socket.on("visitor-conversation-close", handleConversationClose);
+    socket.on("visitor-close-chat", handleVisitorCloseChat);
+    socket.on("conversation-feedback-update", handleConversationFeedbackUpdate);
 
     // Handle agent connection notifications
     const handleAgentConnectionNotification = (data: any) => {
@@ -446,6 +492,8 @@ export const useSocketManager = ({
       socket.off("conversation-close-triggered", handleConversationClose);
       socket.off("visitor-blocked", handleVisitorBlocked);
       socket.off("visitor-conversation-close", handleConversationClose);
+      socket.off("visitor-close-chat", handleVisitorCloseChat);
+      socket.off("conversation-feedback-update", handleConversationFeedbackUpdate);
     };
   }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setAITyping]);
 
