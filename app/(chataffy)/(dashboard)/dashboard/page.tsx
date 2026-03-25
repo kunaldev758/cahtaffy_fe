@@ -8,6 +8,7 @@ import { useSocket } from '@/app/socketContext'
 import { type DateRange } from 'react-day-picker'
 import { subDays } from 'date-fns'
 import TopHead from '../_components/TopHead'
+import { VisitorTrafficMap } from './_components/VisitorTrafficMap'
 
 type MetricCard = {
   title: string
@@ -20,6 +21,7 @@ type MetricCard = {
 }
 
 type ChatItem = {
+  conversationId: string
   initials: string
   name: string
   message: string
@@ -80,6 +82,11 @@ export default function Dashboard2Page() {
   // Recent conversations
   const [recentChats, setRecentChats] = useState<ChatItem[]>([])
 
+  // Visitor locations for geo map (from API: [["Country", "Chat Count"], ...])
+  const [locationData, setLocationData] = useState<(string | number)[][]>([
+    ['Country', 'Chat Count'],
+  ])
+
   // Current agent id
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(null)
 
@@ -107,13 +114,26 @@ export default function Dashboard2Page() {
 
     socket.emit('fetch-dashboard-data', { dateRange: range, agentId: currentAgentId }, (response: any) => {
       if (response.success) {
-        const { totalChat, aiAssists, totalMessage, csat, totalHumanAgents, totalChatsInPlan } = response.data
+        const {
+          totalChat,
+          aiAssists,
+          totalMessage,
+          csat,
+          totalHumanAgents,
+          totalChatsInPlan,
+          locationData: loc,
+        } = response.data
         setTotalChat(totalChat ?? 0)
         setTotalMessage(totalMessage ?? 0)
         setCsat(parseFloat(Number(csat).toFixed(2)))
         setAiChat(aiAssists ?? 0)
         setTotalHumanAgents(totalHumanAgents ?? 0)
         setTotalChatsInPlan(totalChatsInPlan ?? 0)
+        if (Array.isArray(loc) && loc.length > 0) {
+          setLocationData(loc as (string | number)[][])
+        } else {
+          setLocationData([['Country', 'Chat Count']])
+        }
         if (response.analytics) setAnalytics(response.analytics)
         if (response.plan) setPlan(response.plan)
       }
@@ -140,7 +160,15 @@ export default function Dashboard2Page() {
           const lastMsg = conv.lastMessage || ''
           const country = visitor?.location || ''
           const time = conv.createdAt ? timeAgo(conv.updatedAt || conv.createdAt) : ''
-          return { initials: getInitials(name), name, message: lastMsg, country, time }
+          const conversationId = conv._id != null ? String(conv._id) : ''
+          return {
+            conversationId,
+            initials: getInitials(name),
+            name,
+            message: lastMsg,
+            country,
+            time,
+          }
         })
 
     socket.once('get-open-conversations-list-response', (res: any) => {
@@ -348,8 +376,17 @@ export default function Dashboard2Page() {
                     No recent conversations
                   </div>
                 ) : (
-                  recentChats.map((chat, index) => (
-                    <div key={index} className="border-t border-[#EDF2F7] px-[20px] py-[16px] first:border-t-0 first:pt-0">
+                  recentChats.map((chat) => (
+                    <button
+                      key={chat.conversationId || chat.name}
+                      type="button"
+                      disabled={!chat.conversationId}
+                      onClick={() => {
+                        if (!chat.conversationId) return
+                        router.push(`/inbox?conversationId=${encodeURIComponent(chat.conversationId)}`)
+                      }}
+                      className="w-full border-t border-[#EDF2F7] px-[20px] py-[16px] text-left first:border-t-0 first:pt-0 transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
+                    >
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex min-w-0 items-center gap-[16px]">
                           <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#E8E8E8] bg-white text-[18px] font-medium leading-5 text-[#64748B]">
@@ -365,7 +402,7 @@ export default function Dashboard2Page() {
                           <span>{chat.time}</span>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -414,20 +451,8 @@ export default function Dashboard2Page() {
             <p className="mt-[6px] text-[13px] leading-5 text-[#64748B]">Geographic distribution of your visitors</p>
           </div>
 
-          <div className="mt-6 flex justify-center">
-            <img
-              src="https://www.figma.com/api/mcp/asset/5f73df19-1623-45d5-8eae-79d0d562a80a"
-              alt="Live traffic map"
-              className="h-auto max-h-[198px] w-full max-w-[310px] object-contain"
-            />
-          </div>
-
-          <div className="mt-4 w-[121px]">
-            <img
-              src="https://www.figma.com/api/mcp/asset/40620534-f7e4-45a8-befb-25c135ff7d56"
-              alt="Traffic map scale"
-              className="h-auto w-full object-contain"
-            />
+          <div className="mt-6">
+            <VisitorTrafficMap data={locationData} />
           </div>
         </section>
       </main>
