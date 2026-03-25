@@ -1,16 +1,72 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { User, LogOut, ChevronDown, CreditCard } from "lucide-react";
 import { logoutApi } from '@/app/_api/dashboard/action';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
 import { useSocket } from '@/app/socketContext';
+import defaultImageImport from '@/images/default-image.png';
+
+const defaultImage = (defaultImageImport as any).src || defaultImageImport;
+
+function avatarSrc(path: string | null | undefined) {
+  if (!path || path === 'null' || !String(path).trim()) return null;
+  const p = String(path);
+  if (p.startsWith('http')) return p;
+  const base =
+    process.env.NEXT_PUBLIC_API_HOST ||
+    process.env.NEXT_PUBLIC_FILE_HOST ||
+    'http://localhost:9001';
+  return `${base}${p}`;
+}
+
+function ClientMenuAvatar({
+  avatarUrl,
+  displayName,
+  sizePx,
+  className,
+}: {
+  avatarUrl: string | null;
+  displayName: string;
+  sizePx: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`agent-avatar-wrapper rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 ${className ?? ''}`}
+    >
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatarUrl}
+          alt={displayName}
+          className="agent-avatar-img object-cover w-full h-full"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = defaultImage;
+          }}
+        />
+      ) : (
+        <Image
+          src={defaultImage}
+          alt={displayName}
+          width={sizePx}
+          height={sizePx}
+          className="agent-avatar-img object-cover w-full h-full"
+        />
+      )}
+    </div>
+  );
+}
 
 interface ClientProfileMenuProps {
   clientEmail?: string;
   clientId?: string;
   isActive?: boolean;
   clientName?: string;
+  /** Stored path or URL from clientAgent.avatar */
+  clientAvatar?: string | null;
 }
 
 export default function ClientProfileMenu({
@@ -18,13 +74,66 @@ export default function ClientProfileMenu({
   clientId,
   isActive = true,
   clientName,
+  clientAvatar,
 }: ClientProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(isActive);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  /** Set by socket / client-profile-updated when sidebar props are stale */
+  const [menuName, setMenuName] = useState<string | null>(null);
+  const [menuEmail, setMenuEmail] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { socket } = useSocket();
+
+  useEffect(() => {
+    if (clientAvatar !== undefined) {
+      setAvatarPath(clientAvatar && String(clientAvatar).trim() ? String(clientAvatar) : null);
+    }
+  }, [clientAvatar]);
+
+  useEffect(() => {
+    if (clientName != null && menuName != null && clientName === menuName) {
+      setMenuName(null);
+    }
+  }, [clientName, menuName]);
+
+  useEffect(() => {
+    if (clientEmail != null && menuEmail != null && clientEmail === menuEmail) {
+      setMenuEmail(null);
+    }
+  }, [clientEmail, menuEmail]);
+
+  useEffect(() => {
+    const readLocal = () => {
+      try {
+        const raw = localStorage.getItem('clientAgent');
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (p.avatar && String(p.avatar).trim()) {
+          setAvatarPath((prev) => prev ?? String(p.avatar));
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    readLocal();
+    const onProfile = (e: Event) => {
+      const d = (e as CustomEvent<{ name?: string; email?: string; avatar?: string | null }>).detail;
+      if (d?.name !== undefined) {
+        setMenuName(d.name && String(d.name).trim() ? String(d.name) : null);
+      }
+      if (d?.email !== undefined) {
+        setMenuEmail(d.email && String(d.email).trim() ? String(d.email).toLowerCase() : null);
+      }
+      if (d?.avatar !== undefined) {
+        setAvatarPath(d.avatar && String(d.avatar).trim() ? String(d.avatar) : null);
+      }
+    };
+    window.addEventListener('client-profile-updated', onProfile);
+    return () => window.removeEventListener('client-profile-updated', onProfile);
+  }, []);
 
   useEffect(() => {
     if (isActive !== undefined) {
@@ -46,32 +155,101 @@ export default function ClientProfileMenu({
     }
   }, [isActive]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleClientStatusUpdate = (updatedClient: any) => {
+  const applyClientStatusFromPayload = useCallback(
+    (updatedClient: any) => {
+      if (!updatedClient || updatedClient.isClient === false) return;
+      try {
+        const raw = localStorage.getItem('clientAgent');
+        const parsed = raw ? JSON.parse(raw) : {};
+        const myId = clientId ? String(clientId) : parsed._id ? String(parsed._id) : null;
+        if (updatedClient._id && myId && String(updatedClient._id) !== myId) return;
+      } catch {
+        return;
+      }
       setIsOnline(updatedClient.isActive !== false);
-      if (typeof window !== 'undefined') {
+      if (typeof window === 'undefined') return;
+      try {
+        const raw = localStorage.getItem('clientAgent');
+        const base = raw ? JSON.parse(raw) : {};
+        const merged = {
+          ...base,
+          ...updatedClient,
+          isActive: updatedClient.isActive,
+          lastActive: updatedClient.lastActive,
+        };
+        localStorage.setItem('clientAgent', JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent('client-status-changed', { detail: merged }));
         const clientData = localStorage.getItem('client');
         if (clientData) {
           try {
             const parsedClient = JSON.parse(clientData);
-            const updatedClientData = {
-              ...parsedClient,
-              isActive: updatedClient.isActive,
-              lastActive: updatedClient.lastActive,
-            };
-            localStorage.setItem('client', JSON.stringify(updatedClientData));
+            localStorage.setItem(
+              'client',
+              JSON.stringify({
+                ...parsedClient,
+                isActive: updatedClient.isActive,
+                lastActive: updatedClient.lastActive,
+              })
+            );
           } catch {}
+        }
+      } catch {
+        /* ignore */
+      }
+    },
+    [clientId]
+  );
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleAgentStatusForClient = (data: any) => {
+      if (data?.isClient) applyClientStatusFromPayload(data);
+    };
+
+    const handleClientProfileUpdated = (data: {
+      name?: string;
+      email?: string;
+      avatar?: string | null;
+      phone?: string;
+    }) => {
+      if (data.name !== undefined) {
+        setMenuName(data.name && String(data.name).trim() ? String(data.name) : null);
+      }
+      if (data.email !== undefined) {
+        setMenuEmail(data.email && String(data.email).trim() ? String(data.email).toLowerCase() : null);
+      }
+      if (data.avatar !== undefined) {
+        setAvatarPath(
+          data.avatar && String(data.avatar).trim() ? String(data.avatar) : null
+        );
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('clientAgent');
+          const base = raw ? JSON.parse(raw) : {};
+          const next = {
+            ...base,
+            ...(data.name !== undefined && { name: data.name }),
+            ...(data.email !== undefined && { email: data.email }),
+            ...(data.avatar !== undefined && { avatar: data.avatar }),
+          };
+          localStorage.setItem('clientAgent', JSON.stringify(next));
+        } catch {
+          /* ignore */
         }
       }
     };
 
-    socket.on('client-status-updated', handleClientStatusUpdate);
+    socket.on('client-status-updated', applyClientStatusFromPayload);
+    socket.on('agent-status-updated', handleAgentStatusForClient);
+    socket.on('client-profile-updated', handleClientProfileUpdated);
     return () => {
-      socket.off('client-status-updated', handleClientStatusUpdate);
+      socket.off('client-status-updated', applyClientStatusFromPayload);
+      socket.off('agent-status-updated', handleAgentStatusForClient);
+      socket.off('client-profile-updated', handleClientProfileUpdated);
     };
-  }, [socket]);
+  }, [socket, applyClientStatusFromPayload]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -97,22 +275,10 @@ export default function ClientProfileMenu({
       if (response === 'error' || (response && response.status_code !== 200)) {
         throw new Error(response?.message || 'Failed to update client status');
       }
-      setIsOnline(newStatus);
-      if (typeof window !== 'undefined') {
-        const clientData = localStorage.getItem('client');
-        if (clientData) {
-          try {
-            const parsedClient = JSON.parse(clientData);
-            const updatedClientData = {
-              ...parsedClient,
-              isActive: newStatus,
-              lastActive: newStatus ? new Date().toISOString() : parsedClient.lastActive,
-            };
-            localStorage.setItem('client', JSON.stringify(updatedClientData));
-            window.dispatchEvent(new CustomEvent('client-status-changed', { detail: updatedClientData }));
-          } catch {}
-        } else if (response && response.agent) {
-          localStorage.setItem('clientAgent', JSON.stringify(response.agent));
+      // State + localStorage come from server via response.agent (same payload as socket) and client-status-updated
+      if (response && typeof response === 'object' && 'agent' in response && response.agent) {
+        applyClientStatusFromPayload(response.agent);
+        if (typeof window !== 'undefined') {
           const agentData = localStorage.getItem('agent');
           if (agentData) {
             try {
@@ -122,7 +288,6 @@ export default function ClientProfileMenu({
               }
             } catch {}
           }
-          window.dispatchEvent(new CustomEvent('client-status-changed', { detail: response.agent }));
         }
       }
     } catch {
@@ -141,19 +306,26 @@ export default function ClientProfileMenu({
     router.replace('/login');
   };
 
-  const displayEmail = clientEmail || (typeof window !== 'undefined'
-    ? (() => {
-        try {
-          const clientData = localStorage.getItem('client');
-          if (clientData) return JSON.parse(clientData).email || '';
-          const userData = localStorage.getItem('user');
-          if (userData) return JSON.parse(userData).email || '';
-        } catch {}
-        return '';
-      })()
-    : '');
+  const displayEmail =
+    menuEmail ??
+    clientEmail ??
+    (typeof window !== 'undefined'
+      ? (() => {
+          try {
+            const clientData = localStorage.getItem('client');
+            if (clientData) return JSON.parse(clientData).email || '';
+            const userData = localStorage.getItem('user');
+            if (userData) return JSON.parse(userData).email || '';
+          } catch {}
+          return '';
+        })()
+      : '');
 
-  const displayName = clientName || (displayEmail ? displayEmail.split('@')[0] : 'Agent');
+  const displayName =
+    menuName ??
+    clientName ??
+    (displayEmail ? displayEmail.split('@')[0] : 'Agent');
+  const displayAvatarUrl = avatarSrc(avatarPath);
 
   return (
     <div className="relative" ref={menuRef}>
@@ -162,9 +334,12 @@ export default function ClientProfileMenu({
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-3 w-full px-2 py-2 rounded-xl hover:bg-gray-100 transition-colors duration-150 group"
       >
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-          <User className="w-5 h-5 text-white" />
-        </div>
+        <ClientMenuAvatar
+          avatarUrl={displayAvatarUrl}
+          displayName={displayName}
+          sizePx={36}
+          className="w-9 h-9"
+        />
         <div className="flex-1 text-left min-w-0">
           <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
           <p className="text-xs text-[#94A3B8] truncate">Free Plan</p>
@@ -177,8 +352,13 @@ export default function ClientProfileMenu({
         <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
           {/* Profile header */}
           <div className="px-5 pt-5 pb-4 text-center border-b border-gray-100">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mx-auto mb-3">
-              <User className="w-7 h-7 text-white" />
+            <div className="mx-auto mb-3 flex justify-center">
+              <ClientMenuAvatar
+                avatarUrl={displayAvatarUrl}
+                displayName={displayName}
+                sizePx={56}
+                className="w-14 h-14"
+              />
             </div>
             <p className="text-sm font-bold text-gray-900">{displayName}</p>
             <p className="text-xs text-[#94A3B8] mt-0.5">{displayEmail || 'No email'}</p>

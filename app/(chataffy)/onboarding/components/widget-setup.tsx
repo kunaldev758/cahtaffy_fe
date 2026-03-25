@@ -712,7 +712,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
               <div className='flex flex-col gap-[16px]'>
                 <div>
                   <h2 className="text-sm font-bold text-[#111827]">Placement of widget on your website</h2>
-                  <p className="text-[13px] text-[#64748B]">lorem ipsum is dummy text</p>
+                  <p className="text-[13px] text-[#64748B]">Set the placement of your widget on your website.</p>
                 </div>
 
                 <div>
@@ -739,7 +739,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                                 : 'border-[#DDE5EE] bg-[#F1F5F9]  shadow-[0px_0px_0px_1px_rgba(59,130,246,0.15)]'
                                 }`}
                             >
-                              <img
+                              <Image
                                 src={option.icon}
                                 alt={option.label}
                                 className={`h-[26px] w-[26px] object-contain ${isSelected ? '' : 'grayscale opacity-50'}`}
@@ -777,7 +777,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                                 : 'border-[#DDE5EE]  shadow-[0px_0px_0px_1px_rgba(59,130,246,0.15)]'
                                 }`}
                             >
-                              <img
+                              <Image
                                 src={option.icon}
                                 alt={option.label}
                                 className={`absolute bottom-[8px] ${option.id === 'left' ? 'left-[8px]' : 'right-[8px]'} h-[24px] w-[24px] object-contain ${isSelected ? '' : 'grayscale opacity-50'}`}

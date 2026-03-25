@@ -248,6 +248,12 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     if (!convId) return;
     const inboxPath = getInboxPath(pathname || "");
     router.push(`${inboxPath}?conversationId=${convId}`);
+    // Open chat immediately on the inbox page (URL sync can lag behind router.push)
+    window.dispatchEvent(
+      new CustomEvent("notification-navigate-to-conversation", {
+        detail: { conversationId: convId },
+      })
+    );
   };
 
   return (

@@ -83,6 +83,11 @@ export default function Inbox(Props: any) {
   // Prevents the auto-open logic from resetting the active conversation whenever
   // the list length changes (e.g. a new visitor connects).
   const hasOpenedFirstRef = useRef(false);
+  // Keeps latest open conversation for socket/window handlers (avoids stale closure vs ObjectId/string ids)
+  const openConversationIdRef = useRef<any>(null);
+  openConversationIdRef.current = openConversationId;
+  // Avoid parallel openConversation() for the same URL id (list/socket can retrigger the effect)
+  const urlConversationOpenInFlightRef = useRef<string | null>(null);
 
   // Get agent data from localStorage (for agent-inbox context)
   useEffect(() => {
@@ -217,41 +222,41 @@ export default function Inbox(Props: any) {
     setIsAITyping(false);
   }, [openConversationId]);
 
-  // Listen for agent connection notifications
+  // Listen for agent connection notifications (ref = always current id; string compare for Mongo/ObjectId)
   useEffect(() => {
+    const sameConversation = (a: any, b: any) =>
+      a != null && b != null && String(a) === String(b);
+
     const handleAgentConnectionNotification = (event: Event) => {
       const customEvent = event as CustomEvent;
       const data = customEvent.detail;
       console.log("Agent connection notification received:", data);
-      
-      // If this is for the currently open conversation, show the request
-      if (data.conversationId === openConversationId) {
+
+      if (sameConversation(data.conversationId, openConversationIdRef.current)) {
         setAgentConnectionRequest({
           conversationId: data.conversationId,
-          visitorName: data.visitor?.visitorDetails?.find((d: any) => d.field === 'Name')?.value || 'Visitor',
+          visitorName:
+            data.visitor?.visitorDetails?.find((d: any) => d.field === "Name")?.value || "Visitor",
         });
-      } else {
-        // If not the current conversation, navigate to it or show notification
-        // For now, we'll just show it if user opens that conversation
       }
     };
 
     const handleAgentConnectionCancelled = (event: Event) => {
       const customEvent = event as CustomEvent;
       const data = customEvent.detail;
-      if (data.conversationId === openConversationId) {
+      if (sameConversation(data.conversationId, openConversationIdRef.current)) {
         setAgentConnectionRequest(null);
       }
     };
 
-    window.addEventListener('agent-connection-notification', handleAgentConnectionNotification);
-    window.addEventListener('agent-connection-cancelled', handleAgentConnectionCancelled);
+    window.addEventListener("agent-connection-notification", handleAgentConnectionNotification);
+    window.addEventListener("agent-connection-cancelled", handleAgentConnectionCancelled);
 
     return () => {
-      window.removeEventListener('agent-connection-notification', handleAgentConnectionNotification);
-      window.removeEventListener('agent-connection-cancelled', handleAgentConnectionCancelled);
+      window.removeEventListener("agent-connection-notification", handleAgentConnectionNotification);
+      window.removeEventListener("agent-connection-cancelled", handleAgentConnectionCancelled);
     };
-  }, [openConversationId]);
+  }, []);
 
   // Reset all conversation state when the active agent changes
   useEffect(() => {
@@ -515,7 +520,10 @@ export default function Inbox(Props: any) {
       console.log("Notification navigate to conversation:", conversationId);
       
       // Find the conversation in the list
-      const conversation = conversationsList?.data?.find((conv: any) => conv._id === conversationId || conv.id === conversationId);
+      const conversation = conversationsList?.data?.find(
+        (conv: any) =>
+          String(conv._id) === String(conversationId) || String(conv.id) === String(conversationId)
+      );
       
       if (conversation) {
         const visitorName = conversation.visitor?.visitorDetails?.find((d: any) => d.field === 'Name')?.value || 
@@ -723,27 +731,58 @@ export default function Inbox(Props: any) {
     hasOpenedFirstRef.current = false;
   }, [status]);
 
-  // Auto-open the first conversation only once per tab, or when a specific
-  // conversationId is requested via URL param.
+  // Open chat from ?conversationId= whenever URL or list updates (e.g. notification bell router.push).
+  // Otherwise open the first conversation once (no URL param).
   useEffect(() => {
-    if (hasOpenedFirstRef.current) return;
     if (conversationsList.loading) return;
 
-    const openFirstConversation = async () => {
+    const visitorDisplayName = (conv: any) =>
+      conv?.visitor?.visitorDetails?.find((d: any) => d.field === "Name")?.value ||
+      conv?.visitor?.name ||
+      "Visitor";
+
+    const run = async () => {
       if (currentConversationId) {
-        const conv = conversationsList?.data.find((con: any) => con._id === currentConversationId);
-        if (conv) {
-          hasOpenedFirstRef.current = true;
-          await openConversation(conv, conv?.visitor?.name, 0);
+        const cid = String(currentConversationId);
+        const conv = conversationsList?.data?.find((con: any) => String(con._id) === cid);
+        if (!conv) return;
+        // Do NOT skip just because openConversationId was hydrated from the URL on first paint.
+        // We must still run openConversation() to load messages, join the socket room, and run
+        // emitCheckPendingAgentRequest (accept/decline popup) — e.g. when opening inbox from another tab.
+        const messagesLoadedForUrl =
+          String(conversationMessages?.conversationId ?? "") === cid &&
+          !conversationMessages?.loading;
+        if (messagesLoadedForUrl) return;
+        if (urlConversationOpenInFlightRef.current === cid) return;
+        urlConversationOpenInFlightRef.current = cid;
+        try {
+          await openConversation(conv, visitorDisplayName(conv), 0);
+        } finally {
+          if (urlConversationOpenInFlightRef.current === cid) {
+            urlConversationOpenInFlightRef.current = null;
+          }
         }
-      } else if (conversationsList?.data?.length > 0 && (status === "open" || status === "all")) {
-        hasOpenedFirstRef.current = true;
-        await openConversation(conversationsList?.data[0], conversationsList?.data[0]?.visitor?.name, 0);
+        return;
       }
+
+      if (hasOpenedFirstRef.current) return;
+      if (!conversationsList?.data?.length) return;
+      if (!(status === "open" || status === "all")) return;
+
+      hasOpenedFirstRef.current = true;
+      const first = conversationsList.data[0];
+      await openConversation(first, visitorDisplayName(first), 0);
     };
 
-    openFirstConversation();
-  }, [status, conversationsList.loading, conversationsList?.data?.length]);
+    void run();
+  }, [
+    currentConversationId,
+    conversationMessages?.conversationId,
+    conversationMessages?.loading,
+    status,
+    conversationsList.loading,
+    conversationsList?.data,
+  ]);
 
   // Mark messages as seen only when the open conversation changes — not on every
   // list update. Removing conversationsList?.data from deps prevents spurious
@@ -844,7 +883,8 @@ export default function Inbox(Props: any) {
                 canReply={canReply}
               />
 
-              {agentConnectionRequest && agentConnectionRequest.conversationId === openConversationId && (
+              {agentConnectionRequest &&
+                String(agentConnectionRequest.conversationId) === String(openConversationId) && (
                 <AgentConnectionRequest
                   conversationId={agentConnectionRequest.conversationId}
                   visitorName={agentConnectionRequest.visitorName}

@@ -6,7 +6,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Calendar, Copy, ExternalLink, File, FileText, Globe, RotateCcw, ShieldCheck } from 'lucide-react'
 // import DOMPurify from "isomorphic-dompurify";
 import sanitizeHtml from 'sanitize-html'
-import { getDataField } from '../../../../../_api/dashboard/action'
+import { getDataField, retrainTrainingDataApi } from '../../../../../_api/dashboard/action'
+import { toast } from 'react-toastify'
 
 interface ContentData {
   _id: string
@@ -27,13 +28,16 @@ interface ContentDetailsModalProps {
   show: boolean
   onHide: () => void
   itemId: string
+  agentId: string | null
+  onRetrainQueued?: () => void
 }
 
-export default function ContentDetailsModal({ show, onHide, itemId }: ContentDetailsModalProps) {
+export default function ContentDetailsModal({ show, onHide, itemId, agentId, onRetrainQueued }: ContentDetailsModalProps) {
   const [contentData, setContentData] = useState<ContentData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [retrainLoading, setRetrainLoading] = useState(false)
 
   const fetchContentData = async (id: string) => {
     try {
@@ -125,6 +129,33 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
     }
   }
 
+  const canRetrainWebPage = contentData?.type === 0
+
+  const handleRetrain = async () => {
+    if (!agentId) {
+      toast.error('Agent ID not found')
+      return
+    }
+    if (!contentData?._id || !canRetrainWebPage) {
+      toast.warning('Only web pages can be retrained')
+      return
+    }
+    setRetrainLoading(true)
+    try {
+      const res = await retrainTrainingDataApi([contentData._id], agentId)
+      if (res?.success) {
+        toast.success('Retrain job queued successfully')
+        onRetrainQueued?.()
+      } else {
+        toast.error(res?.error || 'Failed to retrain training data')
+      }
+    } catch {
+      toast.error('Failed to retrain training data')
+    } finally {
+      setRetrainLoading(false)
+    }
+  }
+
   if (!show) return null
 
   return (
@@ -201,11 +232,17 @@ export default function ContentDetailsModal({ show, onHide, itemId }: ContentDet
               </div>
 
               <div className="flex flex-col gap-[16px]">
-                <Button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold">
+                <Button
+                  type="button"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold disabled:opacity-50 disabled:pointer-events-none"
+                  disabled={retrainLoading || !agentId || !canRetrainWebPage}
+                  title={!canRetrainWebPage ? 'Only web pages can be retrained' : undefined}
+                  onClick={handleRetrain}
+                >
                   <span className="material-symbols-outlined text-[#ffffff] !text-[20px]">
                     rotate_left
                   </span>
-                  Retrain
+                  {retrainLoading ? 'Queueing…' : 'Retrain'}
                 </Button>
                 <Button variant="outline" onClick={onHide} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#ffffff] px-[20px] text-center text-[14px] leading-5 transition-colors duration-200  font-semibold text-[#111827]">
                   Close

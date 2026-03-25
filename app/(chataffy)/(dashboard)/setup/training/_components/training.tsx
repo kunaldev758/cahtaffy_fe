@@ -914,6 +914,8 @@ export default function EnhancedTrainingPage() {
             show={showContentModal}
             onHide={() => { setShowContentModal(false); setSelectedItemId(null) }}
             itemId={selectedItemId}
+            agentId={agentId}
+            onRetrainQueued={refreshList}
           />
         )}
       </div>

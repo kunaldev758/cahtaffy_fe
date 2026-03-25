@@ -346,9 +346,9 @@ const Message = ({
 
       const getDisplayName = (name?: string, isClient?: boolean) => {
         if (!name) return '';
-        if (name.toLowerCase() === 'client' || isClient) {
-          return 'Client';
-        }
+        // if (name.toLowerCase() === 'client' || isClient) {
+        //   return 'Client';
+        // }
         return name;
       };
 
