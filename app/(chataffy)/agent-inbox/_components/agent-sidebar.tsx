@@ -178,20 +178,23 @@ export default function AgentSidebar() {
       const result = await updateAgent(agent.id,updateData)
       console.log(result,"update result")
 
-      if (!result.agent) {
+      // Backend returns { humanAgent: {...} }; avatar upload returns { agent: {...} }
+      const payloadAgent =  result?.humanAgent
+      if (!payloadAgent) {
         throw new Error(result.message || 'Failed to update agent');
       }
 
       // Update localStorage with new data
       const updatedAgent = {
         ...agent,
-        name: result?.agent?.name,
-        avatar: result?.agent?.avatar || agent.avatar,
+        name: payloadAgent.name ?? agent.name,
+        avatar: payloadAgent.avatar ?? agent.avatar,
         // email: result.agent.email
       };
       
       localStorage.setItem('agent', JSON.stringify(updatedAgent));
       setAgent(updatedAgent);
+      window.dispatchEvent(new CustomEvent('agent-status-updated'));
       
       // Upload avatar if selected (do this after profile update)
       if (avatarFile && agent.id) {
@@ -248,7 +251,8 @@ export default function AgentSidebar() {
         setAvatarFile(null);
         setAvatarError(false);
         setSuccess("Avatar uploaded successfully!");
-        
+        window.dispatchEvent(new CustomEvent('agent-status-updated'));
+
         setTimeout(() => {
           setSuccess("");
         }, 2000);
