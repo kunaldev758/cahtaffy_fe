@@ -743,6 +743,8 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                                 src={option.icon}
                                 alt={option.label}
                                 className={`h-[26px] w-[26px] object-contain ${isSelected ? '' : 'grayscale opacity-50'}`}
+                                width={26}
+                                height={26}
                               />
                               {isSelected && (
                                 <span className="absolute right-[-6px] top-[-6px] inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#3B82F6] shadow-[0_0_0_6px_#fff]">
@@ -781,6 +783,8 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                                 src={option.icon}
                                 alt={option.label}
                                 className={`absolute bottom-[8px] ${option.id === 'left' ? 'left-[8px]' : 'right-[8px]'} h-[24px] w-[24px] object-contain ${isSelected ? '' : 'grayscale opacity-50'}`}
+                                width={24}
+                                height={24}
                               />
                               {isSelected && (
                                 <span className="absolute right-[-6px] top-[-6px] inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#3B82F6] shadow-[0_0_0_6px_#fff]">

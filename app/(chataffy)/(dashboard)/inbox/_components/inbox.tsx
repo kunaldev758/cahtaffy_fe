@@ -845,7 +845,7 @@ export default function Inbox(Props: any) {
   console.log(openConversationId, "openConversationId the id");
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)]">
       <ConversationsList
         conversationsList={conversationsList}
         searchConversationsList={searchConversationsList}
@@ -867,7 +867,7 @@ export default function Inbox(Props: any) {
       {isConversationAvailable ? (
         <>
           {conversationMessages?.data?.length > 1 ? (
-            <div className="flex-1 flex flex-col relative">
+            <div className="flex-1 flex flex-col relative bg-white rounded-[20px]">
               <ChatHeader
                 visitorName={conversationMessages.visitorName}
                 isAIChat={isAIChat}
@@ -932,7 +932,7 @@ export default function Inbox(Props: any) {
               />
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="flex-1 flex items-center justify-center bg-white rounded-[20px]">
               <div className="text-center">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Conversation</h3>
                 <p className="text-sm text-gray-500">This conversation is currently closed or not available.</p>
