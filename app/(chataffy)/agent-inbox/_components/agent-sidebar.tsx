@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { toggleActiveStatus, updateAgent, uploadAgentAvatar, logoutApi } from "@/app/_api/dashboard/action";
+import { dispatchAuthStorageSync } from "@/app/socketContext";
 import { useSocket } from "@/app/socketContext";
 import Image from "next/image";
 import defaultImageImport from '@/images/default-image.png';
@@ -94,7 +95,8 @@ export default function AgentSidebar() {
         // Even if logoutApi fails, cookies deletion might have succeeded
         console.error('Logout API error:', cookieError);
       }
-      
+
+      dispatchAuthStorageSync();
       router.push('/agent-login');
     } catch (error) {
       console.error('Logout error:', error);
@@ -105,6 +107,7 @@ export default function AgentSidebar() {
       localStorage.removeItem('userId');
       localStorage.removeItem('humanAgentId');
       localStorage.removeItem('currentAgentId');
+      dispatchAuthStorageSync();
       router.push('/agent-login');
     }
   };

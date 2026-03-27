@@ -382,12 +382,13 @@ export default function Inbox(Props: any) {
   const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
     try {
       const visitorId = ConversationData?.visitor?._id;
+      const conversationId = ConversationData?._id;
       setOpenVisitorId(visitorId);
       setOpenVisitorName(visitorName);
 
-      const data = await getConversationMessages(visitorId);
+      const data = await getConversationMessages(conversationId);
       if (data) {
-        const conversationId = data.chatMessages[0]?.conversation_id;
+        // const conversationId = data.chatMessages[0]?.conversation_id;
         history.pushState(null, '', `?conversationId=${conversationId}`);
         
         setConversationMessages({

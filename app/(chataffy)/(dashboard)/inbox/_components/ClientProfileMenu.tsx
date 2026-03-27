@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { User, LogOut, ChevronDown, CreditCard } from "lucide-react";
 import { logoutApi } from '@/app/_api/dashboard/action';
+import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
 import { useSocket } from '@/app/socketContext';
@@ -303,6 +304,7 @@ export default function ClientProfileMenu({
       await logoutApi();
     } catch {}
     localStorage.clear();
+    dispatchAuthStorageSync();
     router.replace('/login');
   };
 

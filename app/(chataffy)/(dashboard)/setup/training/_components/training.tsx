@@ -306,15 +306,15 @@ export default function EnhancedTrainingPage() {
     handleRetrain(webPageIds)
   }
 
-  const handleContinueScrapping = async () => {
-    setShowContinueScrapping(false)
-    try {
-      const data = await continueScrapping()
-      if (data?.success === false) toast.error('Failed to continue scrapping. Please try again.')
-    } catch {
-      toast.error('Failed to continue scrapping. Please try again.')
-    }
-  }
+  // const handleContinueScrapping = async () => {
+  //   setShowContinueScrapping(false)
+  //   try {
+  //     const data = await continueScrapping()
+  //     if (data?.success === false) toast.error('Failed to continue scrapping. Please try again.')
+  //   } catch {
+  //     toast.error('Failed to continue scrapping. Please try again.')
+  //   }
+  // }
 
   // ── Pagination ────────────────────────────────────────────────────────────────
 
@@ -362,7 +362,7 @@ export default function EnhancedTrainingPage() {
       setTrainingList({ data: transformedData, loading: false, totalCount, currentPage, totalPages })
     })
 
-    socket.on('show-continue-scrapping-button', () => setShowContinueScrapping(true))
+    // socket.on('show-continue-scrapping-button', () => setShowContinueScrapping(true))
 
     socket.on('training-event', ({ client, agent, message, scrapingProgress: progress }: any) => {
       if (progress) {
@@ -405,7 +405,7 @@ export default function EnhancedTrainingPage() {
     })
 
     socket.emit('client-connect')
-    socket.emit('continue-scrapping-button')
+    // socket.emit('continue-scrapping-button')
   }
 
   useEffect(() => { setupSocketListeners() }, [socket])
@@ -447,14 +447,14 @@ export default function EnhancedTrainingPage() {
       <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6">
 
         {/* ── Alerts ── */}
-        {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+        {/* {clientData?.upgradePlanStatus?.storageLimitExceeded && (
           <Alert className="border-orange-200 bg-orange-50 mb-4">
             <Zap className="h-4 w-4" />
             <AlertDescription>Storage limit exceeded. Upgrade your plan to continue training.</AlertDescription>
           </Alert>
-        )}
+        )} */}
 
-        {showContinueScrapping && (
+        {/* {showContinueScrapping && (
           <Alert className="border-orange-200 bg-orange-50 mb-4">
             <Zap className="h-4 w-4" />
             <AlertDescription>
@@ -469,7 +469,7 @@ export default function EnhancedTrainingPage() {
               </div>
             </AlertDescription>
           </Alert>
-        )}
+        )} */}
 
         {/* ── Summary Cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

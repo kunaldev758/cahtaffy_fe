@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
 import Image from "next/image";
+import { publicAsset } from "@/lib/publicAsset";
 import { Conversation } from "./types/inbox";
 import defaultImageImport from '@/images/default-image.png';
 
@@ -318,7 +319,7 @@ export default function ConversationsList({
                       {/* Handling indicator icon */}
                       {conversation.aiChat ? (
                         <Image
-                          src="/images/new/sparkle-icon.svg"
+                          src={publicAsset("/images/new/sparkle-icon.svg")}
                           alt="AI"
                           width={14}
                           height={14}
@@ -351,7 +352,7 @@ export default function ConversationsList({
                           </div>
                         ) : (
                           <Image
-                            src="/images/profile-icon.svg"
+                            src={publicAsset("/images/profile-icon.svg")}
                             alt="Agent"
                             width={14}
                             height={14}

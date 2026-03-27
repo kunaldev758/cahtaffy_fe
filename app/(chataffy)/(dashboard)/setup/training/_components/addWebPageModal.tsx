@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { useRouter } from 'next/navigation'
 import { getClientData } from '@/app/_api/dashboard/action'
 import Image from 'next/image';
+import { publicAsset } from '@/lib/publicAsset';
 
 export default function Home(Props: any) {
   const { showModal, onHide, agentId, onBack } = Props
@@ -15,6 +16,7 @@ export default function Home(Props: any) {
   const [url, setUrl] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [urlTags, setUrlTags] = useState<string[]>([])
+  const [urlInputError, setUrlInputError] = useState<string | null>(null)
   const [buttonLoading, setButtonLoading] = useState(false)
   const [client, setClient] = useState(null) as any;
 
@@ -30,9 +32,49 @@ export default function Home(Props: any) {
     return parts
   }
 
-  const addUrlsFromInput = (raw: string) => {
-    const nextUrls = parseAndNormalizeUrls(raw)
-    if (nextUrls.length === 0) return
+  /** Returns normalized http(s) href, or null if the string is not a valid web URL. */
+  const tryParseWebUrl = (input: string): string | null => {
+    const t = input.trim()
+    if (!t) return null
+    const candidates = /:\/\//.test(t) ? [t] : [`https://${t}`]
+    for (const c of candidates) {
+      try {
+        const u = new URL(c)
+        if (u.protocol === 'http:' || u.protocol === 'https:') {
+          if (!u.hostname) return null
+          return u.href
+        }
+      } catch {
+        /* try next */
+      }
+    }
+    return null
+  }
+
+  /** @returns true if any URL in the batch was invalid (input should be kept for editing). */
+  const addUrlsFromInput = (raw: string): boolean => {
+    const parts = parseAndNormalizeUrls(raw)
+    if (parts.length === 0) return false
+
+    const invalid: string[] = []
+    const nextUrls: string[] = []
+    for (const p of parts) {
+      const href = tryParseWebUrl(p)
+      if (href === null) invalid.push(p)
+      else nextUrls.push(href)
+    }
+
+    if (invalid.length > 0) {
+      setUrlInputError(
+        invalid.length === 1
+          ? `Invalid URL: ${invalid[0]}`
+          : `Invalid URLs: ${invalid.join(', ')}`
+      )
+    } else {
+      setUrlInputError(null)
+    }
+
+    if (nextUrls.length === 0) return invalid.length > 0
 
     setUrlTags(prev => {
       const merged = [...prev, ...nextUrls]
@@ -44,6 +86,8 @@ export default function Home(Props: any) {
         return true
       })
     })
+
+    return invalid.length > 0
   }
 
   const handleUrlInputKeyDown = (e: any) => {
@@ -51,8 +95,8 @@ export default function Home(Props: any) {
     if (e.key !== 'Enter') return
     if (e.shiftKey) return
     e.preventDefault()
-    addUrlsFromInput(urlInput)
-    setUrlInput('')
+    const hadInvalid = addUrlsFromInput(urlInput)
+    if (!hadInvalid) setUrlInput('')
   }
 
   const removeTagAtIndex = (idx: number) => {
@@ -104,6 +148,7 @@ export default function Home(Props: any) {
     setButtonLoading(false)
     setUrl('')
     setUrlInput('')
+    setUrlInputError(null)
     setUrlTags([])
     onHide()
     toast.success(response.message)
@@ -176,12 +221,25 @@ export default function Home(Props: any) {
                 <div className="specific-urlBox">
                   <div className="">
                     <textarea
-                      className="w-full rounded-[8px] border border-[#E2E8F0] bg-white text-[13px] leading-5 text-[#111827] outline-none px-[14px] py-[10px] resize-none mb-1"
+                      id="manual-url-input"
+                      className={`w-full rounded-[8px] border bg-white text-[13px] leading-5 text-[#111827] outline-none px-[14px] py-[10px] resize-none mb-1 ${
+                        urlInputError ? 'border-red-500 focus:ring-1 focus:ring-red-500' : 'border-[#E2E8F0]'
+                      }`}
                       placeholder="https://chataffy.com (press Enter to add)"
                       value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
+                      onChange={(e) => {
+                        setUrlInput(e.target.value)
+                        if (urlInputError) setUrlInputError(null)
+                      }}
                       onKeyDown={handleUrlInputKeyDown}
+                      aria-invalid={urlInputError ? true : undefined}
+                      aria-describedby={urlInputError ? 'manual-url-input-error' : undefined}
                     />
+                    {urlInputError && (
+                      <p id="manual-url-input-error" className="text-[12px] text-red-600 mb-2" role="alert">
+                        {urlInputError}
+                      </p>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-2">
                       {urlTags.map((t, idx) => (
@@ -215,7 +273,7 @@ export default function Home(Props: any) {
           </button>
 
           <button type="button" className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors" onClick={handleButtonOnClick} disabled={buttonLoading}>
-            <Image src="/images/new/sparkle-icon.svg" alt="Sparkle" width={18} height={18} />
+            <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
             <span>Train External URLs</span>
           </button>
         </div>

@@ -1,11 +1,11 @@
 
 // Login Component
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { loginApi, googleOAuthExchange } from '../../../_api/login/action'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
-import { useSocket } from "../../../socketContext";
+import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useGoogleLogin } from '@react-oauth/google'
@@ -35,6 +35,7 @@ export function LoginForm() {
           localStorage.setItem('agents', JSON.stringify(response.agents));
           localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
         }
+        dispatchAuthStorageSync()
         handleSocketEvent(response.userId)
         if (!response.isOnboarded) {
           router.replace(appUrl + 'onboarding')
@@ -87,12 +88,13 @@ export function LoginForm() {
           }
           if (response.userId) {
             localStorage.setItem('userId', response.userId)
-            handleSocketEvent(response.userId)
           }
           if (response.agents) {
             localStorage.setItem('agents', JSON.stringify(response.agents));
             localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
           }
+          dispatchAuthStorageSync()
+          handleSocketEvent(response.userId)
           if (!response.isOnboarded) {
             router.replace(appUrl + 'onboarding')
           } else {

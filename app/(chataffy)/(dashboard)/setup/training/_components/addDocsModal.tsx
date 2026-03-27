@@ -5,6 +5,7 @@ import { FileUpload } from './fileUpload';
 import { openaiCreateSnippet } from '@/app/_api/dashboard/action';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import Image from 'next/image';
+import { publicAsset } from '@/lib/publicAsset';
 
 export default function AddContentModal({ showModal, onHide, agentId, onBack }: any) {
   const [toggle, setToggle] = useState(true);
@@ -106,7 +107,7 @@ export default function AddContentModal({ showModal, onHide, agentId, onBack }: 
             onClick={handleButtonOnClick}
             disabled={buttonLoading}
           >
-            <Image src="/images/new/sparkle-icon.svg" alt="Sparkle" width={18} height={18} />
+            <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
             Start Training
           </button>
         </div>

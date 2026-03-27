@@ -11,6 +11,7 @@ import logoPic from '@/images/logo.png'
 import ClientProfileMenu from '../inbox/_components/ClientProfileMenu'
 import { getClientData } from '@/app/_api/dashboard/action'
 import { createAIAgentApi } from '@/app/_api/login/action'
+import { dispatchAuthStorageSync } from '@/app/socketContext'
 
 export default function IntegratedSidebar() {
   const pathname = usePathname()
@@ -41,6 +42,7 @@ export default function IntegratedSidebar() {
           if (data && data.clientAgent) {
             setClientData(data.clientAgent)
             localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
+            dispatchAuthStorageSync()
           }
         } catch {}
       }

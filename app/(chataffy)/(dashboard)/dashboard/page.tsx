@@ -1,5 +1,6 @@
 "use client"
 import Image from 'next/image'
+import { publicAsset } from '@/lib/publicAsset'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -259,7 +260,7 @@ export default function Dashboard2Page() {
             <div>
               <h2 className="flex items-center gap-2 text-[24px] font-bold leading-5 text-[#111827]">
                 <span>Hello, Chataffy User!</span>
-                <Image src="/images/new/wave-icon.png" alt="Wave Icon" width={24} height={20} />
+                <Image src={publicAsset('/images/new/wave-icon.png')} alt="Wave Icon" width={24} height={20} />
               </h2>
               <p className="mt-3 text-[14px] font-medium leading-5 text-[#64748B]">
                 You&apos;re on step {completedTasks} of 3. Start by adding your data sources.

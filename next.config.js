@@ -5,6 +5,9 @@ const basePath = isProduction?'/chataffy/cahtaffy_fe':'';
 const nextConfig = {
   reactStrictMode: false,
   basePath,
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
   experimental: {
     serverActions: {
         allowedOrigins: [
