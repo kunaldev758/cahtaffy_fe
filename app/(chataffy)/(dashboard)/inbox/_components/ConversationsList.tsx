@@ -119,35 +119,35 @@ export default function ConversationsList({
   }) => (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-        active
-          ? "border-blue-500 text-blue-600 bg-blue-50 font-medium"
-          : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-      }`}
+      className={`px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${active
+        ? "border-blue-500 text-blue-600 bg-blue-50 font-medium"
+        : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+        }`}
     >
       {label}
     </button>
   );
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full rounded-[20px] relative">
       {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
+      <div className="px-[20px] py-[20px] flex items-center justify-between border-b border-gray-100">
         <h1 className="text-lg font-semibold text-gray-900">Chat Logs</h1>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-[10px]">
           <button
             onClick={() => {
               setShowFilter((v) => !v);
               setShowSearch(false);
             }}
-            className={`p-2 rounded-lg transition-colors relative ${
-              showFilter || hasActiveFilters
-                ? "bg-blue-50 text-blue-600"
-                : "text-gray-500 hover:bg-gray-100"
-            }`}
+            className={`rounded-lg transition-colors relative bg-[#F1F5F9] w-8 h-8 flex items-center justify-center ${showFilter || hasActiveFilters
+              ? "bg-blue-50 text-blue-600"
+              : "text-gray-500 hover:bg-gray-100"
+              }`}
             title="Advance filter"
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <span className="material-symbols-outlined !text-[20px]">
+              filter_list
+            </span>
             {hasActiveFilters && !showFilter && (
               <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-500 rounded-full" />
             )}
@@ -157,11 +157,10 @@ export default function ConversationsList({
               setShowSearch((v) => !v);
               setShowFilter(false);
             }}
-            className={`p-2 rounded-lg transition-colors ${
-              showSearch
-                ? "bg-blue-50 text-blue-600"
-                : "text-gray-500 hover:bg-gray-100"
-            }`}
+            className={`p-2 rounded-lg transition-colors bg-[#F1F5F9] w-8 h-8 ${showSearch
+              ? "bg-blue-50 text-blue-600"
+              : "text-gray-500 hover:bg-gray-100"
+              }`}
             title="Search"
           >
             <Search className="w-4 h-4" />
@@ -171,95 +170,108 @@ export default function ConversationsList({
 
       {/* Search Bar */}
       {showSearch && (
-        <div className="px-4 py-3 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchText}
-              onChange={onSearchInputChange}
-              autoFocus
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onSearchInputClick();
-              }}
-            />
+        <div className="px-[20px] py-[18px] absolute bg-white h-[73px] w-full rounded-t-[20px] border-b border-[#E8E8E8]">
+          <div className="flex items-center justify-between gap-[10px]">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchText}
+                onChange={onSearchInputChange}
+                autoFocus
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:border-transparent transition-colors focus:outline-none focus:ring-0"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onSearchInputClick();
+                }}
+              />
+            </div>
+
+            <button
+              onClick={() => setShowSearch(false)}
+              className="flex w-[38px] h-[38px] items-center justify-center rounded-lg border border-[#E8E8E8] bg-white"
+            >
+              <span className="material-symbols-outlined !text-[20px]">
+                close_small
+              </span>
+            </button>
           </div>
         </div>
       )}
 
       {/* Advance Filter Panel */}
       {showFilter && (
-        <div className="px-4 py-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-sm font-semibold text-gray-800 mb-3">
+        <div className="p-[20px] border-b border-gray-100 bg-white absolute w-full rounded-b-[20px] top-[73px] shadow-[0px_20px_20px_-8px_rgba(26,26,26,0.28)] z-10">
+          <h3 className="text-sm font-semibold text-gray-800 mb-[20px]">
             Advance filter
           </h3>
 
-          {/* STATUS */}
-          <div className="mb-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              STATUS
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <FilterPill
-                label="All"
-                active={status === "all"}
-                onClick={() => onStatusChange("all")}
-              />
-              <FilterPill
-                label="Open"
-                active={status === "open"}
-                onClick={() => onStatusChange("open")}
-              />
-              <FilterPill
-                label="Closed"
-                active={status === "close"}
-                onClick={() => onStatusChange("close")}
-              />
+          <div className="flex flex-col gap-[20px]">
+            {/* STATUS */}
+            <div>
+              <p className="text-xs font-bold text-[#64748B] uppercase tracking-wide mb-2">
+                STATUS
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <FilterPill
+                  label="All"
+                  active={status === "all"}
+                  onClick={() => onStatusChange("all")}
+                />
+                <FilterPill
+                  label="Open"
+                  active={status === "open"}
+                  onClick={() => onStatusChange("open")}
+                />
+                <FilterPill
+                  label="Closed"
+                  active={status === "close"}
+                  onClick={() => onStatusChange("close")}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* RATING */}
-          <div className="mb-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              RATING
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <FilterPill
-                label="All"
-                active={rating === "all"}
-                onClick={() => onRatingChange("all")}
-              />
-              <FilterPill
-                label="Good"
-                active={rating === "good"}
-                onClick={() => onRatingChange("good")}
-              />
-              <FilterPill
-                label="Bad"
-                active={rating === "bad"}
-                onClick={() => onRatingChange("bad")}
-              />
+            {/* RATING */}
+            <div>
+              <p className="text-xs font-bold text-[#64748B] uppercase tracking-wide mb-2">
+                RATING
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <FilterPill
+                  label="All"
+                  active={rating === "all"}
+                  onClick={() => onRatingChange("all")}
+                />
+                <FilterPill
+                  label="Good"
+                  active={rating === "good"}
+                  onClick={() => onRatingChange("good")}
+                />
+                <FilterPill
+                  label="Bad"
+                  active={rating === "bad"}
+                  onClick={() => onRatingChange("bad")}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* HANDLE BY */}
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              HANDLE BY
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <FilterPill
-                label="Both"
-                active={handledBy === "both"}
-                onClick={() => onHandledByChange("both")}
-              />
-              <FilterPill
-                label="AI"
-                active={handledBy === "ai"}
-                onClick={() => onHandledByChange("ai")}
-              />
+            {/* HANDLE BY */}
+            <div>
+              <p className="text-xs font-bold text-[#64748B] uppercase tracking-wide mb-2">
+                HANDLE BY
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <FilterPill
+                  label="Both"
+                  active={handledBy === "both"}
+                  onClick={() => onHandledByChange("both")}
+                />
+                <FilterPill
+                  label="AI"
+                  active={handledBy === "ai"}
+                  onClick={() => onHandledByChange("ai")}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -294,16 +306,15 @@ export default function ConversationsList({
                   index
                 )
               }
-              className={`px-4 py-3.5 border-b border-gray-100 cursor-pointer transition-colors ${
-                openConversationId === conversation._id
-                  ? "bg-blue-50 border-r-2 border-r-blue-500"
-                  : "hover:bg-gray-50"
-              }`}
+              className={`p-3 border-b border-gray-100 cursor-pointer transition-colors ${openConversationId === conversation._id
+                ? "bg-[#F8FAFC] border-r-2 border-r-blue-500"
+                : "hover:bg-gray-50"
+                }`}
             >
               <div className="flex items-start gap-3">
                 {/* Avatar */}
                 <div
-                  className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-sm ${getAvatarColor(index)}`}
+                  className={`w-10 h-10 rounded-[10px] border border-[#E8E8E8] flex-shrink-0 flex items-center justify-center font-semibold text-sm bg-white ${openConversationId === conversation._id ? "text-[#4686FE]" : ""}`}
                 >
                   {conversation?.visitor?.name?.[0]?.toUpperCase() || "U"}
                 </div>
@@ -328,15 +339,14 @@ export default function ConversationsList({
                       ) : (
                         /* Agent avatar if available, else default agent icon */
                         conversation.agentId &&
-                        typeof conversation.agentId === "object" ? (
+                          typeof conversation.agentId === "object" ? (
                           <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
                             <Image
                               src={
                                 conversation.agentId.avatar
-                                  ? `${
-                                      process.env.NEXT_PUBLIC_API_HOST ||
-                                      "http://localhost:9001"
-                                    }${conversation.agentId.avatar}`
+                                  ? `${process.env.NEXT_PUBLIC_API_HOST ||
+                                  "http://localhost:9001"
+                                  }${conversation.agentId.avatar}`
                                   : defaultImage
                               }
                               alt={conversation.agentId.name || "Agent"}
