@@ -111,7 +111,7 @@ const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
                   <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#111827]">
                     CLOSED AT {new Date(currentConversation?.updatedAt || currentConversation?.createdAt || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(' ', '')}
                     {' \u2022 '}
-                    {(typeof currentConversation?.agentId === 'object' ? currentConversation?.agentId?.name : 'Agent') || 'Agent'}
+                    {String(currentConversation?.closedBy ?? "").trim() || (typeof currentConversation?.agentId === "object" ? currentConversation.agentId?.name : "") || "Agent"}
                   </p>
                 </div>
               </div>

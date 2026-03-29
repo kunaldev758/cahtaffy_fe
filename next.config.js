@@ -21,7 +21,7 @@ const nextConfig = {
     },
   },
   images: {
-    domains: ['localhost','34.213.132.47','chataffy.com','www.chataffy.com'], // Add 'localhost' to allowed domains
+    domains: ['localhost','34.213.132.47','chataffy.com','www.chataffy.com','flagcdn.com'],
   },
 }
 

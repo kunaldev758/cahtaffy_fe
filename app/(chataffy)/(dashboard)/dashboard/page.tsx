@@ -312,7 +312,7 @@ export default function Dashboard2Page() {
               </div>
               <button
                 type="button"
-                onClick={() => router.push('/billing')}
+                // onClick={() => router.push('/billing')}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
               >
                 <span>Upgrade Plan</span>
@@ -499,28 +499,17 @@ function InfoCard({ title, value, className = '' }: { title: string; value: stri
 }
 
 function FlagBadge({ country }: { country: string }) {
-  if (country === 'IN') {
-    return (
-      <span className="inline-flex h-[14px] w-[21px] overflow-hidden rounded-[2px] border border-[#E5E7EB]">
-        <span className="h-full w-full bg-[linear-gradient(180deg,#FF9933_0%,#FF9933_33%,#FFFFFF_33%,#FFFFFF_66%,#138808_66%,#138808_100%)]" />
-      </span>
-    )
-  }
-
-  if (country === 'CA') {
-    return (
-      <span className="inline-flex h-[14px] w-[21px] overflow-hidden rounded-[2px] border border-[#E5E7EB] bg-white">
-        <span className="w-[5px] bg-[#FF2D2D]" />
-        <span className="w-[11px] bg-white" />
-        <span className="w-[5px] bg-[#FF2D2D]" />
-      </span>
-    )
-  }
-
-  // Generic flag fallback - just show country code
+  if (!country) return null
   return (
-    <span className="inline-flex h-[14px] items-center rounded-[2px] border border-[#E5E7EB] bg-[#F8FAFC] px-1 text-[10px] font-medium text-[#64748B]">
-      {country}
+    <span className="inline-flex h-[14px] w-[21px] overflow-hidden rounded-[2px] border border-[#E5E7EB]">
+      <Image
+        src={`https://flagcdn.com/w20/${country.toLowerCase()}.png`}
+        alt={country}
+        width={21}
+        height={14}
+        className="h-full w-full object-cover"
+        unoptimized
+      />
     </span>
   )
 }

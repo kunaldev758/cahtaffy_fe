@@ -458,14 +458,15 @@ export default function Inbox(Props: any) {
     try {
       const data = await getOldConversationMessages({ conversationId });
       if (data) {
+        history.pushState(null, '', `?conversationId=${conversationId}`);
         setConversationMessages({
           data: data.chatMessages,
           loading: false,
-          conversationId: data.chatMessages[0]?.conversation_id,
+          conversationId: conversationId,
           visitorName,
         });
         setOpenConversationStatus(data.conversationOpenStatus);
-        setOpenConversationId(data.chatMessages[0]?.conversation_id);
+        setOpenConversationId(conversationId);
 
         // Find and set the conversation data from the list
         const conversationFromList = conversationsList?.data?.find(
@@ -950,6 +951,8 @@ export default function Inbox(Props: any) {
             onScrollToMessage={handleScrollToMessage}
             onOldConversationClick={handleOldConversationClick}
             currentConversation={currentConversation}
+            openConversationStatus={openConversationStatus}
+            isAIChat={isAIChat}
           />
         </>
       ) : (

@@ -15,6 +15,8 @@ interface DetailsPanelProps {
   onScrollToMessage: (id: string) => void;
   onOldConversationClick: (conversationId: string, visitorName: string) => void;
   currentConversation: any;
+  openConversationStatus: string;
+  isAIChat: boolean;
 }
 
 export default function DetailsPanel({
@@ -26,6 +28,8 @@ export default function DetailsPanel({
   onScrollToMessage,
   onOldConversationClick,
   currentConversation,
+  openConversationStatus,
+  isAIChat,
 }: DetailsPanelProps) {
   const getDetailValue = (keys: string[]) => {
     if (!visitorDetails) return "";
@@ -41,6 +45,10 @@ export default function DetailsPanel({
   const visitorIp = getDetailValue(["ip", "ip address"]);
   const visitorEmail = getDetailValue(["email", "mail"]);
   const visitorPhone = getDetailValue(["phone", "phone number", "mobile", "contact"]);
+  const visitorCountry = getDetailValue(["location", "country"]);
+  const flagUrl = visitorCountry
+    ? `https://flagcdn.com/w20/${visitorCountry.toLowerCase()}.png`
+    : null;
   const initials = visitorName
     .split(" ")
     .filter(Boolean)
@@ -63,9 +71,11 @@ export default function DetailsPanel({
                 <p className="text-[13px] font-medium text-[#111827] truncate capitalize">{visitorName}</p>
                 {visitorIp && (
                   <div className="mt-1 flex items-center gap-1.5">
-                    <div className="h-[10px] w-[14px] overflow-hidden rounded-[2px] border border-[#E5E7EB]">
-                      <Image src="/images/new/indian-flag.png" alt="India Flag" className="rounded-[2px]" width={18} height={12} />
-                    </div>
+                    {flagUrl && (
+                      <div className="h-[10px] w-[14px] overflow-hidden rounded-[2px] border border-[#E5E7EB] flex-shrink-0">
+                        <Image src={flagUrl} alt={visitorCountry} className="rounded-[2px] object-cover" width={14} height={10} unoptimized />
+                      </div>
+                    )}
                     <p className="text-[12px] font-normal text-[#64748B]">IP : {visitorIp}</p>
                   </div>
                 )}
@@ -132,22 +142,38 @@ export default function DetailsPanel({
             </div>
             {oldConversationList.data?.length > 0 ? (
               <div className="space-y-3 max-h-48 overflow-y-auto">
-                {oldConversationList.data.map((conversation: any) => (
-                  <div
-                    key={conversation._id}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors ${openConversationId === conversation._id
-                      ? 'bg-blue-50 border border-blue-200'
-                      : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                    onClick={() => onOldConversationClick(conversation._id, openVisitorName)}
-                  >
-                    <h6 className="text-xs font-medium text-gray-700 mb-1">@{openVisitorName}</h6>
-                    <p className="text-sm text-gray-900 truncate">{conversation.message}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
-                    </p>
-                  </div>
-                ))}
+                {oldConversationList.data.map((conversation: any) => {
+                  const isActive = openConversationId === conversation._id || openConversationId === conversation._id?.toString();
+                  // For the currently open conversation use live real-time values; for others use stored data
+                  const isOpen = isActive ? openConversationStatus === "open" : conversation.conversationOpenStatus === "open";
+                  const aiChatValue = isActive ? isAIChat : conversation.aiChat;
+                  return (
+                    <div
+                      key={conversation._id}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${isActive
+                        ? 'bg-blue-50 border border-blue-200'
+                        : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      onClick={() => onOldConversationClick(conversation._id, openVisitorName)}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <h6 className="text-xs font-medium text-gray-700">@{openVisitorName}</h6>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${aiChatValue ? 'bg-white text-gray-600 border-gray-300' : 'bg-white text-purple-600 border-purple-400'}`}>
+                            {aiChatValue ? "AI-ONLY" : "AI + AGENT"}
+                          </span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${isOpen ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                            {isOpen ? "Open" : "Closed"}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-900 truncate">{conversation.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-gray-500">No recent chats found</p>
