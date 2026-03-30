@@ -6,23 +6,38 @@ import { Socket } from "socket.io-client";
 interface AgentConnectionRequestProps {
   conversationId: string;
   visitorName?: string;
+  /** Server time when this request started; used so countdown matches remaining window (20s). */
+  requestStartedAt?: number;
   socketRef: React.RefObject<Socket | null>;
   onAccept: () => void;
   onDecline: () => void;
 }
 
+const AGENT_REQUEST_WINDOW_SEC = 20;
+
+function initialSecondsLeft(requestStartedAt?: number) {
+  if (requestStartedAt == null) return AGENT_REQUEST_WINDOW_SEC;
+  const elapsed = Math.floor((Date.now() - requestStartedAt) / 1000);
+  return Math.max(0, Math.min(AGENT_REQUEST_WINDOW_SEC, AGENT_REQUEST_WINDOW_SEC - elapsed));
+}
+
 export default function AgentConnectionRequest({
   conversationId,
   visitorName,
+  requestStartedAt,
   socketRef,
   onAccept,
   onDecline,
 }: AgentConnectionRequestProps) {
-  const [countdown, setCountdown] = useState(20);
+  const [countdown, setCountdown] = useState(() => initialSecondsLeft(requestStartedAt));
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    setCountdown(20);
+    const start = initialSecondsLeft(requestStartedAt);
+    setCountdown(start);
+    if (start <= 0) {
+      return;
+    }
     countdownTimerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -40,14 +55,11 @@ export default function AgentConnectionRequest({
         countdownTimerRef.current = null;
       }
     };
-  }, []);
+  }, [conversationId, requestStartedAt]);
 
-  // Auto-dismiss card when countdown expires
-  useEffect(() => {
-    if (countdown === 0) {
-      onDecline();
-    }
-  }, [countdown, onDecline]);
+  // Do not auto-call onDecline when countdown hits 0 — that must only run when the user
+  // clicks Decline (so sessionStorage "dismissed" is not set without a real click).
+  // The server emits agent-connection-timeout when the window ends; inbox clears the popup then.
 
   const handleAccept = () => {
     if (countdownTimerRef.current) {

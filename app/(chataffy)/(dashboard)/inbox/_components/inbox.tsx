@@ -62,6 +62,7 @@ export default function Inbox(Props: any) {
   const [agentConnectionRequest, setAgentConnectionRequest] = useState<{
     conversationId: string;
     visitorName?: string;
+    requestStartedAt?: number;
   } | null>(null);
   const [agent, setAgent] = useState<any>(null);
   const [client, setClient] = useState<any>(null);
@@ -232,13 +233,28 @@ export default function Inbox(Props: any) {
       const data = customEvent.detail;
       console.log("Agent connection notification received:", data);
 
-      if (sameConversation(data.conversationId, openConversationIdRef.current)) {
-        setAgentConnectionRequest({
-          conversationId: data.conversationId,
-          visitorName:
-            data.visitor?.visitorDetails?.find((d: any) => d.field === "Name")?.value || "Visitor",
-        });
+      // Always store pending request for this conversation (do not require the chat to be
+      // open yet). The popup only renders when openConversationId matches — fixes opening
+      // from a notification / URL before join + openConversation finishes.
+      const cid = String(data.conversationId);
+      const dismissed = typeof window !== "undefined"
+        ? sessionStorage.getItem(`agentConnectionDismissed:${cid}`)
+        : null;
+      const startedAt = data.requestStartedAt;
+      // Skip popup if this agent already declined (sessionStorage matches requestStartedAt), or if
+      // a replay omitted requestStartedAt but we still have a dismiss key (legacy server / edge).
+      if (
+        dismissed != null &&
+        (startedAt == null || String(startedAt) === dismissed)
+      ) {
+        return;
       }
+      setAgentConnectionRequest({
+        conversationId: data.conversationId,
+        visitorName:
+          data.visitor?.visitorDetails?.find((d: any) => d.field === "Name")?.value || "Visitor",
+        requestStartedAt: startedAt,
+      });
     };
 
     const handleAgentConnectionCancelled = (event: Event) => {
@@ -249,12 +265,22 @@ export default function Inbox(Props: any) {
       }
     };
 
+    const handleAgentConnectionTimeout = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
+      if (sameConversation(data?.conversationId, openConversationIdRef.current)) {
+        setAgentConnectionRequest(null);
+      }
+    };
+
     window.addEventListener("agent-connection-notification", handleAgentConnectionNotification);
     window.addEventListener("agent-connection-cancelled", handleAgentConnectionCancelled);
+    window.addEventListener("agent-connection-timeout", handleAgentConnectionTimeout);
 
     return () => {
       window.removeEventListener("agent-connection-notification", handleAgentConnectionNotification);
       window.removeEventListener("agent-connection-cancelled", handleAgentConnectionCancelled);
+      window.removeEventListener("agent-connection-timeout", handleAgentConnectionTimeout);
     };
   }, []);
 
@@ -418,8 +444,9 @@ export default function Inbox(Props: any) {
 
         // Check for pending agent connection request
         emitCheckPendingAgentRequest(conversationId, (response: any) => {
-          // The backend will emit agent-connection-notification if there's a pending request
-          // The event listener will handle setting the state
+          if (response?.success && response?.hasPendingRequest === false && typeof window !== "undefined") {
+            sessionStorage.removeItem(`agentConnectionDismissed:${String(conversationId)}`);
+          }
         });
 
         // Update conversation list to mark as read (only if there were new messages)
@@ -889,12 +916,28 @@ export default function Inbox(Props: any) {
                 <AgentConnectionRequest
                   conversationId={agentConnectionRequest.conversationId}
                   visitorName={agentConnectionRequest.visitorName}
+                  requestStartedAt={agentConnectionRequest.requestStartedAt}
                   socketRef={socketRef}
                   onAccept={() => {
+                    if (typeof window !== "undefined" && agentConnectionRequest?.conversationId != null) {
+                      sessionStorage.removeItem(
+                        `agentConnectionDismissed:${String(agentConnectionRequest.conversationId)}`
+                      );
+                    }
                     setAgentConnectionRequest(null);
                     setIsAIChat(false);
                   }}
                   onDecline={() => {
+                    if (
+                      typeof window !== "undefined" &&
+                      agentConnectionRequest?.requestStartedAt != null &&
+                      agentConnectionRequest.conversationId != null
+                    ) {
+                      sessionStorage.setItem(
+                        `agentConnectionDismissed:${String(agentConnectionRequest.conversationId)}`,
+                        String(agentConnectionRequest.requestStartedAt)
+                      );
+                    }
                     setAgentConnectionRequest(null);
                   }}
                 />
