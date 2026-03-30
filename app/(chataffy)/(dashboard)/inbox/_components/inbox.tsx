@@ -241,10 +241,11 @@ export default function Inbox(Props: any) {
         ? sessionStorage.getItem(`agentConnectionDismissed:${cid}`)
         : null;
       const startedAt = data.requestStartedAt;
+      // Skip popup if this agent already declined (sessionStorage matches requestStartedAt), or if
+      // a replay omitted requestStartedAt but we still have a dismiss key (legacy server / edge).
       if (
         dismissed != null &&
-        startedAt != null &&
-        String(startedAt) === dismissed
+        (startedAt == null || String(startedAt) === dismissed)
       ) {
         return;
       }
