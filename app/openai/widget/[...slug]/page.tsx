@@ -22,6 +22,13 @@ import { io, Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid";
 import { sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
 import defaultImageImport from '@/images/default-image.png';
+import { Plus_Jakarta_Sans } from 'next/font/google'
+
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+})
 
 const defaultImage = (defaultImageImport as any).src || defaultImageImport;
 
@@ -89,7 +96,7 @@ const validateField = (field: any, value: any) => {
 
 // Form validation component
 const FormField = ({ field, value, onChange, error }: { field: any; value: any; onChange: any; error: any }) => {
-  const baseClasses = "w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors";
+  const baseClasses = "w-full h-[40px] text-[13px] font-normal text-[#111827] px-4 py-3 border border-[#E2E8F0] rounded-[8px] focus:ring-0 focus:outline-none focus:border-transparent transition-colors placeholder:text-[#94A3B8]";
   const errorClasses = error ? "border-red-500 bg-red-50" : "border-gray-300 bg-white";
 
   const handleChange = (e: any) => {
@@ -129,7 +136,7 @@ const FormField = ({ field, value, onChange, error }: { field: any; value: any; 
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-[12px] font-medium text-[#64748B] mb-2 capitalize">
         {field.value}
         {field.required && <span className="text-red-500 ml-1">*</span>}
       </label>
@@ -200,6 +207,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ _id?: string; message: string; sender_type: string; senderName?: string } | null>(null);
+  const [showEndSessionConfirm, setShowEndSessionConfirm] = useState(false);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
@@ -217,7 +225,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const currentTranscriptRef = useRef<string>('');
   const lastFinalTranscriptRef = useRef<string>('');
   const lastDisplayedTextRef = useRef<string>('');
-  
+
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
   const voiceButtonDisabled = !isRecording && (!isOnline || (aiChat && isTyping));
@@ -253,7 +261,7 @@ export default function EnhancedChatWidget({ params }: any) {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+      textarea.style.height = Math.min(textarea.scrollHeight, 72) + 'px';
     }
   };
 
@@ -377,7 +385,7 @@ export default function EnhancedChatWidget({ params }: any) {
           setIsTyping(false);
         }
       }
-      
+
       setConversation((prev: any[]) => {
         if (!prev.length) {
           setConversationId(data.chatMessage?.conversation_id);
@@ -410,7 +418,7 @@ export default function EnhancedChatWidget({ params }: any) {
         aiChat: aiChatRef.current,
         currentIsTyping: isTyping
       });
-      
+
       if (!aiChatRef.current) {
         console.log('✅ Agent chat mode: Setting isTyping to true (agent is typing)');
         setIsTyping(true);
@@ -424,7 +432,7 @@ export default function EnhancedChatWidget({ params }: any) {
         aiChat: aiChatRef.current,
         currentIsTyping: isTyping
       });
-      
+
       if (!aiChatRef.current) {
         console.log('✅ Agent chat mode: Setting isTyping to false (agent stopped typing)');
         setIsTyping(false);
@@ -439,7 +447,7 @@ export default function EnhancedChatWidget({ params }: any) {
         newAiChat: data?.aiChat,
         currentAiChat: aiChatRef.current
       });
-      
+
       if (data?.aiChat !== undefined) {
         console.log(`📝 Updating aiChat from ${aiChatRef.current} to ${data.aiChat}`);
         setAiChat(data.aiChat);
@@ -684,16 +692,16 @@ export default function EnhancedChatWidget({ params }: any) {
     } else {
       console.log('👤 Agent chat mode: NOT setting isTyping (will be controlled by agent-typing socket events)');
     }
-    
+
     socket?.emit("visitor-send-message", { ...messageData, replyTo: replyingTo?._id || null });
-    
+
     // Set flag to maintain focus after state updates
     shouldMaintainFocusRef.current = true;
-    
+
     setReplyingTo(null);
     setInputMessage('');
     startNoReplyTimer();
-    
+
     // Refocus immediately if textarea won't be disabled, otherwise useEffect will handle it
     if (!aiChat || (!isTyping && isOnline)) {
       requestAnimationFrame(() => {
@@ -707,37 +715,37 @@ export default function EnhancedChatWidget({ params }: any) {
     if (recognition && isRecording) {
       console.log('⏹️ Stopping recording manually');
       console.log('📋 Transcript at stop:', currentTranscriptRef.current);
-      
+
       // CRITICAL: Capture the transcript value NOW before anything else
       const finalTranscript = currentTranscriptRef.current;
       console.log('🔒 Captured transcript:', finalTranscript);
-      
+
       // Set flags BEFORE stopping recognition
       shouldBeRecordingRef.current = false;
       isManualStopRef.current = true;
-      
+
       // Stop the recognition
       try {
         recognition.stop();
       } catch (e) {
         console.error('Error stopping recognition:', e);
       }
-      
+
       setIsRecording(false);
-      
+
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
         recordingTimerRef.current = null;
       }
       setRecordingTime(0);
-      
+
       // Show transcribing loader
       setIsTranscribing(true);
-      
+
       // Set the message AFTER the loader, when the textarea will be rendered
       setTimeout(() => {
         console.log('⏰ Transcribing complete, now setting input message');
-        
+
         if (finalTranscript) {
           const { value, error: limitError } = limitMessageWords(finalTranscript);
           console.log('🔢 Setting value:', `"${value}"`);
@@ -745,7 +753,7 @@ export default function EnhancedChatWidget({ params }: any) {
           setInputMessage(value);
           console.log('💾 Input message set');
         }
-        
+
         setIsTranscribing(false);
         isManualStopRef.current = false;
         console.log('✅ Transcribing complete, textarea should now show:', finalTranscript);
@@ -765,7 +773,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
   const toggleRecording = () => {
     console.log('🔘 toggleRecording called, currently recording:', isRecording);
-    
+
     const recognition = recognitionRef.current;
     if (
       !recognition ||
@@ -794,11 +802,11 @@ export default function EnhancedChatWidget({ params }: any) {
     lastFinalTranscriptRef.current = '';
     lastDisplayedTextRef.current = '';
     console.log('🔄 Reset all transcript refs for new recording');
-    
+
     try {
       recognition.start();
       setIsRecording(true);
-      
+
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
@@ -842,13 +850,18 @@ export default function EnhancedChatWidget({ params }: any) {
     setConversationStatus('close');
   };
 
+  const handleConfirmEndSession = () => {
+    setShowEndSessionConfirm(false);
+    handleCloseConversation();
+  };
+
   const handleFeedback = (type: any) => {
     setFeedback(type);
   };
 
   const handleSubmitFeedback = () => {
     if (feedback === null) return;
-    
+
     const socket = socketRef.current;
     if (!socket) return;
 
@@ -879,13 +892,13 @@ export default function EnhancedChatWidget({ params }: any) {
   const handleStartNewChat = () => {
     // Clear localStorage
     // localStorage.removeItem('visitorId');
-    
+
     // Disconnect socket
     const socket = socketRef.current;
     if (socket) {
       socket.disconnect();
     }
-    
+
     // Reload page to start fresh with new visitor ID
     if (typeof window !== 'undefined') {
       window.location.reload();
@@ -985,14 +998,14 @@ export default function EnhancedChatWidget({ params }: any) {
 
     recognition.onresult = (event: any) => {
       console.log('📝 Recognition result event fired, total results:', event.results.length);
-      
+
       let finalText = '';
       let interimText = '';
 
       // Build complete transcript from ALL results
       for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
-        
+
         if (event.results[i].isFinal) {
           finalText += transcript + ' ';
           console.log(`✅ Final [${i}]: "${transcript}"`);
@@ -1024,12 +1037,12 @@ export default function EnhancedChatWidget({ params }: any) {
       }
 
       displayText = displayText.trim();
-      
+
       // Only update display if text actually changed
       if (displayText && displayText !== lastDisplayedTextRef.current) {
         console.log('📺 Updating display to:', `"${displayText}"`);
         lastDisplayedTextRef.current = displayText;
-        
+
         const { value, error: limitError } = limitMessageWords(displayText);
         setError(limitError);
         setInputMessage(value);
@@ -1041,23 +1054,23 @@ export default function EnhancedChatWidget({ params }: any) {
     recognition.onerror = (event: any) => {
       const error = event.error;
       console.error('❌ Speech recognition error:', error);
-      
+
       if (error === 'no-speech') {
         console.log('⚠️ No speech detected, but continuing...');
         return; // Don't stop on no-speech
       }
-      
+
       if (error === 'audio-capture') {
         console.log('⚠️ Audio capture issue, but continuing...');
         return;
       }
-      
+
       // For other errors, stop recording
       setSpeechError(error === 'not-allowed' ? 'Microphone access denied' : 'Voice recognition error');
       setIsRecording(false);
       isManualStopRef.current = false;
       shouldBeRecordingRef.current = false;
-      
+
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
         recordingTimerRef.current = null;
@@ -1069,7 +1082,7 @@ export default function EnhancedChatWidget({ params }: any) {
       console.log('📋 Final transcript in ref:', currentTranscriptRef.current);
       console.log('🎯 Manual stop?', isManualStopRef.current);
       console.log('🔄 Should continue?', shouldBeRecordingRef.current);
-      
+
       // Only update the input if this is NOT a manual stop
       // (manual stop already handled the input in stopRecording)
       if (currentTranscriptRef.current && !isManualStopRef.current) {
@@ -1096,7 +1109,7 @@ export default function EnhancedChatWidget({ params }: any) {
           console.error('Failed to restart recognition:', err);
           setIsRecording(false);
           shouldBeRecordingRef.current = false;
-          
+
           if (recordingTimerRef.current) {
             clearInterval(recordingTimerRef.current);
             recordingTimerRef.current = null;
@@ -1107,7 +1120,7 @@ export default function EnhancedChatWidget({ params }: any) {
         // IMPORTANT: Don't clear the ref here! It's needed for the UI
         // Only clear the recording state
         setIsRecording(false);
-        
+
         if (recordingTimerRef.current) {
           clearInterval(recordingTimerRef.current);
           recordingTimerRef.current = null;
@@ -1169,15 +1182,17 @@ export default function EnhancedChatWidget({ params }: any) {
               <button
                 type="button"
                 onClick={toggleWidget}
-                className="group relative h-16 w-16 transform rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-300"
+                className="group relative h-16 w-16 transform rounded-full shadow-lg transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-0"
               >
-                <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-br from-blue-400 to-purple-500 opacity-75"></div>
+                <div className="absolute inset-0 animate-pulse rounded-full" style={{ backgroundColor: getThemeColor(0, '#2563eb') }}></div>
 
                 <div className="relative z-10 flex h-full w-full items-center justify-center">
                   {showWidget ? (
-                    <X className="h-7 w-7 rotate-0 text-white transition-transform duration-300 group-hover:rotate-90" />
+                    <X className="h-7 w-7 rotate-0 text-white transition-transform duration-300 group-hover:rotate-90" style={{ color: getThemeColor(1, '#ffffff') }} />
                   ) : (
-                    <MessageCircle className="h-7 w-7 text-white transition-transform duration-300 group-hover:scale-110" />
+                    <span className="material-symbols-outlined !text-[28px]  transition-transform duration-300 group-hover:scale-110" style={{ color: getThemeColor(1, '#ffffff') }}>
+                      chat_bubble
+                    </span>
                   )}
                 </div>
 
@@ -1192,7 +1207,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
           {/* Chat Window */}
           {showWidget && (
-            <div className={`${chatPanelPositionClass} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-16' : 'h-[650px]'
+            <div className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-16' : 'h-[calc(100vh-250px)]'
               }`}>
 
               {/* No Internet Banner */}
@@ -1216,9 +1231,9 @@ export default function EnhancedChatWidget({ params }: any) {
                 <div className="relative z-10 flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     {(themeSettings as any)?.showLogo && (
-                      <div className="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm ring-2 ring-white/30">
+                      <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center border border-[#dddddd]">
                         {(themeSettings as any)?.logo ? (
-                          <img src={clientLogo} alt="Logo" className="w-9 h-9 rounded-full object-cover" />
+                          <img src={clientLogo} alt="Logo" className="w-11 h-11 min-w-11 min-h-11 rounded-full object-cover" />
                         ) : (
                           <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-9 h-9 rounded-full" />
                         )}
@@ -1226,12 +1241,12 @@ export default function EnhancedChatWidget({ params }: any) {
                     )}
 
                     <div>
-                      <h3 className="font-semibold text-base" style={{ color: getThemeColor(1, '#ffffff') }}>
+                      <h3 className="font-semibold text-sm" style={{ color: getThemeColor(1, '#ffffff') }}>
                         {(themeSettings as any)?.titleBar || "Support"}
                       </h3>
                       <div className="flex items-center space-x-2 text-xs opacity-90 mt-0.5">
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span>Online</span>
+                        <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Online</span>
                       </div>
                     </div>
                   </div>
@@ -1244,22 +1259,71 @@ export default function EnhancedChatWidget({ params }: any) {
                       }}
                       className="p-2 hover:bg-white/20 rounded-full transition-colors"
                     >
-                      <Minimize2 className={`w-4 h-4 transition-transform ${isMinimized ? 'rotate-180' : ''}`} />
+                      <Minimize2 className={`w-4 h-4 transition-transform ${isMinimized ? 'rotate-180' : ''}`}
+                        style={{ color: getThemeColor(1, '#ffffff') }}
+                      />
                     </button>
 
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleCloseConversation();
-                        // setShowWidget(false);
+                        setShowEndSessionConfirm(true);
                       }}
                       className="p-2 hover:bg-white/20 rounded-full transition-colors"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4 h-4" style={{ color: getThemeColor(1, '#ffffff') }} />
                     </button>
                   </div>
                 </div>
               </div>
+
+              {showEndSessionConfirm && (
+                <div className="absolute inset-0 z-50 bg-black/35 backdrop-blur-[1px] flex items-center justify-center p-4">
+                  <div className="relative w-full max-w-[340px] rounded-[20px] bg-white p-7 shadow-[0_20px_60px_rgba(15,23,42,0.35)] text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowEndSessionConfirm(false)}
+                      className="absolute right-5 top-5 text-[#9CA3AF] hover:text-[#6B7280] transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+
+                    <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: getThemeColor(0, '#2563eb') }}>
+                      <span className="material-symbols-outlined !text-[34px]" style={{ color: getThemeColor(1, '#ffffff') }}>logout</span>
+                    </div>
+
+                    <h3 className="text-[20px] font-semibold text-[#111827] leading-tight mb-2">
+                      Ready to end this chat?
+                    </h3>
+                    <p className="text-[12px] font-normal text-[#64748B] leading-tight mb-8">
+                      Do you really want to close the chat?
+                    </p>
+
+                    <div className="flex flex-col gap-4">
+                      <button
+                        type="button"
+                        onClick={handleConfirmEndSession}
+                        className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                      >
+                        End Session
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowEndSessionConfirm(false)}
+                        className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-white border border-[#E2E8F0] px-4 text-[14px] font-semibold transition-colors hover:bg-[#F1F5F9] text-[#4B5563]"
+                      >
+                        Keep Chatting
+                      </button>
+
+                      <div className="flex items-center justify-center gap-1.5 text-[#64748B] uppercase tracking-[0.08em] text-[11px] font-medium">
+                        <span className="material-symbols-outlined !text-[12px]">shield</span>
+                        <span>Secure Session</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Body */}
               {!isMinimized && (
@@ -1345,7 +1409,16 @@ export default function EnhancedChatWidget({ params }: any) {
                   <>
                     {/* Messages Area */}
                     {conversationStatus === 'open' && (
-                      <div className="flex-1 p-4 min-h-0 overflow-y-auto bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
+                      <div className="flex-1 p-5 min-h-0 overflow-y-auto bg-white custom-scrollbar">
+                        <style>{`
+                          .chat-bubble a {
+                            color: var(--chat-link-color) !important;
+                            text-decoration: underline !important;
+                          }
+                          .chat-bubble a:visited {
+                            color: var(--chat-link-color) !important;
+                          }
+                        `}</style>
                         {visitorExists || (!visitorExists && !(themeSettings as any)?.isPreChatFormEnabled) ? (
                           <div className="space-y-4">
                             {conversation.map((item: any, key: any) => (
@@ -1359,9 +1432,9 @@ export default function EnhancedChatWidget({ params }: any) {
                                 {/* System messages - centered and styled differently */}
                                 {item.sender_type === 'agent-connect' && (
                                   <div className="flex items-center justify-center py-2 animate-in slide-in-from-left duration-300">
-                                    <div className="px-4 py-2 rounded-lg text-center" style={{ backgroundColor: '#f3f4f6' }}>
+                                    <div className="d-flex align-items-center gap-1 px-[8px] rounded-full h-[24px] max-h-[24px] min-h-[24px] bg-[#FAF5FF] border border-[#A855F7]">
                                       <div
-                                        className="text-xs text-gray-600 italic"
+                                        className="text-[12px] font-semibold text-[#A855F7] italic flex items-center justify-center h-[24px]"
                                         dangerouslySetInnerHTML={{
                                           __html: item.message.replace(
                                             /<a\b([^>]*)>/gi,
@@ -1378,8 +1451,8 @@ export default function EnhancedChatWidget({ params }: any) {
                                   item.is_note !== "true") && (
                                     <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
                                       {themeSettings?.showLogo && (
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden relative"
-                                          style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E2E8F0] overflow-hidden relative"
+                                          style={{ backgroundColor: getThemeColor(4, '#3b82f6'), }}>
                                           {(item.sender_type === 'humanAgent' || item.sender_type === 'client' || item.sender_type === 'agent') && item.humanAgentId ? (
                                             item.humanAgentId.avatar && item.humanAgentId.avatar !== 'null' && item.humanAgentId.avatar.trim() !== '' ? (
                                               <img
@@ -1401,17 +1474,19 @@ export default function EnhancedChatWidget({ params }: any) {
                                               />
                                             )
                                           ) : (
-                                            <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                                            <Bot className="w-4 h-4" style={{ color: getThemeColor(5, '#ffffff') }} />
                                           )}
                                         </div>
                                       )}
 
                                       <div className="flex-1 max-w-xs">
                                         <div
-                                          className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
+                                          className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm chat-bubble"
                                           style={{
-                                            backgroundColor: getThemeColor(2, '#f1f5f9'),
-                                            color: getThemeColor(3, '#1e293b')
+                                            backgroundColor: getThemeColor(4, '#3b82f6'),
+                                            color: getThemeColor(5, '#ffffff'),
+                                            // Used to force <a> color inside dangerouslySetInnerHTML content
+                                            ['--chat-link-color' as any]: getThemeColor(5, '#ffffff'),
                                           }}
                                         >
                                           {/* Reply quote for agent/bot messages */}
@@ -1420,29 +1495,23 @@ export default function EnhancedChatWidget({ params }: any) {
                                               type="button"
                                               onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
                                               title="Jump to original message"
+                                              className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-1 mb-1"
                                               style={{
-                                                borderLeft: '3px solid rgba(0,0,0,0.2)',
-                                                background: 'rgba(0,0,0,0.06)',
-                                                borderRadius: '4px',
-                                                padding: '4px 8px',
-                                                marginBottom: '6px',
-                                                width: '100%',
-                                                textAlign: 'left',
-                                                cursor: item.replyTo._id ? 'pointer' : 'default',
-                                                border: 'none',
-                                                font: 'inherit',
+                                                backgroundColor: getThemeColor(4, '#f1f5f9'),
+                                                // Slight dark overlay so it looks richer while keeping theme color
+                                                backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18))',
                                               }}
                                             >
-                                              <div style={{ fontSize: '10px', fontWeight: 600, marginBottom: '2px', opacity: 0.7 }}>
+                                              <div className="text-[10px] font-semibold" style={{ color: getThemeColor(5, '#1e293b') }}>
                                                 {item.replyTo.sender_type === 'visitor' ? 'You' : (item.replyTo.humanAgentId?.name || 'Agent')}
                                               </div>
-                                              <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>
+                                              <div className="text-[11px] font-normal text-left" style={{ color: getThemeColor(5, '#1e293b') }}>
                                                 {item.replyTo.message?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '…'}
                                               </div>
                                             </button>
                                           )}
                                           <div
-                                            className="text-sm leading-relaxed"
+                                            className="text-sm leading-relaxed [&_a]:text-[var(--chat-link-color)] [&_a]:underline [&_a]:break-words"
                                             dangerouslySetInnerHTML={{
                                               __html: item.message.replace(
                                                 /<a\b([^>]*)>/gi,
@@ -1451,8 +1520,8 @@ export default function EnhancedChatWidget({ params }: any) {
                                             }}
                                           />
                                         </div>
-                                        <div className="flex items-center gap-2 mt-1 ml-2">
-                                          <span className="text-xs text-gray-500">
+                                        <div className="flex items-center gap-2 mt-[10px]">
+                                          <span className="text-[10px] text-[#64748B] font-semibold">
                                             {item.createdAt && formatTime(item.createdAt)}
                                           </span>
                                           {conversationStatus === 'open' && (
@@ -1464,16 +1533,12 @@ export default function EnhancedChatWidget({ params }: any) {
                                                 sender_type: item.sender_type,
                                                 senderName: item.humanAgentId?.name || 'Agent',
                                               })}
-                                              style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                fontSize: '11px',
-                                                color: '#9ca3af',
-                                                cursor: 'pointer',
-                                                padding: '0 2px',
-                                              }}
+                                              className="text-[10px] text-[#64748B] font-semibold bg-[#F8FAFC] border border-[#E8E8E8] rounded-full px-1.5 h-[20px] flex items-center justify-center max-h-[20px] min-h-[20px] gap-1"
                                             >
-                                              ↩ Reply
+
+                                              <span className="material-symbols-outlined !text-[12px]">
+                                                reply
+                                              </span> <span className="text-[10px] text-[#64748B] font-semibold">Reply</span>
                                             </button>
                                           )}
                                         </div>
@@ -1486,10 +1551,11 @@ export default function EnhancedChatWidget({ params }: any) {
                                   <div className="flex justify-end animate-in slide-in-from-right duration-300">
                                     <div className="max-w-xs">
                                       <div
-                                        className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm"
+                                        className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm chat-bubble"
                                         style={{
-                                          backgroundColor: getThemeColor(4, '#3b82f6'),
-                                          color: getThemeColor(5, '#ffffff')
+                                          backgroundColor: getThemeColor(2, '#f1f5f9'),
+                                          color: getThemeColor(3, '#1e293b'),
+                                          ['--chat-link-color' as any]: getThemeColor(3, '#1e293b'),
                                         }}
                                       >
                                         {/* Reply quote inside visitor bubble */}
@@ -1498,30 +1564,27 @@ export default function EnhancedChatWidget({ params }: any) {
                                             type="button"
                                             onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
                                             title="Jump to original message"
+                                            className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-1 mb-1"
                                             style={{
-                                              borderLeft: '3px solid rgba(255,255,255,0.5)',
-                                              background: 'rgba(255,255,255,0.15)',
-                                              borderRadius: '4px',
-                                              padding: '4px 8px',
-                                              marginBottom: '6px',
-                                              width: '100%',
-                                              textAlign: 'left',
-                                              cursor: item.replyTo._id ? 'pointer' : 'default',
-                                              border: 'none',
-                                              font: 'inherit',
+                                              backgroundColor: getThemeColor(2, '#f1f5f9'),
+                                              // Slight dark overlay so it looks richer while keeping theme color
+                                              backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18))',
                                             }}
                                           >
-                                            <div style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '2px' }}>
+                                            <div className="text-[11px] font-semibold" style={{ color: getThemeColor(3, '#1e293b') }}>
                                               {item.replyTo.sender_type === 'visitor' ? 'You' : (item.replyTo.humanAgentId?.name || 'Agent')}
                                             </div>
-                                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            <div className="text-[12px] font-normal text-left" style={{ color: getThemeColor(3, '#1e293b') }}>
                                               {item.replyTo.message?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '…'}
                                             </div>
                                           </button>
                                         )}
-                                        <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: item.message }} />
+                                        <div
+                                          className="text-sm leading-relaxed [&_a]:text-[var(--chat-link-color)] [&_a]:underline [&_a]:break-words"
+                                          dangerouslySetInnerHTML={{ __html: item.message }}
+                                        />
                                       </div>
-                                      <div className="text-xs text-gray-500 mt-1 mr-2 text-right">
+                                      <div className="text-[10px] text-[#64748B] font-semibold mt-[10px] text-right">
                                         {item.createdAt ? (
                                           formatTime(item.createdAt)
                                         ) : (
@@ -1544,16 +1607,16 @@ export default function EnhancedChatWidget({ params }: any) {
                               // In AI mode (aiChat=true): show the bot icon.
                               const recentHumanAgentMsg = !aiChat
                                 ? [...conversation].reverse().find((msg: any) =>
-                                    msg.humanAgentId && (msg.sender_type === 'humanAgent' || msg.sender_type === 'client' || msg.sender_type === 'agent')
-                                  )
+                                  msg.humanAgentId && (msg.sender_type === 'humanAgent' || msg.sender_type === 'client' || msg.sender_type === 'agent')
+                                )
                                 : null;
                               const typingHumanAgent = recentHumanAgentMsg?.humanAgentId;
 
                               return (
                                 <div className="flex items-start space-x-3 animate-in slide-in-from-left duration-300">
                                   {themeSettings?.showLogo && (
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden relative"
-                                      style={{ backgroundColor: getThemeColor(2, '#f1f5f9') }}>
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E2E8F0] overflow-hidden relative"
+                                      style={{ backgroundColor: getThemeColor(4, '#3b82f6') }}>
                                       {typingHumanAgent ? (
                                         typingHumanAgent.avatar && typingHumanAgent.avatar !== 'null' && typingHumanAgent.avatar.trim() !== '' ? (
                                           <img
@@ -1575,22 +1638,43 @@ export default function EnhancedChatWidget({ params }: any) {
                                           />
                                         )
                                       ) : (
-                                        <Bot className="w-4 h-4" style={{ color: getThemeColor(3, '#1e293b') }} />
+                                        <Bot className="w-4 h-4" style={{ color: getThemeColor(5, '#ffffff') }} />
                                       )}
                                     </div>
                                   )}
 
-                                  <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-md">
+                                  <div
+                                    className="px-4 py-3 rounded-2xl rounded-tl-md"
+                                    style={{
+                                      backgroundColor: getThemeColor(4, '#3b82f6'),
+                                      color: getThemeColor(5, '#ffffff'),
+                                    }}
+                                  >
                                     <div className="flex space-x-1">
-                                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                      <div
+                                        className="w-2 h-2 rounded-full animate-bounce"
+                                        style={{ backgroundColor: getThemeColor(5, '#ffffff') }}
+                                      ></div>
+                                      <div
+                                        className="w-2 h-2 rounded-full animate-bounce"
+                                        style={{
+                                          backgroundColor: getThemeColor(5, '#ffffff'),
+                                          animationDelay: '0.1s',
+                                        }}
+                                      ></div>
+                                      <div
+                                        className="w-2 h-2 rounded-full animate-bounce"
+                                        style={{
+                                          backgroundColor: getThemeColor(5, '#ffffff'),
+                                          animationDelay: '0.2s',
+                                        }}
+                                      ></div>
                                     </div>
                                   </div>
                                 </div>
                               );
                             })()}
-                            
+
                             {/* Feedback Display - Show in chat area if feedback exists */}
                             {conversationFeedback && (conversationFeedback.feedback !== undefined || conversationFeedback.comment) && (
                               <div className="flex justify-center my-4">
@@ -1617,15 +1701,19 @@ export default function EnhancedChatWidget({ params }: any) {
                                 </div>
                               </div>
                             )}
-                            
+
                             <div ref={chatBottomRef} />
                           </div>
                         ) : (
                           // Pre-chat form
-                          <div className="space-y-4">
-                            <div className="text-center mb-6">
-                              <h3 className="text-xl font-semibold text-gray-800 mb-2">Welcome! 👋</h3>
-                              <p className="text-gray-600 text-sm">Please fill out the form below to start chatting with us.</p>
+                          <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-4 flex flex-col gap-5">
+                            <div className="flex flex-col gap-2 w-4/5 mx-auto justify-center text-center">
+                              <h3 className="text-[20px] font-bold text-[#111827] mb-2">
+                                Hello! How can we help you today?
+                              </h3>
+                              <p className="text-[#64748B] text-[13px] font-normal">
+                                Please fill out the form below to start a conversation with us.
+                              </p>
                             </div>
 
                             {fields?.map((field: any) => (
@@ -1642,7 +1730,7 @@ export default function EnhancedChatWidget({ params }: any) {
                               type="button"
                               onClick={handleSubmitVisitorDetails}
                               disabled={isSubmittingForm}
-                              className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                              className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
                             >
                               {isSubmittingForm ? (
                                 <div className="flex items-center justify-center space-x-2">
@@ -1674,7 +1762,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
                     {/* Input Area or End Conversation */}
                     {chatInputAvailable && !isConnectingToAgent && (
-                      <div className={`border-t border-gray-200 bg-white ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
+                      <div className={`bg-white ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
                         {conversationStatus === 'close' ? (
                           <div className="flex-1 flex flex-col justify-center px-6 py-4">
                             {feedbackSubmitted ? (
@@ -1684,7 +1772,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 </div>
                                 <h3 className="text-lg font-semibold text-gray-800 mb-2">Your response has been submitted</h3>
                                 <p className="text-gray-600 text-sm mb-6 leading-relaxed">Thank you for your feedback! We appreciate your input.</p>
-                                
+
                                 <button
                                   onClick={handleStartNewChat}
                                   className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
@@ -1728,7 +1816,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                       <span className="text-xs font-medium">Poor</span>
                                     </button>
                                   </div>
-                                  
+
                                   {/* Comment Section */}
                                   <div className="mt-3">
                                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -1772,7 +1860,7 @@ export default function EnhancedChatWidget({ params }: any) {
                             )}
                           </div>
                         ) : (
-                          <div className="p-4">
+                          <div className="px-5 py-5">
                             {/* Recording UI - Overlay style */}
                             {isRecording ? (
                               <div className="space-y-4">
@@ -1785,7 +1873,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                     </div>
                                     <span className="text-sm font-mono text-red-600 font-semibold">{formatRecordingTime(recordingTime)}</span>
                                   </div>
-                                  
+
                                   {/* Waveform animation */}
                                   <div className="flex items-center justify-center space-x-1 h-16 bg-white rounded-lg px-4 shadow-inner">
                                     {[...Array(30)].map((_, i) => {
@@ -1827,13 +1915,13 @@ export default function EnhancedChatWidget({ params }: any) {
                                       <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                                       <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                     </div>
-                                    
+
                                     {/* Transcribing text */}
                                     <div className="text-center">
                                       <p className="text-sm font-semibold text-blue-700 mb-1">Transcribing...</p>
                                       <p className="text-xs text-blue-600">Processing your voice message</p>
                                     </div>
-                                    
+
                                     {/* Animated progress bar */}
                                     <div className="w-full max-w-xs h-1 bg-blue-200 rounded-full overflow-hidden">
                                       <div className="h-full bg-blue-500 rounded-full animate-progress"></div>
@@ -1889,35 +1977,31 @@ export default function EnhancedChatWidget({ params }: any) {
                                 )}
 
                                 {/* Normal Input area */}
-                                <div className="flex items-end space-x-2">
-                                  <div className="flex-1 relative">
-                                    <textarea
-                                      ref={textareaRef}
-                                      placeholder="Type your message..."
-                                      value={inputMessage}
-                                      onChange={handleInputChange}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                          e.preventDefault();
-                                          // Maintain focus before sending
-                                          const textarea = e.currentTarget;
-                                          handleMessageSend();
-                                          // Refocus immediately after state update
+                                <div className="rounded-full border border-[#D8DEE8] bg-white px-3 py-2 min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                  <textarea
+                                    ref={textareaRef}
+                                    placeholder="Message..."
+                                    value={inputMessage}
+                                    onChange={handleInputChange}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        const textarea = e.currentTarget;
+                                        handleMessageSend();
+                                        requestAnimationFrame(() => {
                                           requestAnimationFrame(() => {
-                                            requestAnimationFrame(() => {
-                                              textarea.focus();
-                                            });
+                                            textarea.focus();
                                           });
-                                        }
-                                      }}
-                                      rows={1}
-                                      disabled={(aiChat && isTyping) || !isOnline}
-                                      className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none overflow-y-auto custom-scrollbar"
-                                      style={{ maxHeight: '120px' }}
-                                    />
-                                  </div>
+                                        });
+                                      }
+                                    }}
+                                    rows={1}
+                                    disabled={(aiChat && isTyping) || !isOnline}
+                                    className="flex-1 min-w-0 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none overflow-y-auto custom-scrollbar text-[14px] text-[#0F172A] placeholder:text-[#94A3B8] leading-[20px] pr-2"
+                                    style={{ minHeight: '20px', maxHeight: '72px' }}
+                                  />
 
-                                  <div className="flex items-center space-x-2 pb-1">
+                                  <div className="flex items-center pl-2 gap-2 border-l border-[#E2E8F0]">
                                     {shouldRenderVoiceButton && (
                                       <button
                                         onClick={toggleRecording}
@@ -1929,18 +2013,22 @@ export default function EnhancedChatWidget({ params }: any) {
                                               ? 'Please wait for the previous message to send.'
                                               : 'Start voice recording'
                                         }
-                                        className="p-3 rounded-xl transition-all duration-200 text-gray-600 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="h-8 w-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#64748B] hover:bg-[#F8FAFC] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
-                                        <Mic className="w-5 h-5" />
+                                        <Mic className="w-4 h-4" />
                                       </button>
                                     )}
 
                                     <button
                                       onClick={handleMessageSend}
                                       disabled={!inputMessage.trim() || Boolean(error) || (aiChat && isTyping) || !isOnline}
-                                      className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg disabled:transform-none"
+                                      className="h-8 w-8 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      style={{
+                                        backgroundColor: getThemeColor(4, '#3b82f6'),
+                                        color: getThemeColor(5, '#ffffff'),
+                                      }}
                                     >
-                                      <Send className="w-5 h-5" />
+                                      <Send className="w-4 h-4" />
                                     </button>
                                   </div>
                                 </div>
@@ -1958,21 +2046,6 @@ export default function EnhancedChatWidget({ params }: any) {
                                     <span>{speechError}</span>
                                   </div>
                                 )}
-
-                                {/* Footer info */}
-                                <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
-                                  <span>
-                                    {inputMessage.trim().split(/\s+/).filter(word => word.length > 0).length}/1000 words
-                                  </span>
-
-                                  <button
-                                    onClick={handleCloseConversation}
-                                    className="text-red-500 hover:text-red-700 transition-colors font-medium flex items-center space-x-1"
-                                  >
-                                    <Phone className="w-3 h-3" />
-                                    <span>End chat</span>
-                                  </button>
-                                </div>
                               </>
                             )}
                           </div>
@@ -1980,9 +2053,10 @@ export default function EnhancedChatWidget({ params }: any) {
 
                         {/* White Label Footer */}
                         {!themeSettings?.showWhiteLabel && (
-                          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex-shrink-0">
-                            <div className="text-xs text-gray-500 text-center">
-                              Powered by <span className="font-semibold text-blue-600">Chataffy</span>
+                          <div className="px-5 pb-[12px] bg-white flex-shrink-0">
+                            <div className="text-[12px] text-[#B0B9C8] text-center flex items-center justify-center gap-1.5">
+                              <span className="inline-flex h-4 w-4 items-center justify-center rounded-[4px] bg-[#D3D9E5] text-[10px] font-semibold text-white">C</span>
+                              <span>Powered by Chataffy</span>
                             </div>
                           </div>
                         )}
