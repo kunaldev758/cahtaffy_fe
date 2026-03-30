@@ -374,7 +374,7 @@ const Message = ({
                 <span className="relative flex items-center">
                   {/* {renderMessageMenu()} */}
                   <div
-                    className="ml-2"
+                    className="ml-2 ai-messaageInner"
                     dangerouslySetInnerHTML={{
                       __html: messageData.message?.replace(
                         /<a\s+([^>]*href=['"][^'"]+['"][^>]*)>/gi,
