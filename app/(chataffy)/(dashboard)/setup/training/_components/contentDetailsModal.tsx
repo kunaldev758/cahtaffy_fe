@@ -119,6 +119,24 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
 
   const getRawContent = () => contentData?.content || contentData?.fileContent || ''
 
+  /**
+   * Only treat as HTML when it looks like real markup (e.g. <div>, <p>).
+   * A loose /<[^>]+>/ check wrongly matches markdown autolinks like <https://...>
+   * and plain text with angle brackets — those should stay in <pre>.
+   */
+  const looksLikeRenderableHtml = (s: string) => {
+    const t = s.trim()
+    if (!t) return false
+    if (/^<!DOCTYPE\s/i.test(t)) return true
+    if (/^<\?xml\s/i.test(t)) return true
+    if (/^<!--/.test(t)) return true
+    // Opening tag: <tagname then space, /, or >
+    if (/<[a-zA-Z][a-zA-Z0-9]*(\s|\/|>)/.test(t)) return true
+    // Closing tag: </tagname>
+    if (/<\/[a-zA-Z][a-zA-Z0-9]*\s*>/.test(t)) return true
+    return false
+  }
+
   const handleCopyRaw = async () => {
     try {
       await navigator.clipboard.writeText(getRawContent())
@@ -299,7 +317,8 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
               <div className="rounded-[20px] bg-[#0B1736] p-6">
                 {(() => {
                   const rawContent = getRawContent()
-                  const looksLikeHtml = typeof rawContent === 'string' && /<[^>]+>/i.test(rawContent.trim())
+                  const looksLikeHtml =
+                    typeof rawContent === 'string' && looksLikeRenderableHtml(rawContent)
 
                   if (looksLikeHtml) {
                     const sanitizedHTML = sanitizeHtml(rawContent, {
@@ -318,7 +337,7 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
 
                     return (
                       <div
-                        className="max-h-[430px] overflow-y-auto text-[24px] leading-9 text-[#E2E8F0] [&_a]:text-[#93C5FD] [&_a]:underline"
+                        className="max-h-[430px] overflow-y-auto text-[14px] leading-6 text-[#E2E8F0] [&_a]:text-[#93C5FD] [&_a]:underline"
                         dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
                       />
                     )
