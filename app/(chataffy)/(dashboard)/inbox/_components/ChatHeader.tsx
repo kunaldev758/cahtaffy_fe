@@ -3,6 +3,7 @@ import { useRef, useEffect, useState } from "react";
 import { UserX, MoreHorizontal, Tag, X, MessageSquareX } from "lucide-react";
 import { Tag as TagType } from "./types/inbox";
 import Image from "next/image";
+import { publicAsset } from "@/lib/publicAsset";
 
 const PREDEFINED_TAGS = ["Lead", "Ticket", "Support"];
 
@@ -100,7 +101,7 @@ export default function ChatHeader({
               {/* Handling badge */}
               {isAIChat ? (
                 <span className="flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#FAF5FF] text-[#A855F7] border border-[#A855F7] h-[18px]">
-                  <Image src="/images/new/sparkle-purple-icon.svg" alt="Sparkle" width={12} height={12} />
+                  <Image src={publicAsset("/images/new/sparkle-purple-icon.svg")} alt="Sparkle" width={12} height={12} />
                   AI Handling
                 </span>
               ) : (

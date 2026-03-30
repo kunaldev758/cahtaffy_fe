@@ -703,7 +703,6 @@ export default function Inbox(Props: any) {
   };
 
   const handleOldConversationClick = async (conversationId: string, visitorName: string) => {
-    setOpenConversationId(conversationId);
     await openOldConversation(conversationId, visitorName);
   };
 
