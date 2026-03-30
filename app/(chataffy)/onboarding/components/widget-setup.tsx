@@ -742,6 +742,8 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                               <Image
                                 src={option.icon}
                                 alt={option.label}
+                                width={26}
+                                height={26}
                                 className={`h-[26px] w-[26px] object-contain ${isSelected ? '' : 'grayscale opacity-50'}`}
                               />
                               {isSelected && (
@@ -780,6 +782,8 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                               <Image
                                 src={option.icon}
                                 alt={option.label}
+                                width={24}
+                                height={24}
                                 className={`absolute bottom-[8px] ${option.id === 'left' ? 'left-[8px]' : 'right-[8px]'} h-[24px] w-[24px] object-contain ${isSelected ? '' : 'grayscale opacity-50'}`}
                               />
                               {isSelected && (
