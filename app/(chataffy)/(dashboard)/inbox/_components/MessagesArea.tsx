@@ -23,7 +23,7 @@ interface MessagesAreaProps {
 const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
   ({ conversationMessages, expandedSources, setExpandedSources, messageRefs, currentConversation, isAITyping, onReviseAnswer, onReply, onJumpToReply }, ref) => {
     return (
-      <div className="flex-1 overflow-y-auto p-6" ref={ref}>
+      <div className="flex-1 overflow-y-auto p-[20px]" ref={ref}>
         {conversationMessages.loading ? (
           <div className="space-y-4">
             {[...Array(10)].map((_, index) => (
@@ -35,7 +35,7 @@ const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {isAITyping && (
               <div className="flex justify-start">
                 <div className="max-w-xs bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3">
@@ -70,26 +70,49 @@ const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
             {/* Feedback Section - Displayed as part of chat messages */}
             {currentConversation && (currentConversation?.feedback !== undefined || currentConversation?.comment) && (
               <div className="flex justify-center my-4">
-                <div className="max-w-2xl w-full bg-gray-50 rounded-lg border border-gray-200 p-4">
-                  <div className="font-semibold text-gray-900 mb-3">Feedback</div>
-                  <div className="space-y-2">
+                <div className="max-w-2xl w-full rounded-[20px] border border-[#D9D9D9] bg-white px-6 py-7 text-center">
+                  <div
+                    className={`mx-auto mb-4 flex h-[56px] w-[56px] items-center justify-center rounded-full border ${
+                      currentConversation?.feedback ? "border-[#10B981] bg-[#D1FAE5]" : "border-[#F87171] bg-[#FEE2E2]"
+                    }`}
+                  >
+                    <span
+                      className={`material-symbols-outlined !text-[28px] ${
+                        currentConversation?.feedback ? "text-[#059669]" : "text-[#DC2626]"
+                      }`}
+                    >
+                      {currentConversation?.feedback ? "sentiment_satisfied" : "sentiment_dissatisfied"}
+                    </span>
+                  </div>
+
+                  <div className="text-[14px] font-bold text-[#111827] mb-3">Visitor Feedback</div>
+
+                  <div className="space-y-3">
                     {currentConversation?.feedback !== undefined && (
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-600">Rating:</span>
-                        <span className={`text-sm font-medium ${currentConversation.feedback ? 'text-green-600' : 'text-red-600'}`}>
-                          {currentConversation.feedback ? '👍 Good' : '👎 Poor'}
+                      <div className="flex justify-center">
+                        <span
+                          className={`inline-flex h-6 items-center rounded-full border px-4 text-[10px] font-bold tracking-[0.12em] ${
+                            currentConversation.feedback
+                              ? "border-[#A7F3D0] bg-[#D1FAE5] text-[#059669]"
+                              : "border-[#FECACA] bg-[#FEE2E2] text-[#DC2626]"
+                          }`}
+                        >
+                          {currentConversation.feedback ? 'RATING: GOOD' : 'RATING: POOR'}
                         </span>
                       </div>
                     )}
                     {currentConversation?.comment && (
-                      <div>
-                        <span className="text-sm text-gray-600 block mb-1">Comment:</span>
-                        <div className="bg-white rounded border border-gray-200 p-3">
-                          <p className="text-sm text-gray-900 whitespace-pre-wrap">{currentConversation.comment}</p>
-                        </div>
-                      </div>
+                      <p className="mx-auto max-w-[520px] text-[12px] leading-7 text-[#64748B] whitespace-pre-wrap">
+                        "{currentConversation.comment}"
+                      </p>
                     )}
                   </div>
+
+                  <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#111827]">
+                    CLOSED AT {new Date(currentConversation?.updatedAt || currentConversation?.createdAt || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(' ', '')}
+                    {' \u2022 '}
+                    {String(currentConversation?.closedBy ?? "").trim() || (typeof currentConversation?.agentId === "object" ? currentConversation.agentId?.name : "") || "Agent"}
+                  </p>
                 </div>
               </div>
             )}

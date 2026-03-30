@@ -2,8 +2,27 @@
 import { useRef, useEffect, useState } from "react";
 import { UserX, MoreHorizontal, Tag, X, MessageSquareX } from "lucide-react";
 import { Tag as TagType } from "./types/inbox";
+import Image from "next/image";
 
 const PREDEFINED_TAGS = ["Lead", "Ticket", "Support"];
+
+const PREDEFINED_TAG_THEME: Record<string, { base: string; hover: string; disabled: string }> = {
+  Lead: {
+    base: "bg-[#ECFDF5] text-[#059669] border-[#059669]",
+    hover: "hover:bg-[#D1FAE5]",
+    disabled: "bg-[#ECFDF5] text-[#6EE7B7] border-[#A7F3D0] cursor-default opacity-60",
+  },
+  Ticket: {
+    base: "bg-[#FAF5FF] text-[#A855F7] border-[#A855F7]",
+    hover: "hover:bg-[#F3E8FF]",
+    disabled: "bg-[#FAF5FF] text-[#D8B4FE] border-[#E9D5FF] cursor-default opacity-60",
+  },
+  Support: {
+    base: "bg-[#FFFBEB] text-[#FBBF24] border-[#FBBF24]",
+    hover: "hover:bg-[#FEF3C7]",
+    disabled: "bg-[#FFFBEB] text-[#FCD34D] border-[#FDE68A] cursor-default opacity-60",
+  },
+};
 
 interface ChatHeaderProps {
   visitorName: string;
@@ -62,63 +81,79 @@ export default function ChatHeader({
   };
 
   return (
-    <div className="bg-white border-b border-gray-200 px-5 py-3.5">
-      <div className="flex items-center justify-between gap-3">
+    <div className="bg-white border-b border-gray-200 px-[20px] w-full rounded-t-[20px] h-[74px]">
+      <div className="flex items-center justify-between gap-3 h-full">
         {/* LEFT — name + status + handling badge + assigned tags */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {/* Visitor name */}
-          <h2 className="text-base font-semibold text-gray-900 truncate">
-            {visitorName}
-          </h2>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            {/* Visitor name */}
+            <h2 className="text-base font-semibold text-gray-900 truncate">
+              {visitorName}
+            </h2>
 
-          {/* Online dot */}
-          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+            {/* Online dot */}
+            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+          </div>
 
-          {/* Handling badge */}
-          {isAIChat ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600 border border-purple-200 flex-shrink-0">
-              <span className="text-[10px]">✦</span>
-              AI Handling
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 flex-shrink-0">
-              <span className="text-[10px]">⊙</span>
-              Agent Responding
-            </span>
-          )}
+          <div className="flex items-center gap-[10px]">
+            <div>
+              {/* Handling badge */}
+              {isAIChat ? (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#FAF5FF] text-[#A855F7] border border-[#A855F7] h-[18px]">
+                  <Image src="/images/new/sparkle-purple-icon.svg" alt="Sparkle" width={12} height={12} />
+                  AI Handling
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#059669] h-[18px]">
+                  <span className="material-symbols-outlined !text-[12px] text-[#059669]">
+                    support_agent
+                  </span>
+                  Agent Responding
+                </span>
+              )}
+            </div>
 
-          {/* Assigned tags */}
-          {tags.map((tag: TagType) => (
-            <span
-              key={tag._id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 flex-shrink-0"
-            >
-              #{tag.name}
-              <button
-                onClick={() => onTagDelete(tag._id)}
-                className="ml-0.5 hover:text-purple-900 transition-colors"
-                title="Remove tag"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
+            <div className="flex items-center gap-[10px]">
+              {/* Assigned tags */}
+              {tags.map((tag: TagType) => (
+                <span
+                  key={tag._id}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#FAF5FF] text-[#A855F7] border border-[#A855F7] h-[18px]"
+                >
+                  #{tag.name}
+                  <button
+                    onClick={() => onTagDelete(tag._id)}
+                    className="ml-0.5 hover:text-purple-900 transition-colors"
+                    title="Remove tag"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+
         </div>
 
         {/* RIGHT — AI status + close + 3-dot menu */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-[12px] flex-shrink-0">
           {/* AI status button */}
           <button
             onClick={canReply ? onToggleAI : undefined}
             disabled={!canReply || !isAIChat}
             title={isAIChat ? "Disable AI (hand off to agent)" : "AI is offline"}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
-              isAIChat
-                ? "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                : "bg-gray-100 text-gray-400 border-gray-200 cursor-default"
-            } ${!canReply ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={`px-[18px] h-[38px] text-[13px] font-bold rounded-[12px] flex items-center justify-center gap-[8px] ${isAIChat
+              ? "bg-[#111827] text-white shadow-[0px_10px_15px_-3px_rgba(15,23,42,0.10)]"
+              : "bg-[#F1F5F9] text-[#64748B] border-gray-200 cursor-default"
+              } ${!canReply ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            {isAIChat ? "AI Active" : "AI Offline"}
+            {isAIChat && (
+              <span className="material-symbols-outlined !text-[18px]">
+                how_to_reg
+              </span>
+            )}
+            {isAIChat ? "Take Over" : "AI Offline"}
           </button>
 
           {/* Close conversation button */}
@@ -126,26 +161,29 @@ export default function ChatHeader({
             onClick={isConversationOpen && canReply ? onCloseConversation : undefined}
             disabled={!isConversationOpen || !canReply}
             title={isConversationOpen ? "Close Conversation" : "Conversation Closed"}
-            className={`p-2 rounded-lg border transition-colors ${
-              isConversationOpen && canReply
-                ? "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-red-500 hover:border-red-200"
-                : "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed"
-            }`}
+            className={`h-[38px] w-[38px] rounded-lg border transition-colors flex items-center justify-center ${isConversationOpen && canReply
+              ? "bg-white text-[#111827] border-gray-200 hover:bg-gray-50 hover:text-red-500 hover:border-red-200"
+              : "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed"
+              }`}
           >
-            <MessageSquareX className="w-4 h-4" />
+            <span className="material-symbols-outlined !text-[18px]">
+              chat_error
+            </span>
           </button>
 
           {/* 3-dot menu */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
+              className="h-[38px] w-[38px] rounded-lg border border-gray-200 bg-white text-[#111827] hover:bg-gray-50 transition-colors flex items-center justify-center"
             >
-              <MoreHorizontal className="w-4 h-4" />
+              <span className="material-symbols-outlined !text-[18px]">
+                more_horiz
+              </span>
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1 overflow-hidden">
+              <div className="absolute right-0 top-full w-[230px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1 overflow-hidden">
                 {/* Block Visitor */}
                 <button
                   onClick={() => {
@@ -155,11 +193,10 @@ export default function ChatHeader({
                     }
                   }}
                   disabled={!isConversationOpen || !canReply}
-                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
-                    isConversationOpen && canReply
-                      ? "text-red-600 hover:bg-red-50 cursor-pointer"
-                      : "text-red-300 cursor-not-allowed"
-                  }`}
+                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${isConversationOpen && canReply
+                    ? "text-red-600 hover:bg-red-50 cursor-pointer"
+                    : "text-red-300 cursor-not-allowed"
+                    }`}
                 >
                   <UserX className="w-4 h-4" />
                   Block Visitor
@@ -168,14 +205,16 @@ export default function ChatHeader({
                 <div className="border-t border-gray-100 my-1" />
 
                 {/* Tag Conversation */}
-                <div className="px-4 py-2">
+                <div className="p-[10px]">
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                     Tag Conversation
                   </p>
 
                   {/* Tag input */}
-                  <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-gray-50 mb-2">
-                    <Tag className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <div className="flex items-center gap-1.5 border border-[#E2E8F0] rounded-md px-[10px] py-[8px] mb-2 h-[30px] bg-white">
+                    <span className="material-symbols-outlined !text-[14px] text-[#64748B]">
+                      sell
+                    </span>
                     <input
                       type="text"
                       placeholder="Type a tag"
@@ -190,13 +229,13 @@ export default function ChatHeader({
                           onAddTagClick();
                         }
                       }}
-                      className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none min-w-0"
+                      className="flex-1 bg-transparent text-[#111827] placeholder-gray-400 outline-none min-w-0 text-[11px] font-semibold placeholder:text-[#64748B]"
                     />
                     {inputAddTag.trim() && (
                       <button
                         onClick={() => onAddTagClick()}
                         disabled={tags.length >= 6}
-                        className="text-xs text-blue-600 font-medium hover:text-blue-700 disabled:opacity-40 flex-shrink-0"
+                        className="text-[12px] text-blue-600 font-medium hover:text-blue-700 disabled:opacity-40 flex-shrink-0"
                       >
                         Add
                       </button>
@@ -209,16 +248,16 @@ export default function ChatHeader({
                       const alreadyAdded = tags.some(
                         (t) => t.name.toLowerCase() === name.toLowerCase()
                       );
+                      const theme = PREDEFINED_TAG_THEME[name] || PREDEFINED_TAG_THEME.Lead;
                       return (
                         <button
                           key={name}
                           onClick={() => handlePredefinedTag(name)}
                           disabled={alreadyAdded || tags.length >= 6}
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
-                            alreadyAdded
-                              ? "bg-purple-50 text-purple-400 border-purple-200 cursor-default opacity-60"
-                              : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer"
-                          }`}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-bold border h-[18px] ${alreadyAdded || tags.length >= 6
+                            ? theme.disabled
+                            : `${theme.base} ${theme.hover} cursor-pointer`
+                            }`}
                         >
                           #{name}
                         </button>

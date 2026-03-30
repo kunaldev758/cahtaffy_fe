@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { CheckCircleIcon, EyeIcon, EyeOffIcon, ScanEyeIcon, XCircleIcon } from 'lucide-react'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useRouter } from 'next/navigation'
-import { useSocket } from "../../../socketContext";
+import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
 export function RegistrationForm() {
@@ -40,21 +40,26 @@ export function RegistrationForm() {
       try {
         setGoogleLoading(true)
         const response = await googleOAuthExchange(tokenResponse?.access_token)
-        console.log(response,"This is signup response")
         setGoogleLoading(false)
         if (response?.status_code === 200) {
           toast.success('Signed up with Google')
-          router.replace(appUrl + 'dashboard')
-          // router.replace('/dashboard')
-
           if (response.token) {
             localStorage.setItem('token', response.token)
           }
           if (response.userId) {
             localStorage.setItem('userId', response.userId)
-            handleSocketEvent(response.userId)
           }
-
+          if (response.agents) {
+            localStorage.setItem('agents', JSON.stringify(response.agents))
+            localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '')
+          }
+          dispatchAuthStorageSync()
+          handleSocketEvent(response.userId)
+          if (!response.isOnboarded) {
+            router.replace(appUrl + 'onboarding')
+          } else {
+            router.replace(appUrl + 'dashboard')
+          }
         } else {
           toast.error(response?.message || 'Google signup failed')
         }

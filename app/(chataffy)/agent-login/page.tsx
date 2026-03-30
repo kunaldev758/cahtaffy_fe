@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAgentApi } from "../../_api/login/action";
+import { dispatchAuthStorageSync } from "@/app/socketContext";
 
 export default function AgentLogin() {
   const [email, setEmail] = useState("");
@@ -34,6 +35,7 @@ export default function AgentLogin() {
       localStorage.setItem("userId", userId);
       localStorage.setItem("humanAgentId", humanAgentId);
       localStorage.setItem("currentAgentId", currentAgentId);
+      dispatchAuthStorageSync();
       router.push("/agent-inbox");
     } catch (err) {
       setError("Login failed. Please try again.");

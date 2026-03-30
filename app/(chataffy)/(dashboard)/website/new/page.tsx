@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { publicAsset } from '@/lib/publicAsset'
 import { X, Loader2 } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { Spinner } from '@/components/ui/spinner'
@@ -352,7 +353,7 @@ export default function NewAgentOnboardingPage() {
                           onChange={(e) => handleFileSelect(e.target.files)}
                         />
                         <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center">
-                          <Image src="/images/new/upload-icon.svg" alt="Upload" width={64} height={64} />
+                          <Image src={publicAsset('/images/new/upload-icon.svg')} alt="Upload" width={64} height={64} />
                         </div>
                         <p className="text-[14px] font-semibold leading-5 text-[#111827]">Drop your file here, or browse</p>
                         <p className="mt-2 text-[13px] font-normal leading-5 text-[#64748B]">Only DOC, DOCX, PDF, TXT files are allowed.</p>
@@ -411,7 +412,7 @@ export default function NewAgentOnboardingPage() {
                         className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
                       >
                         <span>Train & Continue</span>
-                        <Image src="/images/new/sparkle-icon.svg" alt="Sparkle" width={18} height={18} />
+                        <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
                       </button>
                     </div>
                   </div>
@@ -482,7 +483,7 @@ export default function NewAgentOnboardingPage() {
                       className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
                     >
                       <span>Train & Continue</span>
-                      <Image src="/images/new/sparkle-icon.svg" alt="Sparkle" width={18} height={18} />
+                      <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
                     </button>
                   </div>
                 </div>
@@ -509,7 +510,7 @@ export default function NewAgentOnboardingPage() {
                       value={websiteUrl}
                       onChange={(e) => setWebsiteUrl(e.target.value)}
                       disabled={isFetchingUrls}
-                      className="h-full w-full border-none bg-transparent text-[14px] font-normal capitalize leading-5 text-[#111827] outline-none placeholder:text-[#64748B]"
+                      className="h-full w-full border-none bg-transparent text-[14px] font-normal leading-5 text-[#111827] outline-none placeholder:text-[#64748B]"
                     />
                   </div>
                   <button

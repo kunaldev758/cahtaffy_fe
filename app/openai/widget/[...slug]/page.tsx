@@ -206,6 +206,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const chatBottomRef = useRef<any>(null);
   const messageRowRefsById = useRef<Record<string, HTMLDivElement | null>>({});
   const socketRef = useRef<Socket | null>(null);
+  const closeConversationContextRef = useRef({ conversationId: null as string | null, conversation: [] as any[] });
+  closeConversationContextRef.current = { conversationId, conversation };
   const recognitionRef = useRef<any>(null);
   const isManualStopRef = useRef<boolean>(false);
   const shouldBeRecordingRef = useRef<boolean>(false);
@@ -234,7 +236,14 @@ export default function EnhancedChatWidget({ params }: any) {
   const startNoReplyTimer = () => {
     clearNoReplyTimer();
     noReplyTimerRef.current = setTimeout(() => {
-      setIsUnavailableMode(true);
+      const socket = socketRef.current;
+      if (!socket) return;
+      const { conversationId: cid, conversation: conv } = closeConversationContextRef.current;
+      socket.emit('close-conversation-visitor', {
+        conversationId: cid ? cid : conv[0]?.conversation_id,
+        status: 'close'
+      });
+      setConversationStatus('close');
       setShowWidget(true);
     }, NO_REPLY_MS);
   };
@@ -494,6 +503,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
+      setBotVisible(data.themeSettings?.isActive === 1);
       setFields(data.themeSettings?.fields || []);
       if (data.themeSettings.logo) {
         setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}`);
@@ -868,7 +878,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
   const handleStartNewChat = () => {
     // Clear localStorage
-    localStorage.removeItem('visitorId');
+    // localStorage.removeItem('visitorId');
     
     // Disconnect socket
     const socket = socketRef.current;

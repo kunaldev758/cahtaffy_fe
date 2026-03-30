@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { publicAsset } from '@/lib/publicAsset'
 import { toast } from 'react-toastify'
 import { Spinner } from "@/components/ui/spinner"
 import TrainSetup from './components/train-setup'
@@ -287,7 +288,7 @@ export default function OnboardingPage() {
     return (
         <div className="min-h-screen bg-[#F3F4F6] p-6">
             <div className="mx-auto flex justify-center mb-6">
-                <Image src="/images/new/logo.svg" alt="Chataffy logo" width={142} height={51} priority />
+                <Image src={publicAsset('/images/new/logo.svg')} alt="Chataffy logo" width={142} height={51} priority />
             </div>
 
             <div
@@ -363,7 +364,7 @@ export default function OnboardingPage() {
                                         />
 
                                         <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center">
-                                            <Image src="/images/new/upload-icon.svg" alt="Upload" width={64} height={64} />
+                                            <Image src={publicAsset('/images/new/upload-icon.svg')} alt="Upload" width={64} height={64} />
                                         </div>
 
                                         <p className="text-[14px] font-semibold leading-5 text-[#111827]">
@@ -448,7 +449,7 @@ export default function OnboardingPage() {
                                         className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
                                     >
                                         <span>Train & Continue</span>
-                                        <Image src="/images/new/sparkle-icon.svg" alt="Arrow Forward" width={18} height={18} />
+                                        <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Arrow Forward" width={18} height={18} />
                                     </button>
                                 </div>
                             </div>
@@ -535,7 +536,7 @@ export default function OnboardingPage() {
                                     className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
                                 >
                                     <span>Train & Continue</span>
-                                    <Image src="/images/new/sparkle-icon.svg" alt="Arrow Forward" width={18} height={18} />
+                                    <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Arrow Forward" width={18} height={18} />
                                 </button>
                             </div>
                         </div>

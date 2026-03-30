@@ -17,6 +17,7 @@ import {
 } from '@/app/_api/dashboard/action'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import Image from 'next/image'
+import { publicAsset } from '@/lib/publicAsset'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -719,8 +720,8 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                   <div className="flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-3 max-w-[192px]">
                       {[
-                        { id: 'bubble' as const, icon: '/images/new/widget-bouble-icon.svg', label: 'Bubble widget launcher' },
-                        { id: 'bar' as const, icon: '/images/new/widget-bar-icon.svg', label: 'Bar widget launcher' },
+                        { id: 'bubble' as const, icon: publicAsset('/images/new/widget-bouble-icon.svg'), label: 'Bubble widget launcher' },
+                        { id: 'bar' as const, icon: publicAsset('/images/new/widget-bar-icon.svg'), label: 'Bar widget launcher' },
                       ].map(option => {
                         const isSelected = widgetState.widgetType === option.id
                         return (
@@ -759,8 +760,8 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
                     <div className="grid grid-cols-2 gap-3 max-w-[192px]">
                       {[
-                        { id: 'left' as const, icon: '/images/new/widget-left-icon.svg', label: 'Align widget left' },
-                        { id: 'right' as const, icon: '/images/new/widget-right-icon.svg', label: 'Align widget right' },
+                        { id: 'left' as const, icon: publicAsset('/images/new/widget-left-icon.svg'), label: 'Align widget left' },
+                        { id: 'right' as const, icon: publicAsset('/images/new/widget-right-icon.svg'), label: 'Align widget right' },
                       ].map(option => {
                         const isSelected = widgetState.align === option.id
                         return (

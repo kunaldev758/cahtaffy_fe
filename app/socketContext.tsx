@@ -12,6 +12,15 @@ const SocketContext = createContext<SocketContextProps>({
   socket: null,
 });
 
+/** Fired after login/logout (or any auth localStorage change) so the provider re-reads storage and connects the socket. */
+export const AUTH_STORAGE_SYNC_EVENT = "chataffy-auth-storage-sync";
+
+export function dispatchAuthStorageSync() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(AUTH_STORAGE_SYNC_EVENT));
+  }
+}
+
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -53,10 +62,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   useEffect(() => {
-    // Ensure localStorage is accessed on the client side only
     readAndSetIdentifiers();
 
-    // Re-read agentId whenever it is updated from onboarding or agent switching
+    const syncFromStorage = () => readAndSetIdentifiers();
+    window.addEventListener(AUTH_STORAGE_SYNC_EVENT, syncFromStorage);
+
     const handleAgentChanged = (event: CustomEvent) => {
       const newAgentId = event.detail?.agentId ?? localStorage.getItem("currentAgentId");
       setAgentId(newAgentId);
@@ -64,29 +74,31 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     window.addEventListener("agent-changed", handleAgentChanged as EventListener);
     return () => {
+      window.removeEventListener(AUTH_STORAGE_SYNC_EVENT, syncFromStorage);
       window.removeEventListener("agent-changed", handleAgentChanged as EventListener);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Runs only once when the component mounts
-console.log(agentId,humanAgentId,"agentId and humanAgentId");
+  }, []);
+
   useEffect(() => {
-    if (token && userId) {
-      console.log(token, `This is token  userId: ${userId}`);
-
-      const socketInstance = initializeSocket({
-        token,
-        userId,
-        agentId: agentId || undefined,
-        humanAgentId: humanAgentId || undefined,
-      });
-
-      setSocket(socketInstance);
-
-      return () => {
-        socketInstance.disconnect();
-      };
+    if (!token || !userId) {
+      setSocket(null);
+      return;
     }
-  }, [token,userId,agentId,humanAgentId]); // Runs when the token is set
+
+    const socketInstance = initializeSocket({
+      token,
+      userId,
+      agentId: agentId || undefined,
+      humanAgentId: humanAgentId || undefined,
+    });
+
+    setSocket(socketInstance);
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [token, userId, agentId, humanAgentId]);
 
   return (
     <SocketContext.Provider value={{ socket }}>

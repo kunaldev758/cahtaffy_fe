@@ -5,6 +5,9 @@ const basePath = isProduction?'/chataffy/cahtaffy_fe':'';
 const nextConfig = {
   reactStrictMode: false,
   basePath,
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
   experimental: {
     serverActions: {
         allowedOrigins: [
@@ -18,7 +21,7 @@ const nextConfig = {
     },
   },
   images: {
-    domains: ['localhost','34.213.132.47','chataffy.com','www.chataffy.com'], // Add 'localhost' to allowed domains
+    domains: ['localhost','34.213.132.47','chataffy.com','www.chataffy.com','flagcdn.com'],
   },
 }
 

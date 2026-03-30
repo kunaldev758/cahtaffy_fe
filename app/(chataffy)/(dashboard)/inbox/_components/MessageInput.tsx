@@ -246,7 +246,7 @@ export default function MessageInput({
   const stripHtml = (html: string) => html?.replace(/<[^>]+>/g, '').trim() || '';
 
   return (
-    <div className="bg-white border-t border-gray-200 p-4">
+    <div className="bg-white rounded-b-[20px]">
       {/* Reply context bar */}
       {replyingTo && (
         <div style={{
@@ -295,141 +295,138 @@ export default function MessageInput({
 
       {/* No Internet Banner */}
       {!isOnline && (
-        <div className="bg-red-100 text-red-700 text-center py-2 font-semibold mb-2">
+        <div className="bg-red-100 text-red-700 text-center py-2 font-semibold mx-4 mt-3 mb-2 rounded-md">
           No internet connection. Chat is disabled.
         </div>
       )}
-      <div className="flex space-x-2 mb-4">
-        {openConversationStatus === "open" && !isAIChat && (
+      <div className="pt-2">
+        <div className="flex items-center border-b border-[#E5E7EB]">
+          {openConversationStatus === "open" && !isAIChat && (
+            <button
+              onClick={() => setIsNoteActive(false)}
+              className={`inline-flex h-10 items-center gap-2 border-b-2 px-[24px] text-[12px] font-bold uppercase tracking-[0.02em] transition-colors ${
+                !isNoteActive
+                  ? "border-[#3B82F6] text-[#3B82F6]"
+                  : "border-transparent text-[#C5C5C5] hover:text-[#6B7280]"
+              }`}
+            >
+              <MessageCircle className="w-[16px] h-[16px]" />
+              Chat
+            </button>
+          )}
+
           <button
-            onClick={() => setIsNoteActive(false)}
-            className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-              !isNoteActive
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:bg-gray-100'
+            onClick={() => setIsNoteActive(true)}
+            className={`inline-flex h-10 items-center gap-2 border-b-2 px-[24px] text-[12px] font-semibold uppercase tracking-[0.02em] transition-colors ${
+              isNoteActive
+                ? "border-[#3B82F6] text-[#3B82F6]"
+                : "border-transparent text-[#C5C5C5] hover:text-[#6B7280]"
             }`}
           >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Chat
+            <StickyNote className="w-[16px] h-[16px]" />
+            Notes
           </button>
-        )}
-        
-        <button
-          onClick={() => setIsNoteActive(true)}
-          className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-            isNoteActive
-              ? 'bg-yellow-100 text-yellow-700'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          <StickyNote className="w-4 h-4 mr-2" />
-          Note
-        </button>
+        </div>
       </div>
 
-      <div className="flex items-end space-x-3">
-        <div className="flex-1">
+      <div className="">
+        <div className={`relative rounded-b-[20px] min-h-[106px] px-4 pt-3 pb-12 ${isNoteActive || openConversationStatus === "close" ? "bg-[#fefce8]" : "bg-white"}`}>
           {isNoteActive || openConversationStatus === "close" ? (
-            <div className="relative">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={onInputChange}
-                placeholder="Enter note here..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    onAddNote();
-                  }
-                }}
-                disabled={!isOnline}
-              />
-              <div className="absolute right-2 bottom-2 text-xs text-gray-500">
-                {wordCount}/{maxWords} words
-              </div>
-            </div>
+            <textarea
+              value={inputMessage}
+              onChange={(e) => onInputChange(e)}
+              placeholder="Enter note here..."
+              rows={2}
+              className="w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-[24px] text-[#111827] placeholder:text-[#94A3B8] outline-none focus:ring-0"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  onAddNote();
+                }
+              }}
+              disabled={!isOnline}
+            />
           ) : isAIChat ? (
-            <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm">
+            <div className="w-full rounded-lg bg-gray-50 text-gray-500 text-sm">
               Chat is disabled. Please disable AI Chat to send messages.
             </div>
           ) : !canReply ? (
-            <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm">
+            <div className="w-full rounded-lg bg-gray-50 text-gray-500 text-sm">
               You don't have permission to reply to this conversation.
             </div>
           ) : (
-            <div className="relative">
-              <textarea
-                value={inputMessage}
-                onChange={(e) => {
-                  onInputChange(e);
-                  // Trigger typing event when agent types
-                  handleTyping();
-                }}
-                placeholder="Type a message..."
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    // Emit stop-typing before sending message
-                    if (isTypingRef.current) {
-                      isTypingRef.current = false;
-                      emitTypingEvent(false);
-                    }
-                    onMessageSend();
+            <textarea
+              value={inputMessage}
+              onChange={(e) => {
+                onInputChange(e);
+                // Trigger typing event when agent types
+                handleTyping();
+              }}
+              placeholder="Type a message..."
+              rows={2}
+              className="w-full resize-none border-0 bg-white p-0 text-[14px] leading-[24px] text-[#111827] placeholder:text-[#94A3B8] outline-none focus:ring-0"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  // Emit stop-typing before sending message
+                  if (isTypingRef.current) {
+                    isTypingRef.current = false;
+                    emitTypingEvent(false);
                   }
-                }}
-                disabled={!isOnline || !canReply}
-              />
-              <div className="absolute right-2 bottom-2 text-xs text-gray-500">
-                {wordCount}/{maxWords} words
-              </div>
-            </div>
+                  onMessageSend();
+                }
+              }}
+              disabled={!isOnline || !canReply}
+            />
           )}
-        </div>
-        
-        <div className="flex space-x-2">
-          {showVoiceButton && (
+
+          <div className="absolute bottom-3 right-3 flex items-center gap-2">
+            <span className="text-[11px] text-[#94A3B8]">
+              {wordCount}/{maxWords}
+            </span>
+
+            {showVoiceButton && (
+              <button
+                onClick={toggleRecording}
+                disabled={voiceDisabled}
+                title={
+                  !isSpeechSupported
+                    ? "Voice capture is not supported in this browser."
+                    : allowsVoiceForNotes
+                      ? "Use your voice to add a note."
+                      : isRecording
+                        ? "Stop recording"
+                        : "Start recording"
+                }
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                  isRecording
+                    ? "bg-red-100 text-red-600"
+                    : "text-[#94A3B8] hover:bg-[#EEF2F7] hover:text-[#64748B]"
+                }`}
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            )}
+
             <button
-              onClick={toggleRecording}
-              disabled={voiceDisabled}
-              title={
-                !isSpeechSupported
-                  ? "Voice capture is not supported in this browser."
-                  : allowsVoiceForNotes
-                    ? "Use your voice to add a note."
-                    : isRecording
-                      ? "Stop recording"
-                      : "Start recording"
-              }
-              className={`p-3 rounded-lg transition-colors ${
-                isRecording
-                  ? "bg-red-100 text-red-600"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}
+              onClick={() => {
+                // Emit stop-typing before sending message/note
+                if (isTypingRef.current) {
+                  isTypingRef.current = false;
+                  emitTypingEvent(false);
+                }
+                if (isNoteActive || openConversationStatus === "close") {
+                  onAddNote();
+                } else {
+                  onMessageSend();
+                }
+              }}
+              disabled={sendDisabled}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#E2E8F0] text-[#94A3B8] hover:bg-[#CBD5E1] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              <Mic className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             </button>
-          )}
-          
-          <button
-            onClick={() => {
-              // Emit stop-typing before sending message/note
-              if (isTypingRef.current) {
-                isTypingRef.current = false;
-                emitTypingEvent(false);
-              }
-              if (isNoteActive || openConversationStatus === "close") {
-                onAddNote();
-              } else {
-                onMessageSend();
-              }
-            }}
-            disabled={sendDisabled}
-            className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+          </div>
         </div>
       </div>
       {speechError && (

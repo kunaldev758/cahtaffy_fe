@@ -1,6 +1,7 @@
 
 
 import { logoutApi } from '@/app/_api/dashboard/action'
+import { dispatchAuthStorageSync } from '@/app/socketContext'
 import { useRouter } from 'next/navigation'
 import logoutIconPic from '@/images/not-delivery-icon.svg'
 import Image from 'next/image'
@@ -11,6 +12,7 @@ export default function Home() {
   return (<><button style={{ border: 'none' }} onClick={async () => {
     await logoutApi()
     localStorage.clear();
+    dispatchAuthStorageSync()
     router.replace('/login')
   }}>Logout</button></>)
 }

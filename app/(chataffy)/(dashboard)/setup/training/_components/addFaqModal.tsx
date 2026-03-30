@@ -5,6 +5,7 @@ import { openaiCreateFaq } from '@/app/_api/dashboard/action'
 import { toast } from 'react-toastify'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import Image from 'next/image'
+import { publicAsset } from '@/lib/publicAsset'
 
 interface FaqItem {
   id: number
@@ -185,7 +186,7 @@ export default function Home(Props: any) {
             onClick={handleButtonOnClick}
             disabled={buttonLoading}
           >
-            <Image src="/images/new/sparkle-icon.svg" alt="Sparkle" width={18} height={18} />
+            <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
             {`Start ${faqs.length} FAQs Training${faqs.length > 1 ? 's' : ''}`}
           </button>
         </div>

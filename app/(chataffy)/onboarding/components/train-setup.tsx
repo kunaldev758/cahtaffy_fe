@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import Image from "next/image"
+import { publicAsset } from "@/lib/publicAsset"
 
 type TrainingRow = {
   id: string
@@ -177,7 +178,7 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
                 ) : (
                   <>
                     <span>Train & Continue</span>
-                    <Image src="/images/new/sparkle-icon.svg" alt="Arrow Forward" width={18} height={18} />
+                    <Image src={publicAsset("/images/new/sparkle-icon.svg")} alt="Arrow Forward" width={18} height={18} />
                   </>
                 )}
               </button>
