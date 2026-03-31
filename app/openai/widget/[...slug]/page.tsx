@@ -98,7 +98,7 @@ const validateField = (field: any, value: any) => {
 
 // Form validation component
 const FormField = ({ field, value, onChange, error }: { field: any; value: any; onChange: any; error: any }) => {
-  const baseClasses = "w-full h-[40px] text-[13px] font-normal text-[#111827] px-4 py-3 border border-[#E2E8F0] rounded-[8px] focus:ring-0 focus:outline-none focus:border-transparent transition-colors placeholder:text-[#94A3B8]";
+  const baseClasses = "w-full h-[40px] text-[13px] font-normal text-[#111827] px-[16px] py-[12px] border border-[#E2E8F0] rounded-[8px] focus:ring-0 focus:outline-none focus:border-transparent transition-colors placeholder:text-[#94A3B8]";
   const errorClasses = error ? "border-red-500 bg-red-50" : "border-gray-300 bg-white";
 
   const handleChange = (e: any) => {
@@ -1158,7 +1158,7 @@ export default function EnhancedChatWidget({ params }: any) {
               <button
                 type="button"
                 onClick={toggleWidget}
-                className="relative flex w-full items-center justify-between gap-3 rounded-t-2xl px-5 py-4 shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                className="relative flex w-full items-center justify-between gap-3 rounded-t-2xl px-[20px] py-4 shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                 style={{
                   backgroundColor: getThemeColor(0, '#2563eb'),
                   color: getThemeColor(1, '#ffffff'),
@@ -1224,7 +1224,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
               {/* Header */}
               <div
-                className="p-4 text-white relative overflow-hidden cursor-pointer flex-shrink-0"
+                className="p-[16px] text-white relative overflow-hidden cursor-pointer flex-shrink-0"
                 style={{ backgroundColor: getThemeColor(0, '#2563eb') }}
                 onClick={() => setIsMinimized(!isMinimized)}
               >
@@ -1282,7 +1282,7 @@ export default function EnhancedChatWidget({ params }: any) {
               </div>
 
               {showEndSessionConfirm && (
-                <div className="absolute inset-0 z-50 bg-black/35 backdrop-blur-[1px] flex items-center justify-center p-4">
+                <div className="absolute inset-0 z-50 bg-black/35 backdrop-blur-[1px] flex items-center justify-center p-[16px]">
                   <div className="relative w-full max-w-[340px] rounded-[20px] bg-white p-7 shadow-[0_20px_60px_rgba(15,23,42,0.35)] text-center">
                     <button
                       type="button"
@@ -1303,11 +1303,11 @@ export default function EnhancedChatWidget({ params }: any) {
                       Do you really want to close the chat?
                     </p>
 
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-[16px]">
                       <button
                         type="button"
                         onClick={handleConfirmEndSession}
-                        className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                        className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[14px] font-semibold text-white transition-colors hover:bg-[#111827]"
                       >
                         End Session
                       </button>
@@ -1315,12 +1315,12 @@ export default function EnhancedChatWidget({ params }: any) {
                       <button
                         type="button"
                         onClick={() => setShowEndSessionConfirm(false)}
-                        className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-white border border-[#E2E8F0] px-4 text-[14px] font-semibold transition-colors hover:bg-[#F1F5F9] text-[#4B5563]"
+                        className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-white border border-[#E2E8F0] px-[20px] text-[14px] font-semibold transition-colors hover:bg-[#F1F5F9] text-[#4B5563]"
                       >
                         Keep Chatting
                       </button>
 
-                      <div className="flex items-center justify-center gap-1.5 text-[#64748B] uppercase tracking-[0.08em] text-[11px] font-medium">
+                      <div className="flex items-center justify-center gap-[5px] text-[#64748B] uppercase tracking-[0.08em] text-[11px] font-medium">
                         <span className="material-symbols-outlined !text-[12px]">shield</span>
                         <span>Secure Session</span>
                       </div>
@@ -1332,38 +1332,38 @@ export default function EnhancedChatWidget({ params }: any) {
               {/* Body */}
               {!isMinimized && (
                 socketError ? (
-                  <div className="flex flex-col justify-center gap-4 flex-1 p-8">
+                  <div className="flex flex-col justify-center gap-[16px] flex-1 p-8">
                     <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner bg-[#FEF2F2]">
                       <AlertCircle className="w-10 h-10 text-[#EF4444]" />
                     </div>
 
-                    <div className="flex flex-col justify-center text-center items-center gap-1">
+                    <div className="flex flex-col justify-center text-center items-center gap-[4px]">
                       <h3 className="text-[16px] font-semibold text-[#111827]">Connection Error</h3>
                       <p className="text-[#64748B] text-[13px] font-normal">We couldn't connect to the chat service. Please try again later.</p>
                     </div>
                   </div>
                 ) : isBlocked ? (
-                  <div className="flex flex-col justify-center gap-4 flex-1 p-8">
+                  <div className="flex flex-col justify-center gap-[16px] flex-1 p-8">
                     <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner bg-[#FEF2F2]">
                       <AlertCircle className="w-10 h-10 text-[#EF4444]" />
                     </div>
-                    <div className="flex flex-col justify-center text-center items-center gap-1">
+                    <div className="flex flex-col justify-center text-center items-center gap-[4px]">
                       <h3 className="text-[16px] font-semibold text-[#111827]">Access Blocked</h3>
                       <p className="text-[#64748B] text-[13px] font-normal">You have been blocked from using this chat. If you believe this is a mistake, please contact support.</p>
                     </div>
                   </div>
                 ) : isUnavailableMode ? (
                   <div className="flex flex-col flex-1 min-h-0">
-                    <div className="flex flex-col justify-center p-5 overflow-y-auto h-full">
+                    <div className="flex flex-col justify-center p-[20px] overflow-y-auto h-full">
                       <div className="max-w-sm mx-auto rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-6">
-                        <div className="flex flex-col items-center text-center gap-5">
+                        <div className="flex flex-col items-center text-center gap-[20px]">
                           <p className="text-[#111827] text-[16px] font-medium leading-8">
                             We&apos;re currently unable to respond. Please try again later or contact us directly.
                           </p>
                           <button
                             type="button"
                             onClick={() => window.location.reload()}
-                            className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                            className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
                           >
                             Try again
                           </button>
@@ -1375,7 +1375,7 @@ export default function EnhancedChatWidget({ params }: any) {
                   <>
                     {/* Messages Area */}
                     {conversationStatus === 'open' && (
-                      <div className="flex-1 p-5 min-h-0 overflow-y-auto bg-white custom-scrollbar">
+                      <div className="flex-1 p-[20px] min-h-0 overflow-y-auto bg-white custom-scrollbar">
                         <style>{`
                           .chat-bubble a {
                             color: var(--chat-link-color) !important;
@@ -1398,7 +1398,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 {/* System messages - centered and styled differently */}
                                 {item.sender_type === 'agent-connect' && (
                                   <div className="flex items-center justify-center py-2 animate-in slide-in-from-left duration-300">
-                                    <div className="d-flex align-items-center gap-1 px-[8px] rounded-full h-[24px] max-h-[24px] min-h-[24px] bg-[#FAF5FF] border border-[#A855F7]">
+                                    <div className="d-flex align-items-center gap-[4px] px-[8px] rounded-full h-[24px] max-h-[24px] min-h-[24px] bg-[#FAF5FF] border border-[#A855F7]">
                                       <div
                                         className="text-[12px] font-semibold text-[#A855F7] italic flex items-center justify-center h-[24px]"
                                         dangerouslySetInnerHTML={{
@@ -1447,7 +1447,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
                                       <div className="flex-1 max-w-xs">
                                         <div
-                                          className="px-4 py-3 rounded-2xl rounded-tl-md shadow-sm chat-bubble"
+                                          className="px-[20px] py-[12px] rounded-2xl rounded-tl-md shadow-sm chat-bubble"
                                           style={{
                                             backgroundColor: getThemeColor(4, '#3b82f6'),
                                             color: getThemeColor(5, '#ffffff'),
@@ -1461,7 +1461,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                               type="button"
                                               onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
                                               title="Jump to original message"
-                                              className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-1 mb-1"
+                                              className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-[4px] mb-1"
                                               style={{
                                                 backgroundColor: getThemeColor(4, '#f1f5f9'),
                                                 // Slight dark overlay so it looks richer while keeping theme color
@@ -1486,7 +1486,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                             }}
                                           />
                                         </div>
-                                        <div className="flex items-center gap-2 mt-[10px]">
+                                        <div className="flex items-center gap-[8px] mt-[10px]">
                                           <span className="text-[10px] text-[#64748B] font-semibold">
                                             {item.createdAt && formatTime(item.createdAt)}
                                           </span>
@@ -1499,7 +1499,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                                 sender_type: item.sender_type,
                                                 senderName: item.humanAgentId?.name || 'Agent',
                                               })}
-                                              className="text-[10px] text-[#64748B] font-semibold bg-[#F8FAFC] border border-[#E8E8E8] rounded-full px-1.5 h-[20px] flex items-center justify-center max-h-[20px] min-h-[20px] gap-1"
+                                              className="text-[10px] text-[#64748B] font-semibold bg-[#F8FAFC] border border-[#E8E8E8] rounded-full px-1.5 h-[20px] flex items-center justify-center max-h-[20px] min-h-[20px] gap-[4px]"
                                             >
 
                                               <span className="material-symbols-outlined !text-[12px]">
@@ -1517,7 +1517,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                   <div className="flex justify-end animate-in slide-in-from-right duration-300">
                                     <div className="max-w-xs">
                                       <div
-                                        className="px-4 py-3 rounded-2xl rounded-tr-md shadow-sm chat-bubble"
+                                        className="px-[20px] py-[12px] rounded-2xl rounded-tr-md shadow-sm chat-bubble"
                                         style={{
                                           backgroundColor: getThemeColor(2, '#f1f5f9'),
                                           color: getThemeColor(3, '#1e293b'),
@@ -1530,7 +1530,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                             type="button"
                                             onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
                                             title="Jump to original message"
-                                            className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-1 mb-1"
+                                            className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-[4px] mb-1"
                                             style={{
                                               backgroundColor: getThemeColor(2, '#f1f5f9'),
                                               // Slight dark overlay so it looks richer while keeping theme color
@@ -1610,7 +1610,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                   )}
 
                                   <div
-                                    className="px-4 py-3 rounded-2xl rounded-tl-md"
+                                    className="px-[20px] py-[12px] rounded-2xl rounded-tl-md"
                                     style={{
                                       backgroundColor: getThemeColor(4, '#3b82f6'),
                                       color: getThemeColor(5, '#ffffff'),
@@ -1644,7 +1644,7 @@ export default function EnhancedChatWidget({ params }: any) {
                             {/* Feedback Display - Show in chat area if feedback exists */}
                             {conversationFeedback && (conversationFeedback.feedback !== undefined || conversationFeedback.comment) && (
                               <div className="flex justify-center my-4">
-                                <div className="max-w-xs w-full bg-gray-50 rounded-lg border border-gray-200 p-4">
+                                <div className="max-w-xs w-full bg-gray-50 rounded-lg border border-gray-200 p-[16px]">
                                   <div className="font-semibold text-sm text-gray-900 mb-2">Feedback</div>
                                   <div className="space-y-2">
                                     {conversationFeedback.feedback !== undefined && (
@@ -1672,8 +1672,8 @@ export default function EnhancedChatWidget({ params }: any) {
                           </div>
                         ) : (
                           // Pre-chat form
-                          <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-4 flex flex-col gap-5">
-                            <div className="flex flex-col gap-2 w-4/5 mx-auto justify-center text-center">
+                          <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-[16px] flex flex-col gap-[20px]">
+                            <div className="flex flex-col gap-[8px] w-4/5 mx-auto justify-center text-center">
                               <h3 className="text-[20px] font-bold text-[#111827] mb-2">
                                 Hello! How can we help you today?
                               </h3>
@@ -1696,7 +1696,7 @@ export default function EnhancedChatWidget({ params }: any) {
                               type="button"
                               onClick={handleSubmitVisitorDetails}
                               disabled={isSubmittingForm}
-                              className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                              className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
                             >
                               {isSubmittingForm ? (
                                 <div className="flex items-center justify-center space-x-2">
@@ -1714,7 +1714,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
                     {/* Connecting to Agent Message */}
                     {isConnectingToAgent && (
-                      <div className="border-t border-gray-200 bg-blue-50 flex-shrink-0 p-4">
+                      <div className="border-t border-gray-200 bg-blue-50 flex-shrink-0 p-[16px]">
                         <div className="flex items-center justify-center space-x-3">
                           <div className="flex space-x-1">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
@@ -1730,30 +1730,30 @@ export default function EnhancedChatWidget({ params }: any) {
                     {chatInputAvailable && !isConnectingToAgent && (
                       <div className={`bg-white ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
                         {conversationStatus === 'close' ? (
-                          <div className="flex-1 flex flex-col p-5">
+                          <div className="flex-1 flex flex-col p-[20px]">
                             {feedbackSubmitted ? (
                               <div className="flex flex-col h-full justify-center">
-                                <div className="flex flex-col justify-center gap-4">
+                                <div className="flex flex-col justify-center gap-[16px]">
                                   <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner" style={{ backgroundColor: getThemeColor(4, '#EFF5FF') }}>
                                     <CheckCircle className="w-10 h-10" style={{ color: getThemeColor(5, '#4686FE') }} />
                                   </div>
 
-                                  <div className="flex flex-col justify-center text-center items-center gap-1">
+                                  <div className="flex flex-col justify-center text-center items-center gap-[4px]">
                                     <h3 className="text-[16px] font-semibold text-[#111827]">Your response has been submitted</h3>
                                     <p className="text-[#64748B] text-[13px] font-normal">Thank you for your feedback! We appreciate your input.</p>
                                   </div>
 
                                   <button
                                     onClick={handleStartNewChat}
-                                    className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                                    className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
                                   >
                                     Start New Chat
                                   </button>
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex flex-col gap-4">
-                                <div className="flex flex-col gap-2 w-4/5 mx-auto justify-center text-center">
+                              <div className="flex flex-col gap-[16px]">
+                                <div className="flex flex-col gap-[8px] w-4/5 mx-auto justify-center text-center">
                                   <h3 className="text-[20px] font-bold text-[#111827]">Conversation Ended</h3>
                                   <p className="text-[#64748B] text-[13px] font-normal">
                                     Thank you for chatting with us! We hope we were able to help you.
@@ -1761,16 +1761,16 @@ export default function EnhancedChatWidget({ params }: any) {
                                 </div>
 
                                 {/* Feedback Section */}
-                                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-4 flex flex-col gap-5">
+                                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-[16px] flex flex-col gap-[20px]">
                                   <p className="text-[16px] font-medium text-[#111827] text-center">How was your experience?</p>
 
-                                  <div className="flex items-center justify-center gap-6">
+                                  <div className="flex items-center justify-center gap-[24px]">
                                     {/* Good */}
                                     <button
                                       type="button"
                                       onClick={() => handleFeedback(true)}
                                       disabled={isSubmittingFeedback}
-                                      className="w-[88px] h-[86px] rounded-[18px] border flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      className="w-[88px] h-[86px] rounded-[18px] border flex flex-col items-center justify-center gap-[8px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       style={{
                                         borderColor: feedback === true ? '#4ADE80' : '#E2E8F0',
                                         backgroundColor: feedback === true ? '#4ADE80' : '#FFFFFF',
@@ -1793,7 +1793,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                       type="button"
                                       onClick={() => handleFeedback(false)}
                                       disabled={isSubmittingFeedback}
-                                      className="w-[88px] h-[86px] rounded-[18px] border flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      className="w-[88px] h-[86px] rounded-[18px] border flex flex-col items-center justify-center gap-[8px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       style={{
                                         borderColor: feedback === false ? '#F87171' : '#E2E8F0',
                                         backgroundColor: feedback === false ? '#F87171' : '#FFFFFF',
@@ -1821,7 +1821,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                       rows={3}
                                       maxLength={500}
                                       disabled={isSubmittingFeedback}
-                                      className="w-full px-4 py-3 text-[13px] border border-[#E2E8F0] rounded-[12px] focus:ring-0 focus:outline-none transition-colors resize-none bg-white disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-[#94A3B8] text-[#111827]"
+                                      className="w-full px-[20px] py-[12px] text-[13px] border border-[#E2E8F0] rounded-[12px] focus:ring-0 focus:outline-none transition-colors resize-none bg-white disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-[#94A3B8] text-[#111827]"
                                     />
 
                                     <div className="flex justify-end mt-2">
@@ -1836,7 +1836,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                     type="button"
                                     onClick={handleSubmitFeedback}
                                     disabled={feedback === null || isSubmittingFeedback}
-                                    className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                                    className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
                                   >
                                     {isSubmittingFeedback ? (
                                       <div className="flex items-center justify-center space-x-2">
@@ -1852,7 +1852,7 @@ export default function EnhancedChatWidget({ params }: any) {
                             )}
                           </div>
                         ) : (
-                          <div className="px-5 py-5">
+                          <div className="px-[20px] py-[20px]">
                             {/* Recording UI - Overlay style */}
                             {isRecording ? (
                               <div className="space-y-4">
@@ -1867,7 +1867,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                   </div>
 
                                   {/* Waveform animation */}
-                                  <div className="flex items-center justify-center space-x-1 h-16 bg-white rounded-lg px-4 shadow-inner">
+                                  <div className="flex items-center justify-center space-x-1 h-16 bg-white rounded-lg px-[20px] shadow-inner">
                                     {[...Array(30)].map((_, i) => {
                                       const randomHeight = 20 + Math.random() * 70;
                                       const randomDuration = 0.3 + Math.random() * 0.5;
@@ -1890,7 +1890,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 <div className="flex items-center justify-center">
                                   <button
                                     onClick={handleRecordingCancel}
-                                    className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                                    className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
                                   >
                                     Stop
                                   </button>
@@ -1990,7 +1990,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                     style={{ minHeight: '20px', maxHeight: '72px' }}
                                   />
 
-                                  <div className="flex items-center pl-2 gap-2 border-l border-[#E2E8F0]">
+                                  <div className="flex items-center pl-2 gap-[8px] border-l border-[#E2E8F0]">
                                     {shouldRenderVoiceButton && (
                                       <button
                                         onClick={toggleRecording}
@@ -2042,8 +2042,8 @@ export default function EnhancedChatWidget({ params }: any) {
 
                         {/* White Label Footer */}
                         {!themeSettings?.showWhiteLabel && (
-                          <div className="px-5 pb-[12px] bg-white flex-shrink-0">
-                            <div className="text-[12px] text-[#B0B9C8] text-center flex items-center justify-center gap-1.5">
+                          <div className="px-[20px] pb-[12px] bg-white flex-shrink-0">
+                            <div className="text-[12px] text-[#B0B9C8] text-center flex items-center justify-center gap-[5px]">
                               <span className="inline-flex h-4 w-4 items-center justify-center rounded-[4px] bg-[#D3D9E5] text-[10px] font-semibold text-white">C</span>
                               <span>Powered by Chataffy</span>
                             </div>
