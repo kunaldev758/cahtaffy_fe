@@ -23,7 +23,7 @@ interface MessagesAreaProps {
 const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
   ({ conversationMessages, expandedSources, setExpandedSources, messageRefs, currentConversation, isAITyping, onReviseAnswer, onReply, onJumpToReply }, ref) => {
     return (
-      <div className="flex-1 overflow-y-auto p-[20px]" ref={ref}>
+      <div className="flex-1 overflow-y-auto p-[20px] overflow-x-hidden" ref={ref}>
         {conversationMessages.loading ? (
           <div className="space-y-4">
             {[...Array(10)].map((_, index) => (

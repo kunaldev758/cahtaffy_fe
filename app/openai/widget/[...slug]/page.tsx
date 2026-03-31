@@ -946,19 +946,16 @@ export default function EnhancedChatWidget({ params }: any) {
     "We're Online! Chat Now!";
 
   const launcherContainerStyle = useMemo((): import('react').CSSProperties => {
-    if (isBarLauncher) {
-      return { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 };
-    }
     return {
       position: 'fixed',
       bottom: '20px',
       zIndex: 1000,
       ...(alignLeft ? { left: '20px', right: 'auto' } : { right: '20px', left: 'auto' }),
     };
-  }, [isBarLauncher, alignLeft]);
+  }, [alignLeft]);
 
   const chatPanelPositionClass = isBarLauncher
-    ? 'absolute bottom-full left-1/2 mb-2 w-[400px] max-w-[calc(100vw-20px)] -translate-x-1/2'
+    ? `absolute bottom-[calc(100%+8px)] w-[400px] max-w-[calc(100vw-20px)] ${alignLeft ? 'left-0' : 'right-0'}`
     : `absolute bottom-20 w-[400px] ${alignLeft ? 'left-0' : 'right-0'}`;
 
   useEffect(() => {
@@ -1151,14 +1148,14 @@ export default function EnhancedChatWidget({ params }: any) {
   return (
     <>
       {botVisible && (
-        <div style={launcherContainerStyle} className={`font-sans ${isBarLauncher ? 'w-full' : ''}`}>
+        <div style={launcherContainerStyle} className="font-sans">
           {/* Chat Widget launcher: bubble or bar */}
-          <div className={isBarLauncher ? 'relative w-full' : 'relative'}>
-            {isBarLauncher ? (
+          <div className={isBarLauncher ? 'relative w-[360px] max-w-[calc(100vw-20px)]' : 'relative'}>
+            {isBarLauncher && !showWidget && (
               <button
                 type="button"
                 onClick={toggleWidget}
-                className="relative flex w-full items-center justify-between gap-3 rounded-t-2xl px-[20px] py-4 shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                className="relative flex w-full items-center justify-between gap-[12px] rounded-[10px] px-[16px] py-[16px] shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                 style={{
                   backgroundColor: getThemeColor(0, '#2563eb'),
                   color: getThemeColor(1, '#ffffff'),
@@ -1171,16 +1168,20 @@ export default function EnhancedChatWidget({ params }: any) {
                   {showWidget ? (
                     <X className="h-6 w-6" style={{ color: getThemeColor(1, '#ffffff') }} />
                   ) : (
-                    <MessageCircle className="h-6 w-6" style={{ color: getThemeColor(1, '#ffffff') }} />
+                    <span className="material-symbols-outlined" style={{ color: getThemeColor(1, '#ffffff') }}>
+                      chat_bubble
+                    </span>
                   )}
                   {!showWidget && unreadCount > 0 && (
-                    <div className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1">
+                    <div className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-[12px]">
                       <span className="text-xs font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
                     </div>
                   )}
                 </div>
               </button>
-            ) : (
+            )}
+
+            {!isBarLauncher && (
               <button
                 type="button"
                 onClick={toggleWidget}
@@ -1199,7 +1200,7 @@ export default function EnhancedChatWidget({ params }: any) {
                 </div>
 
                 {!showWidget && unreadCount > 0 && (
-                  <div className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1">
+                  <div className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-[12px]">
                     <span className="text-xs font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
                   </div>
                 )}
@@ -1209,12 +1210,12 @@ export default function EnhancedChatWidget({ params }: any) {
 
           {/* Chat Window */}
           {showWidget && (
-            <div className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-[76px]' : 'h-[calc(100vh-250px)]'
+            <div className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-[76px]' : 'h-[calc(100vh-200px)]'
               }`}>
 
               {/* No Internet Banner */}
               {!isOnline && (
-                <div className="bg-red-100 text-red-700 text-center py-2 text-sm font-semibold flex-shrink-0">
+                <div className="bg-red-100 text-red-700 text-center py-[8px] text-sm font-semibold flex-shrink-0">
                   <div className="flex items-center justify-center space-x-2">
                     <AlertCircle className="w-4 h-4" />
                     <span>No internet connection</span>
@@ -1397,7 +1398,7 @@ export default function EnhancedChatWidget({ params }: any) {
                               >
                                 {/* System messages - centered and styled differently */}
                                 {item.sender_type === 'agent-connect' && (
-                                  <div className="flex items-center justify-center py-2 animate-in slide-in-from-left duration-300">
+                                  <div className="flex items-center justify-center py-[8px] animate-in slide-in-from-left duration-300">
                                     <div className="d-flex align-items-center gap-[4px] px-[8px] rounded-full h-[24px] max-h-[24px] min-h-[24px] bg-[#FAF5FF] border border-[#A855F7]">
                                       <div
                                         className="text-[12px] font-semibold text-[#A855F7] italic flex items-center justify-center h-[24px]"
@@ -1461,7 +1462,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                               type="button"
                                               onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
                                               title="Jump to original message"
-                                              className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-[4px] mb-1"
+                                              className="text-[10px] font-semibold rounded-[6px] px-[10px] py-[6px] flex flex-col items-start gap-[4px] mb-1"
                                               style={{
                                                 backgroundColor: getThemeColor(4, '#f1f5f9'),
                                                 // Slight dark overlay so it looks richer while keeping theme color
@@ -1499,7 +1500,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                                 sender_type: item.sender_type,
                                                 senderName: item.humanAgentId?.name || 'Agent',
                                               })}
-                                              className="text-[10px] text-[#64748B] font-semibold bg-[#F8FAFC] border border-[#E8E8E8] rounded-full px-1.5 h-[20px] flex items-center justify-center max-h-[20px] min-h-[20px] gap-[4px]"
+                                              className="text-[10px] text-[#64748B] font-semibold bg-[#F8FAFC] border border-[#E8E8E8] rounded-full px-[6px] h-[20px] flex items-center justify-center max-h-[20px] min-h-[20px] gap-[4px]"
                                             >
 
                                               <span className="material-symbols-outlined !text-[12px]">
@@ -1530,7 +1531,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                             type="button"
                                             onClick={() => item.replyTo._id && scrollWidgetToMessageId(item.replyTo._id)}
                                             title="Jump to original message"
-                                            className="text-[10px] font-semibold rounded-[6px] px-2.5 py-1.5 flex flex-col items-start gap-[4px] mb-1"
+                                            className="text-[10px] font-semibold rounded-[6px] px-[10px] py-[6px] flex flex-col items-start gap-[4px] mb-1"
                                             style={{
                                               backgroundColor: getThemeColor(2, '#f1f5f9'),
                                               // Slight dark overlay so it looks richer while keeping theme color
@@ -1926,7 +1927,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 {/* Reply context bar */}
                                 {replyingTo && (
                                   <div
-                                    className="rounded-[4px] px-3 py-2 min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)] mb-2"
+                                    className="rounded-[4px] px-[12px] py-[8px] min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)] mb-2"
                                     style={{
                                       backgroundColor: getThemeColor(4, '#f1f5f9'),
                                     }}
@@ -1966,7 +1967,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 )}
 
                                 {/* Normal Input area */}
-                                <div className="rounded-[25px] border border-[#D8DEE8] bg-white px-3 py-2 min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                <div className="rounded-[25px] border border-[#D8DEE8] bg-white px-[12px] py-[8px] min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                                   <textarea
                                     ref={textareaRef}
                                     placeholder="Message..."
