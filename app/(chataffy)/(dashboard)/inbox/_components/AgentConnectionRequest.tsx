@@ -6,23 +6,41 @@ import { Socket } from "socket.io-client";
 interface AgentConnectionRequestProps {
   conversationId: string;
   visitorName?: string;
+  /** Server time when this request started; used so countdown matches remaining window (20s). */
+  requestStartedAt?: number;
   socketRef: React.RefObject<Socket | null>;
   onAccept: () => void;
   onDecline: () => void;
+  /** When false (e.g. Accept Chats off in client profile), Accept and Decline are disabled. */
+  acceptChatsEnabled?: boolean;
+}
+
+const AGENT_REQUEST_WINDOW_SEC = 20;
+
+function initialSecondsLeft(requestStartedAt?: number) {
+  if (requestStartedAt == null) return AGENT_REQUEST_WINDOW_SEC;
+  const elapsed = Math.floor((Date.now() - requestStartedAt) / 1000);
+  return Math.max(0, Math.min(AGENT_REQUEST_WINDOW_SEC, AGENT_REQUEST_WINDOW_SEC - elapsed));
 }
 
 export default function AgentConnectionRequest({
   conversationId,
   visitorName,
+  requestStartedAt,
   socketRef,
   onAccept,
   onDecline,
+  acceptChatsEnabled = true,
 }: AgentConnectionRequestProps) {
-  const [countdown, setCountdown] = useState(20);
+  const [countdown, setCountdown] = useState(() => initialSecondsLeft(requestStartedAt));
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    setCountdown(20);
+    const start = initialSecondsLeft(requestStartedAt);
+    setCountdown(start);
+    if (start <= 0) {
+      return;
+    }
     countdownTimerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -40,16 +58,14 @@ export default function AgentConnectionRequest({
         countdownTimerRef.current = null;
       }
     };
-  }, []);
+  }, [conversationId, requestStartedAt]);
 
-  // Auto-dismiss card when countdown expires
-  useEffect(() => {
-    if (countdown === 0) {
-      onDecline();
-    }
-  }, [countdown, onDecline]);
+  // Do not auto-call onDecline when countdown hits 0 — that must only run when the user
+  // clicks Decline (so sessionStorage "dismissed" is not set without a real click).
+  // The server emits agent-connection-timeout when the window ends; inbox clears the popup then.
 
   const handleAccept = () => {
+    if (!acceptChatsEnabled) return;
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -63,6 +79,7 @@ export default function AgentConnectionRequest({
   };
 
   const handleDecline = () => {
+    if (!acceptChatsEnabled) return;
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -98,7 +115,7 @@ export default function AgentConnectionRequest({
         </p>
 
         {/* Countdown */}
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-500 mb-2">
           Time remaining:{" "}
           <span
             className={`font-bold ${
@@ -109,18 +126,29 @@ export default function AgentConnectionRequest({
           </span>
         </p>
 
+        {!acceptChatsEnabled && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2 mb-3">
+            Turn on <span className="font-medium">Accept Chats</span> (client) or set sidebar{" "}
+            <span className="font-medium">Status</span> to Active (agent) to use these actions.
+          </p>
+        )}
+
         {/* Action buttons */}
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            disabled={!acceptChatsEnabled}
             onClick={handleAccept}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-800 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:pointer-events-none disabled:hover:bg-gray-900"
           >
             <Check className="w-3.5 h-3.5" />
             Accept
           </button>
           <button
+            type="button"
+            disabled={!acceptChatsEnabled}
             onClick={handleDecline}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-white text-gray-800 text-sm font-medium rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-white text-gray-800 text-sm font-medium rounded-full border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:pointer-events-none disabled:hover:bg-white"
           >
             <X className="w-3.5 h-3.5" />
             Decline

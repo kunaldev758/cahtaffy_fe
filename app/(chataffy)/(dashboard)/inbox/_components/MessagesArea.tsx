@@ -36,7 +36,7 @@ const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {isAITyping && (
+            {/* {isAITyping && (
               <div className="flex justify-start">
                 <div className="max-w-xs bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3">
                   <div className="flex gap-1">
@@ -46,7 +46,7 @@ const MessagesArea = forwardRef<HTMLDivElement, MessagesAreaProps>(
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
             {conversationMessages?.data?.map((item: MessageType, index: number) => (
               <div
                 key={index}

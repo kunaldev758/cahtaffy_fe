@@ -618,7 +618,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
               {/* Email + Phone */}
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Email <span className="text-red-500">*</span></label>
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Agent Email <span className="text-red-500">*</span></label>
                   <div className={`h-[40px] w-full rounded-[8px] border bg-white px-[14px] flex items-center gap-2 ${fieldErrors.email ? 'border-red-400' : 'border-[#E2E8F0]'}`}>
                     <span className="material-symbols-outlined !text-[18px] text-[#94A3B8]">alternate_email</span>
                     <input type="email" value={agentData.email}

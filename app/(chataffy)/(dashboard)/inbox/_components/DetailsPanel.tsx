@@ -3,6 +3,11 @@ import { formatDistanceToNow } from "date-fns";
 import { Note } from "./types/inbox";
 import Image from "next/image";
 
+function stripHtml(html: string | null | undefined) {
+  if (html == null) return "";
+  return String(html).replace(/<[^>]+>/g, "").trim();
+}
+
 interface DetailsPanelProps {
   visitorDetails: any;
   notesList: Note[];
@@ -167,7 +172,7 @@ export default function DetailsPanel({
                           </span>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-900 truncate">{conversation.message}</p>
+                      <p className="text-sm text-gray-900 truncate">{stripHtml(conversation.message)}</p>
                       <p className="text-xs text-gray-500 mt-1">
                         {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
                       </p>

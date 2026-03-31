@@ -356,121 +356,117 @@ export const useSocketManager = ({
 
     // Handle agent connection notifications
     const handleAgentConnectionNotification = (data: any) => {
-      // Deduplicate: same conversationId arriving within NOTIF_DEDUP_TTL_MS is ignored
+      // Dedup sound + browser notification only. Always forward to window so Inbox can show
+      // the popup when opening from a notification (check-pending often fires within 3s).
       const dedupKey = data?.conversationId?.toString?.() || data?.conversationId || '';
-      if (dedupKey && recentNotificationIds.has(dedupKey)) {
-        console.log("Duplicate agent-connection-notification ignored:", dedupKey);
-        return;
-      }
-      if (dedupKey) {
+      const isDup = !!(dedupKey && recentNotificationIds.has(dedupKey));
+      if (!isDup && dedupKey) {
         recentNotificationIds.add(dedupKey);
         setTimeout(() => recentNotificationIds.delete(dedupKey), NOTIF_DEDUP_TTL_MS);
       }
-      console.log("Agent connection notification received:", data);
-      // Play notification sound
-      try {
-        // Construct audio path with basePath support for production
-        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/chataffy/cahtaffy_fe';
-        const audioPath = `${basePath}/audio/notification.mp3`;
-        const audio = new Audio(audioPath);
-        audio.play().catch((err) => {
-          console.error("Failed to play notification sound", err);
-        });
-      } catch (e) {
-        console.error("Audio play error", e);
-      }
-
-      // Determine the correct inbox URL based on user role and current path
-      const userRole = localStorage.getItem("role");
-      const baseUrl = window.location.origin;
-      const currentPath = window.location.pathname;
-      const basePathPrefix = "/chataffy/cahtaffy_fe";
-      
-      // Normalize current path for checking
-      const normalizedCurrentPath = currentPath.replace(basePathPrefix, '');
-      
-      // Determine inbox path: check current path first, then role, then agent data
-      let inboxPath = "/inbox"; // default
-      if (normalizedCurrentPath.startsWith("/agent-inbox")) {
-        inboxPath = "/agent-inbox";
-      } else if (normalizedCurrentPath.startsWith("/inbox")) {
-        inboxPath = "/inbox";
+      if (isDup) {
+        console.log("Duplicate agent-connection-notification (sound skipped):", dedupKey);
       } else {
-        // Fallback to role check
-        const agentData = localStorage.getItem("agent");
-        const isAgent = userRole === "agent" || (agentData && agentData !== "null" && agentData !== "undefined");
-        inboxPath = isAgent ? "/agent-inbox" : "/inbox";
+        console.log("Agent connection notification received:", data);
+        // Play notification sound (first delivery only)
+        try {
+          const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/chataffy/cahtaffy_fe';
+          const audioPath = `${basePath}/audio/notification.mp3`;
+          const audio = new Audio(audioPath);
+          audio.play().catch((err) => {
+            console.error("Failed to play notification sound", err);
+          });
+        } catch (e) {
+          console.error("Audio play error", e);
+        }
       }
-      
-      // Detect if we're in production by checking if current pathname has base path prefix
-      const isProduction = currentPath.startsWith(basePathPrefix);
-      
-      // Construct URL - only include base path if we're in production
-      const chatUrl = isProduction 
-        ? `${baseUrl}${basePathPrefix}${inboxPath}?conversationId=${data.conversationId}`
-        : `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
-      
-      console.log("Agent connection notification - URL:", chatUrl, "Role:", userRole, "CurrentPath:", currentPath, "InboxPath:", inboxPath, "ConversationId:", data.conversationId);
 
-      // Show browser notification if permission granted
-      const showNotification = () => {
-        const notification = new Notification("New Agent Connection Request", {
-          body: "A visitor requested to connect to an agent. Click to open chat.",
-          icon: "/favicon.ico",
-          tag: `agent-connection-${data.conversationId}`,
-          requireInteraction: false,
-          data: { url: chatUrl, conversationId: data.conversationId },
-        });
+      if (!isDup) {
+        // Determine the correct inbox URL based on user role and current path
+        const userRole = localStorage.getItem("role");
+        const baseUrl = window.location.origin;
+        const currentPath = window.location.pathname;
+        const basePathPrefix = "/chataffy/cahtaffy_fe";
 
-        // Handle notification click to navigate to chat
-        notification.onclick = (event) => {
-          console.log("Notification clicked, navigating to:", chatUrl);
-          event.preventDefault();
-          notification.close();
+        const normalizedCurrentPath = currentPath.replace(basePathPrefix, "");
 
-          if (window.focus) {
-            window.focus();
-          }
+        let inboxPath = "/inbox";
+        if (normalizedCurrentPath.startsWith("/agent-inbox")) {
+          inboxPath = "/agent-inbox";
+        } else if (normalizedCurrentPath.startsWith("/inbox")) {
+          inboxPath = "/inbox";
+        } else {
+          const agentData = localStorage.getItem("agent");
+          const isAgent = userRole === "agent" || (agentData && agentData !== "null" && agentData !== "undefined");
+          inboxPath = isAgent ? "/agent-inbox" : "/inbox";
+        }
 
-          // Check if we're already on the inbox page - if so, just update the query param
-          const currentPath = window.location.pathname;
-          const normalizePath = (path: string) => path.replace(/\/chataffy\/cahtaffy_fe/, '').replace(/\/$/, '');
-          const normalizedCurrent = normalizePath(currentPath);
-          const normalizedInbox = normalizePath(inboxPath);
-          const isOnInboxPage = normalizedCurrent === normalizedInbox;
+        const isProduction = currentPath.startsWith(basePathPrefix);
 
-          if (isOnInboxPage) {
-            try {
-              const url = new URL(chatUrl);
-              window.history.pushState({}, '', url.pathname + url.search);
-              window.dispatchEvent(new CustomEvent('notification-navigate-to-conversation', {
-                detail: { conversationId: data.conversationId }
-              }));
-            } catch (error) {
-              console.error("Error updating URL:", error);
-              window.location.href = chatUrl;
+        const chatUrl = isProduction
+          ? `${baseUrl}${basePathPrefix}${inboxPath}?conversationId=${data.conversationId}`
+          : `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
+
+        console.log("Agent connection notification - URL:", chatUrl, "Role:", userRole, "CurrentPath:", currentPath, "InboxPath:", inboxPath, "ConversationId:", data.conversationId);
+
+        const showNotification = () => {
+          const notification = new Notification("New Agent Connection Request", {
+            body: "A visitor requested to connect to an agent. Click to open chat.",
+            icon: "/favicon.ico",
+            tag: `agent-connection-${data.conversationId}`,
+            requireInteraction: false,
+            data: { url: chatUrl, conversationId: data.conversationId },
+          });
+
+          notification.onclick = (event) => {
+            console.log("Notification clicked, navigating to:", chatUrl);
+            event.preventDefault();
+            notification.close();
+
+            if (window.focus) {
+              window.focus();
             }
-          } else {
-            setTimeout(() => {
-              window.location.href = chatUrl;
-            }, 100);
-          }
-        };
-      };
 
-      if ("Notification" in window && Notification.permission === "granted") {
-        showNotification();
-      } else if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission().then((permission) => {
-          if (permission === "granted") {
-            showNotification();
-          }
-        });
+            const pathNow = window.location.pathname;
+            const normalizePath = (path: string) => path.replace(/\/chataffy\/cahtaffy_fe/, "").replace(/\/$/, "");
+            const normalizedCurrent = normalizePath(pathNow);
+            const normalizedInbox = normalizePath(inboxPath);
+            const isOnInboxPage = normalizedCurrent === normalizedInbox;
+
+            if (isOnInboxPage) {
+              try {
+                const url = new URL(chatUrl);
+                window.history.pushState({}, "", url.pathname + url.search);
+                window.dispatchEvent(
+                  new CustomEvent("notification-navigate-to-conversation", {
+                    detail: { conversationId: data.conversationId },
+                  })
+                );
+              } catch (error) {
+                console.error("Error updating URL:", error);
+                window.location.href = chatUrl;
+              }
+            } else {
+              setTimeout(() => {
+                window.location.href = chatUrl;
+              }, 100);
+            }
+          };
+        };
+
+        if ("Notification" in window && Notification.permission === "granted") {
+          showNotification();
+        } else if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              showNotification();
+            }
+          });
+        }
       }
 
-      // Store notification data (you might want to add state for this)
-      // For now, we'll emit a custom event that the inbox component can listen to
-      window.dispatchEvent(new CustomEvent('agent-connection-notification', { detail: data }));
+      // Always forward so Inbox can show the accept/decline popup (e.g. after opening from notification).
+      window.dispatchEvent(new CustomEvent("agent-connection-notification", { detail: data }));
     };
 
     const handleAgentConnectionCancelled = (data: any) => {
@@ -478,8 +474,13 @@ export const useSocketManager = ({
       window.dispatchEvent(new CustomEvent('agent-connection-cancelled', { detail: data }));
     };
 
+    const handleAgentConnectionTimeout = (data: any) => {
+      window.dispatchEvent(new CustomEvent("agent-connection-timeout", { detail: data }));
+    };
+
     socket.on("agent-connection-notification", handleAgentConnectionNotification);
     socket.on("agent-connection-cancelled", handleAgentConnectionCancelled);
+    socket.on("agent-connection-timeout", handleAgentConnectionTimeout);
 
     return () => {
       socket.off("conversation-append-message", handleAppendMessage);
@@ -487,6 +488,7 @@ export const useSocketManager = ({
       socket.off("new-message-count", handleNewMessageCount);
       socket.off("agent-connection-notification", handleAgentConnectionNotification);
       socket.off("agent-connection-cancelled", handleAgentConnectionCancelled);
+      socket.off("agent-connection-timeout", handleAgentConnectionTimeout);
       socket.off("note-append-message", handleNoteAppendMessage);
       socket.off("ai-chat-status-update", handleAiChatStatusUpdate);
       socket.off("conversation-close-triggered", handleConversationClose);
