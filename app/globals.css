@@ -1922,6 +1922,23 @@ color: #C977E2;
     }
 }
 
+@keyframes queries-limit-zoom {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.08);
+    }
+}
+
+.animate-queries-at-limit {
+    animation: queries-limit-zoom 1.1s ease-in-out infinite;
+    transform-origin: center right;
+}
+
 .border-none {
     border: none;
 }

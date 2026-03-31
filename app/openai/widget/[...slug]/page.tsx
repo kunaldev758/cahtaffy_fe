@@ -7,6 +7,8 @@ import {
   MessageCircle,
   ThumbsUp,
   ThumbsDown,
+  Smile,
+  Frown,
   Minimize2,
   User,
   Clock,
@@ -1207,7 +1209,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
           {/* Chat Window */}
           {showWidget && (
-            <div className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-16' : 'h-[calc(100vh-250px)]'
+            <div className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-[76px]' : 'h-[calc(100vh-250px)]'
               }`}>
 
               {/* No Internet Banner */}
@@ -1255,7 +1257,9 @@ export default function EnhancedChatWidget({ params }: any) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setIsMinimized(!isMinimized);
+                        setShowEndSessionConfirm(false);
+                        setIsMinimized(false);
+                        setShowWidget(false);
                       }}
                       className="p-2 hover:bg-white/20 rounded-full transition-colors"
                     >
@@ -1328,80 +1332,42 @@ export default function EnhancedChatWidget({ params }: any) {
               {/* Body */}
               {!isMinimized && (
                 socketError ? (
-                  <div className="flex flex-col items-center justify-center flex-1 p-8">
-                    <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-800 mb-2">Connection Error</h3>
-                    <p className="text-gray-600 text-center text-sm">We couldn't connect to the chat service. Please try again later.</p>
+                  <div className="flex flex-col justify-center gap-4 flex-1 p-8">
+                    <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner bg-[#FEF2F2]">
+                      <AlertCircle className="w-10 h-10 text-[#EF4444]" />
+                    </div>
+
+                    <div className="flex flex-col justify-center text-center items-center gap-1">
+                      <h3 className="text-[16px] font-semibold text-[#111827]">Connection Error</h3>
+                      <p className="text-[#64748B] text-[13px] font-normal">We couldn't connect to the chat service. Please try again later.</p>
+                    </div>
                   </div>
                 ) : isBlocked ? (
-                  <div className="flex flex-col items-center justify-center flex-1 p-8">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                      <AlertCircle className="w-10 h-10 text-red-500" />
+                  <div className="flex flex-col justify-center gap-4 flex-1 p-8">
+                    <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner bg-[#FEF2F2]">
+                      <AlertCircle className="w-10 h-10 text-[#EF4444]" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-2">Access Blocked</h3>
-                    <p className="text-gray-600 text-center text-sm">You have been blocked from using this chat. If you believe this is a mistake, please contact support.</p>
+                    <div className="flex flex-col justify-center text-center items-center gap-1">
+                      <h3 className="text-[16px] font-semibold text-[#111827]">Access Blocked</h3>
+                      <p className="text-[#64748B] text-[13px] font-normal">You have been blocked from using this chat. If you believe this is a mistake, please contact support.</p>
+                    </div>
                   </div>
                 ) : isUnavailableMode ? (
                   <div className="flex flex-col flex-1 min-h-0">
-                    <div className="flex-1 p-6 overflow-y-auto">
-                      <div className="max-w-sm mx-auto">
-                        <div className="text-center mb-6">
-                          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <AlertCircle className="w-10 h-10 text-yellow-600" />
-                          </div>
-                          <h3 className="text-xl font-semibold text-gray-800 mb-2">We're Currently Unavailable</h3>
-                          <p className="text-gray-600 text-sm">Leave your email and we'll get back to you as soon as possible.</p>
+                    <div className="flex flex-col justify-center p-5 overflow-y-auto h-full">
+                      <div className="max-w-sm mx-auto rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-6">
+                        <div className="flex flex-col items-center text-center gap-5">
+                          <p className="text-[#111827] text-[16px] font-medium leading-8">
+                            We&apos;re currently unable to respond. Please try again later or contact us directly.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => window.location.reload()}
+                            className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                          >
+                            Try again
+                          </button>
                         </div>
-                        {unavailableSubmitted ? (
-                          <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
-                            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                            <p className="text-green-700 font-medium mb-1">Message Sent!</p>
-                            <p className="text-green-600 text-sm">We've received your details and will contact you soon.</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
-                              <input
-                                type="email"
-                                value={contactEmail}
-                                onChange={(e) => setContactEmail(e.target.value)}
-                                placeholder="you@example.com"
-                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${unavailableError ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                              />
-                              {unavailableError && (
-                                <p className="text-red-600 text-xs mt-2 flex items-center">
-                                  <AlertCircle className="w-3 h-3 mr-1" />
-                                  {unavailableError}
-                                </p>
-                              )}
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Message (Optional)</label>
-                              <textarea
-                                rows={4}
-                                value={contactNote}
-                                onChange={(e) => setContactNote(e.target.value)}
-                                placeholder="Tell us what you need help with..."
-                                className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors border-gray-300 resize-none"
-                              />
-                            </div>
-                            <button
-                              onClick={handleSubmitUnavailableContact}
-                              disabled={isSubmittingUnavailable}
-                              className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
-                            >
-                              {isSubmittingUnavailable ? (
-                                <div className="flex items-center justify-center space-x-2">
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                  <span>Sending...</span>
-                                </div>
-                              ) : (
-                                'Send Message'
-                              )}
-                            </button>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -1764,97 +1730,123 @@ export default function EnhancedChatWidget({ params }: any) {
                     {chatInputAvailable && !isConnectingToAgent && (
                       <div className={`bg-white ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
                         {conversationStatus === 'close' ? (
-                          <div className="flex-1 flex flex-col justify-center px-6 py-4">
+                          <div className="flex-1 flex flex-col p-5">
                             {feedbackSubmitted ? (
-                              <div className="text-center">
-                                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-                                  <CheckCircle className="w-10 h-10 text-green-600" />
-                                </div>
-                                <h3 className="text-lg font-semibold text-gray-800 mb-2">Your response has been submitted</h3>
-                                <p className="text-gray-600 text-sm mb-6 leading-relaxed">Thank you for your feedback! We appreciate your input.</p>
+                              <div className="flex flex-col h-full justify-center">
+                                <div className="flex flex-col justify-center gap-4">
+                                  <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner" style={{ backgroundColor: getThemeColor(4, '#EFF5FF') }}>
+                                    <CheckCircle className="w-10 h-10" style={{ color: getThemeColor(5, '#4686FE') }} />
+                                  </div>
 
-                                <button
-                                  onClick={handleStartNewChat}
-                                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
-                                >
-                                  Start New Chat
-                                </button>
+                                  <div className="flex flex-col justify-center text-center items-center gap-1">
+                                    <h3 className="text-[16px] font-semibold text-[#111827]">Your response has been submitted</h3>
+                                    <p className="text-[#64748B] text-[13px] font-normal">Thank you for your feedback! We appreciate your input.</p>
+                                  </div>
+
+                                  <button
+                                    onClick={handleStartNewChat}
+                                    className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                                  >
+                                    Start New Chat
+                                  </button>
+                                </div>
                               </div>
                             ) : (
-                              <div className="text-center">
-                                <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
-                                  <CheckCircle className="w-8 h-8 text-gray-500" />
+                              <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-2 w-4/5 mx-auto justify-center text-center">
+                                  <h3 className="text-[20px] font-bold text-[#111827]">Conversation Ended</h3>
+                                  <p className="text-[#64748B] text-[13px] font-normal">
+                                    Thank you for chatting with us! We hope we were able to help you.
+                                  </p>
                                 </div>
-                                <h3 className="text-lg font-semibold text-gray-800 mb-1">Conversation Ended</h3>
-                                <p className="text-gray-600 text-xs mb-5 leading-relaxed">Thank you for chatting with us! We hope we were able to help you.</p>
 
                                 {/* Feedback Section */}
-                                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                                  <p className="text-xs font-medium text-gray-700">How was your experience?</p>
-                                  <div className="flex justify-center space-x-2">
+                                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-4 flex flex-col gap-5">
+                                  <p className="text-[16px] font-medium text-[#111827] text-center">How was your experience?</p>
+
+                                  <div className="flex items-center justify-center gap-6">
+                                    {/* Good */}
                                     <button
+                                      type="button"
                                       onClick={() => handleFeedback(true)}
-                                      disabled={feedback === false || isSubmittingFeedback}
-                                      className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === true
-                                        ? 'bg-green-500 text-white shadow-lg scale-105'
-                                        : 'bg-white text-gray-700 hover:bg-green-500 hover:text-white hover:scale-105 border border-gray-200'
-                                        } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                                      disabled={isSubmittingFeedback}
+                                      className="w-[88px] h-[86px] rounded-[18px] border flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      style={{
+                                        borderColor: feedback === true ? '#4ADE80' : '#E2E8F0',
+                                        backgroundColor: feedback === true ? '#4ADE80' : '#FFFFFF',
+                                      }}
                                     >
-                                      <ThumbsUp className="w-5 h-5" />
-                                      <span className="text-xs font-medium">Good</span>
+                                      <Smile
+                                        className="w-5 h-5"
+                                        style={{ color: feedback === true ? '#FFFFFF' : '#94A3B8' }}
+                                      />
+                                      <span
+                                        className="text-[12px] font-semibold"
+                                        style={{ color: feedback === true ? '#FFFFFF' : '#64748B' }}
+                                      >
+                                        GOOD
+                                      </span>
                                     </button>
 
+                                    {/* Poor */}
                                     <button
+                                      type="button"
                                       onClick={() => handleFeedback(false)}
-                                      disabled={feedback === true || isSubmittingFeedback}
-                                      className={`flex flex-col items-center space-y-1 px-4 py-3 rounded-lg transition-all duration-200 ${feedback === false
-                                        ? 'bg-red-500 text-white shadow-lg scale-105'
-                                        : 'bg-white text-gray-700 hover:bg-red-500 hover:text-white hover:scale-105 border border-gray-200'
-                                        } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                                      disabled={isSubmittingFeedback}
+                                      className="w-[88px] h-[86px] rounded-[18px] border flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      style={{
+                                        borderColor: feedback === false ? '#F87171' : '#E2E8F0',
+                                        backgroundColor: feedback === false ? '#F87171' : '#FFFFFF',
+                                      }}
                                     >
-                                      <ThumbsDown className="w-5 h-5" />
-                                      <span className="text-xs font-medium">Poor</span>
+                                      <Frown
+                                        className="w-5 h-5"
+                                        style={{ color: feedback === false ? '#FFFFFF' : '#94A3B8' }}
+                                      />
+                                      <span
+                                        className="text-[12px] font-semibold"
+                                        style={{ color: feedback === false ? '#FFFFFF' : '#64748B' }}
+                                      >
+                                        POOR
+                                      </span>
                                     </button>
                                   </div>
 
-                                  {/* Comment Section */}
-                                  <div className="mt-3">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                      Share your feedback (Optional)
-                                    </label>
+                                  {/* Comment */}
+                                  <div>
                                     <textarea
                                       value={comment}
                                       onChange={(e) => setComment(e.target.value)}
-                                      placeholder="Tell us what you think about your experience..."
-                                      rows={2}
+                                      placeholder="Tell us more about your experience..."
+                                      rows={3}
                                       maxLength={500}
                                       disabled={isSubmittingFeedback}
-                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                      className="w-full px-4 py-3 text-[13px] border border-[#E2E8F0] rounded-[12px] focus:ring-0 focus:outline-none transition-colors resize-none bg-white disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-[#94A3B8] text-[#111827]"
                                     />
-                                    <div className="flex justify-between items-center mt-1">
-                                      <span className="text-xs text-gray-500">
+
+                                    <div className="flex justify-end mt-2">
+                                      <span className="text-[11px] text-[#94A3B8]">
                                         {comment.length}/500 characters
                                       </span>
                                     </div>
                                   </div>
 
                                   {/* Submit Button */}
-                                  {feedback !== null && (
-                                    <button
-                                      onClick={handleSubmitFeedback}
-                                      disabled={isSubmittingFeedback}
-                                      className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg disabled:transform-none mt-3"
-                                    >
-                                      {isSubmittingFeedback ? (
-                                        <div className="flex items-center justify-center space-x-2">
-                                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                          <span>Submitting...</span>
-                                        </div>
-                                      ) : (
-                                        'Submit Feedback'
-                                      )}
-                                    </button>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={handleSubmitFeedback}
+                                    disabled={feedback === null || isSubmittingFeedback}
+                                    className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                                  >
+                                    {isSubmittingFeedback ? (
+                                      <div className="flex items-center justify-center space-x-2">
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        <span className="text-[13px]">Submitting...</span>
+                                      </div>
+                                    ) : (
+                                      'Submit Feedback'
+                                    )}
+                                  </button>
                                 </div>
                               </div>
                             )}
@@ -1865,13 +1857,13 @@ export default function EnhancedChatWidget({ params }: any) {
                             {isRecording ? (
                               <div className="space-y-4">
                                 {/* Recording indicator */}
-                                <div className="bg-red-50 rounded-xl p-6 border border-red-100">
+                                <div className="bg-red-50 rounded-xl p-3 border border-red-100">
                                   <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center space-x-2">
                                       <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                                      <span className="text-sm font-semibold text-red-700">Recording</span>
+                                      <span className="text-[13px] font-semibold text-red-700">Recording</span>
                                     </div>
-                                    <span className="text-sm font-mono text-red-600 font-semibold">{formatRecordingTime(recordingTime)}</span>
+                                    <span className="text-[13px] font-mono text-red-600 font-semibold">{formatRecordingTime(recordingTime)}</span>
                                   </div>
 
                                   {/* Waveform animation */}
@@ -1898,7 +1890,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 <div className="flex items-center justify-center">
                                   <button
                                     onClick={handleRecordingCancel}
-                                    className="px-8 py-3 bg-white text-gray-700 font-medium rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-300 shadow-sm"
+                                    className="inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#0F172A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
                                   >
                                     Stop
                                   </button>
@@ -1907,24 +1899,24 @@ export default function EnhancedChatWidget({ params }: any) {
                             ) : isTranscribing ? (
                               /* Transcribing loader */
                               <div className="space-y-4">
-                                <div className="bg-blue-50 rounded-xl p-8 border border-blue-100">
+                                <div className="rounded-xl p-8" style={{ backgroundColor: getThemeColor(4, '#EFF5FF'), border: `1px solid ${getThemeColor(4, '#EFF5FF')}` }}>
                                   <div className="flex flex-col items-center justify-center space-y-4">
                                     {/* Animated dots loader */}
                                     <div className="flex space-x-2">
-                                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-                                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                      <div className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: getThemeColor(5, '#4686FE') }}></div>
+                                      <div className="w-3 h-3 rounded-full animate-bounce" style={{ animationDelay: '0.1s', backgroundColor: getThemeColor(5, '#4686FE') }}></div>
+                                      <div className="w-3 h-3  rounded-full animate-bounce" style={{ animationDelay: '0.2s', backgroundColor: getThemeColor(5, '#4686FE') }}></div>
                                     </div>
 
                                     {/* Transcribing text */}
                                     <div className="text-center">
-                                      <p className="text-sm font-semibold text-blue-700 mb-1">Transcribing...</p>
-                                      <p className="text-xs text-blue-600">Processing your voice message</p>
+                                      <p className="text-sm font-semibold mb-1" style={{ color: getThemeColor(5, '#4686FE') }}>Transcribing...</p>
+                                      <p className="text-xs" style={{ color: getThemeColor(5, '#64748B') }}>Processing your voice message</p>
                                     </div>
 
                                     {/* Animated progress bar */}
-                                    <div className="w-full max-w-xs h-1 bg-blue-200 rounded-full overflow-hidden">
-                                      <div className="h-full bg-blue-500 rounded-full animate-progress"></div>
+                                    <div className="w-full max-w-xs h-1 rounded-full overflow-hidden" style={{ backgroundColor: getThemeColor(4, '#EFF5FF'), border: `1px solid ${getThemeColor(5, '#EFF5FF')}` }}>
+                                      <div className="h-full rounded-full animate-progress" style={{ backgroundColor: getThemeColor(5, '#4686FE') }}></div>
                                     </div>
                                   </div>
                                 </div>
@@ -1933,16 +1925,13 @@ export default function EnhancedChatWidget({ params }: any) {
                               <>
                                 {/* Reply context bar */}
                                 {replyingTo && (
-                                  <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    borderLeft: '3px solid #3b82f6',
-                                    background: '#eff6ff',
-                                    borderRadius: '4px',
-                                    padding: '6px 10px',
-                                    marginBottom: '8px',
-                                    gap: '8px',
-                                  }}>
+                                  <div
+                                    className="rounded-[4px] px-3 py-2 min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)] mb-2"
+                                    style={{
+                                      backgroundColor: getThemeColor(4, '#f1f5f9'),
+                                    }}
+
+                                  >
                                     <button
                                       type="button"
                                       onClick={() => replyingTo._id && scrollWidgetToMessageId(replyingTo._id)}
@@ -1959,10 +1948,10 @@ export default function EnhancedChatWidget({ params }: any) {
                                         font: 'inherit',
                                       }}
                                     >
-                                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#1d4ed8', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                      <div style={{ fontSize: '10px', fontWeight: 700, color: getThemeColor(3, '#1d4ed8'), marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                         Replying to {replyingTo.senderName || 'Agent'}
                                       </div>
-                                      <div style={{ fontSize: '12px', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      <div style={{ fontSize: '12px', color: getThemeColor(3, '#374151'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {replyingTo.message?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '…'}
                                       </div>
                                     </button>
@@ -1977,7 +1966,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 )}
 
                                 {/* Normal Input area */}
-                                <div className="rounded-full border border-[#D8DEE8] bg-white px-3 py-2 min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                <div className="rounded-[25px] border border-[#D8DEE8] bg-white px-3 py-2 min-h-[52px] flex items-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                                   <textarea
                                     ref={textareaRef}
                                     placeholder="Message..."

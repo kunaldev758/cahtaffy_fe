@@ -199,6 +199,7 @@ export default function Dashboard2Page() {
   const maxStorage = plan?.limits?.maxStorage ?? 0
   const maxAgents = plan?.limits?.maxAgentsPerAccount ?? 1
   const maxQueries = plan?.limits?.maxQueries ?? 0
+  const queriesAtLimit = maxQueries > 0 && totalChatsInPlan >= maxQueries
   const currentDataSize = analytics?.currentDataSize ?? 0
   const storagePercent = maxStorage > 0 ? Math.min((currentDataSize / maxStorage) * 100, 100) : 0
   const agentPercent = maxAgents > 0 ? Math.min((totalHumanAgents / maxAgents) * 100, 100) : 0
@@ -344,7 +345,9 @@ export default function Dashboard2Page() {
                   <p className="text-[13px] font-bold text-[#111827]">Queries Handled</p>
                   <p className="text-[11px] leading-4 text-[#64748B]">Deducted from shared pool</p>
                 </div>
-                <span className="mt-0 text-right text-[16px] font-bold leading-5 text-[#111827]">
+                <span
+                  className={`mt-0 inline-block text-right text-[16px] font-bold leading-5 ${queriesAtLimit ? 'text-[#DC2626] animate-queries-at-limit' : 'text-[#111827]'}`}
+                >
                   {totalChatsInPlan}{maxQueries > 0 ? ` / ${maxQueries.toLocaleString()}` : ''}
                 </span>
               </div>
