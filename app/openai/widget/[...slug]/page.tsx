@@ -821,6 +821,10 @@ export default function EnhancedChatWidget({ params }: any) {
   };
 
   const handleSubmitVisitorDetails = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmittingForm(true);
 
     try {
