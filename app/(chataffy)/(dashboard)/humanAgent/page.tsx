@@ -238,6 +238,8 @@ export default function HumanAgentPage() {
       });
       if (response?.upgradeSuggested) {
         toast.error(response.message || 'Agent limit reached');
+      }else if (response?.message === 'User with this email already exists') {
+        toast.error(response.message);
       } else {
         toast.success('Human agent added successfully');
         setShowAddModal(false);

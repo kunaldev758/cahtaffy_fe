@@ -218,6 +218,19 @@ export default function Inbox(Props: any) {
     return true;
   }, [agent, client, conversationsList?.data, openConversationId]);
 
+  /**
+   * Client: ClientProfileMenu Accept Chats. Human agent: agent-inbox sidebar Status (Active/Inactive).
+   * When off/inactive, agent connection Accept/Decline are disabled.
+   */
+  const acceptChatsEnabled = useMemo(() => {
+    if (agent?.isClient === true) return agent.isActive !== false;
+    if (agent && agent.isClient !== true && agent.assignedAgents) {
+      return agent.isActive !== false;
+    }
+    if (client?.isClient === true) return client.isActive !== false;
+    return true;
+  }, [agent, client]);
+
   // Clear AI typing when conversation changes
   useEffect(() => {
     setIsAITyping(false);
@@ -730,6 +743,7 @@ export default function Inbox(Props: any) {
   };
 
   const handleOldConversationClick = async (conversationId: string, visitorName: string) => {
+    setOpenConversationId(conversationId);
     await openOldConversation(conversationId, visitorName);
   };
 
@@ -918,6 +932,7 @@ export default function Inbox(Props: any) {
                   visitorName={agentConnectionRequest.visitorName}
                   requestStartedAt={agentConnectionRequest.requestStartedAt}
                   socketRef={socketRef}
+                  acceptChatsEnabled={acceptChatsEnabled}
                   onAccept={() => {
                     if (typeof window !== "undefined" && agentConnectionRequest?.conversationId != null) {
                       sessionStorage.removeItem(
