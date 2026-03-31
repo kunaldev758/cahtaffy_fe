@@ -29,7 +29,7 @@ export default function TopHead({
   showNotificationBell = true,
 }: TopHeadProps) {
   return (
-    <header className="flex flex-col gap-5 border-b border-[#F1F5F9] bg-[#F9F9F9] pr-[20px] py-[20px] lg:flex-row lg:items-center lg:justify-between">
+    <header className="flex flex-col gap-5 bg-[#F9F9F9] pr-[20px] py-[20px] lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-[14px]">
           <h1 className="text-[24px] font-bold leading-5 text-[#111827]">{title}</h1>
