@@ -11,6 +11,8 @@ interface AgentConnectionRequestProps {
   socketRef: React.RefObject<Socket | null>;
   onAccept: () => void;
   onDecline: () => void;
+  /** When the 20s window ends locally (or was already expired); hide UI without emitting decline. */
+  onExpired?: () => void;
   /** When false (e.g. Accept Chats off in client profile), Accept and Decline are disabled. */
   acceptChatsEnabled?: boolean;
 }
@@ -30,10 +32,13 @@ export default function AgentConnectionRequest({
   socketRef,
   onAccept,
   onDecline,
+  onExpired,
   acceptChatsEnabled = true,
 }: AgentConnectionRequestProps) {
   const [countdown, setCountdown] = useState(() => initialSecondsLeft(requestStartedAt));
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const onExpiredRef = useRef(onExpired);
+  onExpiredRef.current = onExpired;
 
   useEffect(() => {
     const start = initialSecondsLeft(requestStartedAt);
@@ -60,9 +65,14 @@ export default function AgentConnectionRequest({
     };
   }, [conversationId, requestStartedAt]);
 
+  // Hide when the local timer reaches 0 (server also emits agent-connection-timeout to conversation room).
+  useEffect(() => {
+    if (countdown !== 0) return;
+    onExpiredRef.current?.();
+  }, [countdown]);
+
   // Do not auto-call onDecline when countdown hits 0 — that must only run when the user
   // clicks Decline (so sessionStorage "dismissed" is not set without a real click).
-  // The server emits agent-connection-timeout when the window ends; inbox clears the popup then.
 
   const handleAccept = () => {
     if (!acceptChatsEnabled) return;

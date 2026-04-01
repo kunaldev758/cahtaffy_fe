@@ -478,9 +478,15 @@ export const useSocketManager = ({
       window.dispatchEvent(new CustomEvent("agent-connection-timeout", { detail: data }));
     };
 
+    /** When any agent accepts, visitor + all sockets in conversation room get this — inbox must hide the popup for other agents too. */
+    const handleAgentConnectionAccepted = (data: any) => {
+      window.dispatchEvent(new CustomEvent("agent-connection-accepted", { detail: data }));
+    };
+
     socket.on("agent-connection-notification", handleAgentConnectionNotification);
     socket.on("agent-connection-cancelled", handleAgentConnectionCancelled);
     socket.on("agent-connection-timeout", handleAgentConnectionTimeout);
+    socket.on("agent-connection-accepted", handleAgentConnectionAccepted);
 
     return () => {
       socket.off("conversation-append-message", handleAppendMessage);
@@ -489,6 +495,7 @@ export const useSocketManager = ({
       socket.off("agent-connection-notification", handleAgentConnectionNotification);
       socket.off("agent-connection-cancelled", handleAgentConnectionCancelled);
       socket.off("agent-connection-timeout", handleAgentConnectionTimeout);
+      socket.off("agent-connection-accepted", handleAgentConnectionAccepted);
       socket.off("note-append-message", handleNoteAppendMessage);
       socket.off("ai-chat-status-update", handleAiChatStatusUpdate);
       socket.off("conversation-close-triggered", handleConversationClose);
