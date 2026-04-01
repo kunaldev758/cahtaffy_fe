@@ -736,10 +736,6 @@ export default function Inbox(Props: any) {
     setRating(value);
   };
 
-  const handleHandledByChange = (value: string) => {
-    setHandledBy(value);
-  };
-
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSortBy(e.target.value);
   };
@@ -910,14 +906,12 @@ export default function Inbox(Props: any) {
         searchText={searchText}
         status={status}
         rating={rating}
-        handledBy={handledBy}
         sortBy={sortBy}
         onConversationClick={handleConversationClick}
         onSearchInputChange={handleSearchInputChange}
         onSearchInputClick={handleSearchInputClick}
         onStatusChange={handleStatusChange}
         onRatingChange={handleRatingChange}
-        onHandledByChange={handleHandledByChange}
         onSortChange={handleSortChange}
       />
 
