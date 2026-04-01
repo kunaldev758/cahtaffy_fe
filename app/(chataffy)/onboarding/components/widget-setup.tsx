@@ -4,9 +4,6 @@ import React, { useEffect, useState, useReducer, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import PhoneInput from 'react-phone-number-input'
-import type { Value } from 'react-phone-number-input'
-import 'react-phone-number-input/style.css'
 import { toast } from 'react-toastify'
 import {
   getThemeSettings,
@@ -15,7 +12,6 @@ import {
   getAgentSettingsApi,
   updateAgentSettingsApi,
 } from '@/app/_api/dashboard/action'
-import { isValidPhoneNumber } from 'libphonenumber-js'
 import Image from 'next/image'
 import { publicAsset } from '@/lib/publicAsset'
 
@@ -440,14 +436,6 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
         if (!String(value).trim()) return 'Agent name is required'
         if (String(value).trim().length < 2) return 'Must be at least 2 characters'
         return ''
-      case 'email':
-        if (!String(value).trim()) return 'Email is required'
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Please enter a valid email address'
-        return ''
-      case 'phone':
-        if (!String(value).trim()) return 'Phone number is required'
-        try { if (!isValidPhoneNumber(String(value))) return 'Please enter a valid phone number' } catch { return 'Please enter a valid phone number' }
-        return ''
       case 'fallbackMessage':
         if (!String(value).trim()) return 'Fallback message is required'
         if (String(value).trim().length < 10) return 'Must be at least 10 characters'
@@ -464,7 +452,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
   }
 
   const handleSave = async () => {
-    const fieldsToValidate = ['agentName', 'email', 'phone', 'fallbackMessage'] as const
+    const fieldsToValidate = ['agentName', 'fallbackMessage'] as const
     const newErrors: Record<string, string> = {}
     fieldsToValidate.forEach(f => {
       const err = validateAgentField(f, agentData[f])
@@ -613,30 +601,6 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                   onChange={e => dispatchWidget({ type: 'SET', field: 'welcomeMessage', value: e.target.value })}
                   className="w-full resize-none rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] py-3 text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] focus:border-[#4686FE]"
                   placeholder="Enter greeting message" />
-              </div>
-
-              {/* Email + Phone */}
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Agent Email <span className="text-red-500">*</span></label>
-                  <div className={`h-[40px] w-full rounded-[8px] border bg-white px-[14px] flex items-center gap-2 ${fieldErrors.email ? 'border-red-400' : 'border-[#E2E8F0]'}`}>
-                    <span className="material-symbols-outlined !text-[18px] text-[#94A3B8]">alternate_email</span>
-                    <input type="email" value={agentData.email}
-                      onChange={e => setAgent('email', e.target.value)}
-                      onBlur={() => handleAgentBlur('email')}
-                      className="w-full text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8]"
-                      placeholder="contact@yourcompany.com" />
-                  </div>
-                  {fieldErrors.email && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.email}</p>}
-                </div>
-                <div className="country-select-container">
-                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Phone Number <span className="text-red-500">*</span></label>
-                  <PhoneInput international defaultCountry="US"
-                    value={agentData.phone as Value}
-                    onChange={v => setAgent('phone', v ?? '')}
-                    className={`h-[40px] w-full rounded-[8px] border bg-white px-[14px] flex items-center gap-2 ${fieldErrors.phone ? 'border-red-400' : 'border-[#E2E8F0]'}`} />
-                  {fieldErrors.phone && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.phone}</p>}
-                </div>
               </div>
 
               {/* Fallback Message */}

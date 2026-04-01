@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSocket } from "../../../../../socketContext"
 import { toast } from 'react-toastify'
 import { continueScrapping, deleteTrainingDataApi, retrainTrainingDataApi } from '@/app/_api/dashboard/action'
@@ -130,6 +130,7 @@ export default function EnhancedTrainingPage() {
   // Data states
   const [clientData, setClientData] = useState<ClientData | null>(null)
   const [agentData, setAgentData] = useState<AgentData | null>(null)
+  const agentDataRef = useRef<AgentData | null>(null)
   const [agentId, setAgentId] = useState<string | null>(null)
   const [trainingList, setTrainingList] = useState<{
     data: TrainingItem[]
@@ -324,10 +325,10 @@ export default function EnhancedTrainingPage() {
 
   // ── Socket ────────────────────────────────────────────────────────────────────
 
-  const setupSocketListeners = () => {
+  useEffect(() => {
     if (!socket) return
 
-    socket.on('client-connect-response', () => {
+    const onClientConnectResponse = () => {
       socket.emit('get-agent-data')
       socket.emit('get-client-data')
       socket.emit('get-training-list', {
@@ -336,12 +337,16 @@ export default function EnhancedTrainingPage() {
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter,
       })
-    })
+    }
 
-    socket.on('get-agent-data-response', ({ agentData: data }: any) => setAgentData(data))
-    socket.on('get-client-data-response', ({ clientData: data }: any) => setClientData(data))
+    const onGetAgentDataResponse = ({ agentData: data }: any) => {
+      setAgentData(data)
+      agentDataRef.current = data ?? null
+    }
 
-    socket.on('get-training-list-response', ({ data }: any) => {
+    const onGetClientDataResponse = ({ clientData: data }: any) => setClientData(data)
+
+    const onGetTrainingListResponse = ({ data }: any) => {
       console.log(data, 'get-training-list-response data')
       const transformedData: TrainingItem[] = data?.data?.entries?.map((item: any) => ({
         _id: item._id,
@@ -360,11 +365,9 @@ export default function EnhancedTrainingPage() {
       const totalPages = Math.ceil(totalCount / pageSize)
 
       setTrainingList({ data: transformedData, loading: false, totalCount, currentPage, totalPages })
-    })
+    }
 
-    // socket.on('show-continue-scrapping-button', () => setShowContinueScrapping(true))
-
-    socket.on('training-event', ({ client, agent, message, scrapingProgress: progress }: any) => {
+    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress }: any) => {
       if (progress) {
         setScrapingProgress(progress)
         if (!progress.isProcessing && progress.percentage === 100 && !progress.error && !progress.stoppedReason) {
@@ -375,22 +378,26 @@ export default function EnhancedTrainingPage() {
       }
 
       if (agent) {
+        const prev = agentDataRef.current
+        const prevStatus = prev?.dataTrainingStatus
+
         if (
           agent.dataTrainingStatus === 1 &&
-          agentData?.dataTrainingStatus !== 1 &&
-          agentData?.dataTrainingStatus !== null &&
+          prevStatus !== 1 &&
+          prevStatus != null &&
           progress == undefined
         ) {
           toast.info('Training started...')
         } else if (
           agent.dataTrainingStatus === 0 &&
-          agentData?.dataTrainingStatus !== 0 &&
-          agentData?.dataTrainingStatus !== null
+          prevStatus !== 0 &&
+          prevStatus != null
         ) {
           setScrapingProgress(null)
           if (message) { toast.error(message) } else { toast.success('Training completed successfully!') }
         }
         setAgentData(agent)
+        agentDataRef.current = agent
       }
 
       if (client) { setClientData(client) }
@@ -402,13 +409,28 @@ export default function EnhancedTrainingPage() {
         sourcetype: sourceTypeFilter,
         actionType: actionTypeFilter,
       })
-    })
+    }
+
+    socket.on('client-connect-response', onClientConnectResponse)
+    socket.on('get-agent-data-response', onGetAgentDataResponse)
+    socket.on('get-client-data-response', onGetClientDataResponse)
+    socket.on('get-training-list-response', onGetTrainingListResponse)
+    socket.on('training-event', onTrainingEvent)
 
     socket.emit('client-connect')
-    // socket.emit('continue-scrapping-button')
-  }
 
-  useEffect(() => { setupSocketListeners() }, [socket])
+    return () => {
+      socket.off('client-connect-response', onClientConnectResponse)
+      socket.off('get-agent-data-response', onGetAgentDataResponse)
+      socket.off('get-client-data-response', onGetClientDataResponse)
+      socket.off('get-training-list-response', onGetTrainingListResponse)
+      socket.off('training-event', onTrainingEvent)
+    }
+  }, [socket])
+
+  useEffect(() => {
+    agentDataRef.current = agentData
+  }, [agentData])
 
   useEffect(() => {
     if (socket) {

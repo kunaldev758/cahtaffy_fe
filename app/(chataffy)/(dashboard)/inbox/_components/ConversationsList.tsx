@@ -22,14 +22,12 @@ interface ConversationsListProps {
   searchText: string;
   status: string;
   rating: string;
-  handledBy: string;
   sortBy: string;
   onConversationClick: (conversation: Conversation, visitorName: string, index: number) => void;
   onSearchInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSearchInputClick: () => void;
   onStatusChange: (status: string) => void;
   onRatingChange: (rating: string) => void;
-  onHandledByChange: (handledBy: string) => void;
   onSortChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
@@ -58,14 +56,12 @@ export default function ConversationsList({
   searchText,
   status,
   rating,
-  handledBy,
   sortBy,
   onConversationClick,
   onSearchInputChange,
   onSearchInputClick,
   onStatusChange,
   onRatingChange,
-  onHandledByChange,
   onSortChange,
 }: ConversationsListProps) {
   const [showSearch, setShowSearch] = useState(false);
@@ -105,8 +101,7 @@ export default function ConversationsList({
     ? sortConversations(searchConversationsList.data)
     : sortConversations(conversationsList.data);
 
-  const hasActiveFilters =
-    status !== "open" || rating !== "all" || handledBy !== "both";
+  const hasActiveFilters = status !== "open" || rating !== "all";
 
   const FilterPill = ({
     label,
@@ -251,25 +246,6 @@ export default function ConversationsList({
                   label="Bad"
                   active={rating === "bad"}
                   onClick={() => onRatingChange("bad")}
-                />
-              </div>
-            </div>
-
-            {/* HANDLE BY */}
-            <div>
-              <p className="text-xs font-bold text-[#64748B] uppercase tracking-wide mb-2">
-                HANDLE BY
-              </p>
-              <div className="flex gap-2 flex-wrap">
-                <FilterPill
-                  label="Both"
-                  active={handledBy === "both"}
-                  onClick={() => onHandledByChange("both")}
-                />
-                <FilterPill
-                  label="AI"
-                  active={handledBy === "ai"}
-                  onClick={() => onHandledByChange("ai")}
                 />
               </div>
             </div>

@@ -1,6 +1,6 @@
 // components/Inbox.tsx (Main refactored component)
 "use client";
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { getConversationMessages, getOldConversationMessages, getClientData } from "@/app/_api/dashboard/action";
 import { useSocketManager } from "./hooks/useSocketManager";
@@ -286,15 +286,30 @@ export default function Inbox(Props: any) {
       }
     };
 
+    /** Another agent (or client-agent) accepted — hide this inbox popup too. */
+    const handleAgentConnectionAccepted = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
+      if (sameConversation(data?.conversationId, openConversationIdRef.current)) {
+        setAgentConnectionRequest(null);
+      }
+    };
+
     window.addEventListener("agent-connection-notification", handleAgentConnectionNotification);
     window.addEventListener("agent-connection-cancelled", handleAgentConnectionCancelled);
     window.addEventListener("agent-connection-timeout", handleAgentConnectionTimeout);
+    window.addEventListener("agent-connection-accepted", handleAgentConnectionAccepted);
 
     return () => {
       window.removeEventListener("agent-connection-notification", handleAgentConnectionNotification);
       window.removeEventListener("agent-connection-cancelled", handleAgentConnectionCancelled);
       window.removeEventListener("agent-connection-timeout", handleAgentConnectionTimeout);
+      window.removeEventListener("agent-connection-accepted", handleAgentConnectionAccepted);
     };
+  }, []);
+
+  const dismissAgentConnectionPopup = useCallback(() => {
+    setAgentConnectionRequest(null);
   }, []);
 
   // Reset all conversation state when the active agent changes
@@ -721,10 +736,6 @@ export default function Inbox(Props: any) {
     setRating(value);
   };
 
-  const handleHandledByChange = (value: string) => {
-    setHandledBy(value);
-  };
-
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSortBy(e.target.value);
   };
@@ -895,14 +906,12 @@ export default function Inbox(Props: any) {
         searchText={searchText}
         status={status}
         rating={rating}
-        handledBy={handledBy}
         sortBy={sortBy}
         onConversationClick={handleConversationClick}
         onSearchInputChange={handleSearchInputChange}
         onSearchInputClick={handleSearchInputClick}
         onStatusChange={handleStatusChange}
         onRatingChange={handleRatingChange}
-        onHandledByChange={handleHandledByChange}
         onSortChange={handleSortChange}
       />
 
@@ -933,6 +942,7 @@ export default function Inbox(Props: any) {
                   requestStartedAt={agentConnectionRequest.requestStartedAt}
                   socketRef={socketRef}
                   acceptChatsEnabled={acceptChatsEnabled}
+                  onExpired={dismissAgentConnectionPopup}
                   onAccept={() => {
                     if (typeof window !== "undefined" && agentConnectionRequest?.conversationId != null) {
                       sessionStorage.removeItem(
