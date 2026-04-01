@@ -444,7 +444,7 @@ export default function EnhancedTrainingPage() {
         trainingStatus={agentData?.dataTrainingStatus}
         showDatePicker={false}
       />
-      <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6">
+      <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6 h-[calc(100%-89px)]">
 
         {/* ── Alerts ── */}
         {/* {clientData?.upgradePlanStatus?.storageLimitExceeded && (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, User, Mail, Pencil, Trash, Plus, Search, UserX, Clock, UserPlus, ChevronDown } from "lucide-react";
+import { X, User, Mail, Pencil, Trash, Plus, Search, UserX, Clock, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from 'react-toastify'
 import { useSocket } from '@/app/socketContext'
 import 'react-toastify/dist/ReactToastify.css'
@@ -14,6 +14,23 @@ import {
   updateAgentStatus
 } from '@/app/_api/dashboard/action'
 import React from 'react';
+import TopHead from '../_components/TopHead'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+
+const checkboxUiClass =
+  'h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none ' +
+  'data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white ' +
+  'data-[state=indeterminate]:border-[#4686FE] data-[state=indeterminate]:bg-[#4686FE] data-[state=indeterminate]:text-white ' +
+  '[&_svg]:h-[14px] [&_svg]:w-[14px]'
+
+const headerCheckboxUiClass =
+  `${checkboxUiClass} data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]`
 
 // Define types locally
 export interface HumanAgentType {
@@ -101,6 +118,10 @@ export default function HumanAgentPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved'>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addWebsitePopoverOpen, setAddWebsitePopoverOpen] = useState(false);
+  const [editWebsitePopoverOpen, setEditWebsitePopoverOpen] = useState(false);
+  const [addWebsiteSearch, setAddWebsiteSearch] = useState('');
+  const [editWebsiteSearch, setEditWebsiteSearch] = useState('');
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<CreateHumanAgentData>({
     name: '',
@@ -110,7 +131,6 @@ export default function HumanAgentPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const headerSelectAllRef = useRef<HTMLInputElement>(null);
 
   // Fetch human agents
   const fetchAgents = async () => {
@@ -162,10 +182,10 @@ export default function HumanAgentPage() {
         prevAgents.map((agent) =>
           String(agent._id) === String(uid)
             ? {
-                ...agent,
-                isActive: updatedAgent.isActive,
-                ...(last !== undefined ? { lastActive: last } : {}),
-              }
+              ...agent,
+              isActive: updatedAgent.isActive,
+              ...(last !== undefined ? { lastActive: last } : {}),
+            }
             : agent
         )
       );
@@ -238,7 +258,7 @@ export default function HumanAgentPage() {
       });
       if (response?.upgradeSuggested) {
         toast.error(response.message || 'Agent limit reached');
-      }else if (response?.message === 'User with this email already exists') {
+      } else if (response?.message === 'User with this email already exists') {
         toast.error(response.message);
       } else {
         toast.success('Human agent added successfully');
@@ -328,6 +348,10 @@ export default function HumanAgentPage() {
   const resetModals = () => {
     setShowAddModal(false);
     setShowEditModal(false);
+    setAddWebsitePopoverOpen(false);
+    setEditWebsitePopoverOpen(false);
+    setAddWebsiteSearch('');
+    setEditWebsiteSearch('');
     setSelectedAgent(null);
     setFormData({ name: '', email: '', assignedAgents: [] });
     setFormErrors({});
@@ -349,14 +373,11 @@ export default function HumanAgentPage() {
     setSelectedRowIds((prev) => prev.filter((id) => allowedIds.includes(id)));
   }, [agents]);
 
-  useEffect(() => {
-    const el = headerSelectAllRef.current;
-    if (!el) return;
-    const some = selectedRowIds.some((id) => selectableFilteredIds.includes(id));
-    const all =
-      selectableFilteredIds.length > 0 && selectableFilteredIds.every((id) => selectedRowIds.includes(id));
-    el.indeterminate = some && !all;
-  }, [selectedRowIds, selectableFilteredIds]);
+  const allSelectableRowsSelected =
+    selectableFilteredIds.length > 0 && selectableFilteredIds.every((id) => selectedRowIds.includes(id));
+
+  const hasPartialSelection =
+    selectedRowIds.some((id) => selectableFilteredIds.includes(id)) && !allSelectableRowsSelected;
 
   const toggleRowSelected = (agent: HumanAgentType) => {
     if (agent.isClient) return;
@@ -364,10 +385,8 @@ export default function HumanAgentPage() {
     setSelectedRowIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const toggleSelectAllFiltered = () => {
-    const allSelected =
-      selectableFilteredIds.length > 0 && selectableFilteredIds.every((id) => selectedRowIds.includes(id));
-    if (allSelected) {
+  const toggleSelectAllFiltered = (shouldSelect: boolean) => {
+    if (!shouldSelect) {
       setSelectedRowIds((prev) => prev.filter((id) => !selectableFilteredIds.includes(id)));
     } else {
       setSelectedRowIds((prev) => {
@@ -447,6 +466,18 @@ export default function HumanAgentPage() {
     return ai?.agentName || ai?.website_name || agentId;
   };
 
+  const filteredAddWebsiteOptions = aiAgents.filter((ai) =>
+    (ai.agentName || ai.website_name || String(ai._id ?? ''))
+      .toLowerCase()
+      .includes(addWebsiteSearch.toLowerCase())
+  );
+
+  const filteredEditWebsiteOptions = aiAgents.filter((ai) =>
+    (ai.agentName || ai.website_name || String(ai._id ?? ''))
+      .toLowerCase()
+      .includes(editWebsiteSearch.toLowerCase())
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-white">
@@ -463,247 +494,267 @@ export default function HumanAgentPage() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen w-full bg-[#F8F9FA]">
-        <div className="p-6 md:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-1 sm:max-w-2xl">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={2} />
+        <TopHead
+          title="Human Agent"
+          subtitle="Manage team members, permissions, and website assignments."
+          showDatePicker={false}
+          showWebsiteSelect={false}
+          showNotificationBell={false}
+          showStatusBadge={false}
+        />
+
+        <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6 h-[calc(100%-89px)]">
+          <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col gap-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto">
+                <div className="flex h-10 w-full items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 md:w-64">
+                  <Search className="h-4 w-4 shrink-0 text-[#94A3B8]" />
                   <input
                     type="text"
-                    placeholder="Search team members"
+                    placeholder="Search Pages"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-full bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-shadow"
+                    className="w-full bg-transparent text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8]"
                   />
                 </div>
-                <div className="relative shrink-0">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'approved')}
-                    className="appearance-none pl-4 pr-10 py-2.5 text-sm border border-slate-200 rounded-full bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer min-w-[140px]"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="approved">Approved</option>
-                    <option value="pending">Pending</option>
-                  </select>
-                  <ChevronDown
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                    size={18}
-                    strokeWidth={2}
-                  />
-                </div>
+
+                <Select
+                  value={filterStatus}
+                  onValueChange={(v) => setFilterStatus(v as 'all' | 'pending' | 'approved')}
+                >
+                  <SelectTrigger className="h-10 w-32 border-[#E2E8F0] text-[13px] shadow-none rounded-lg">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium text-white bg-[#1A1C1E] hover:bg-[#0d0e10] transition-colors shadow-sm shrink-0"
-              >
-                <UserPlus size={18} strokeWidth={2} />
-                Add New Team Member
-              </button>
+
+              <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(true)}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#111827] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1f2937]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add New Team Member
+                </button>
+              </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px]">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="w-12 py-4 pl-5 pr-2">
-                        <input
-                          ref={headerSelectAllRef}
-                          type="checkbox"
-                          checked={
-                            selectableFilteredIds.length > 0 &&
-                            selectableFilteredIds.every((id) => selectedRowIds.includes(id))
-                          }
-                          onChange={toggleSelectAllFiltered}
-                          className="h-4 w-4 rounded-full border-slate-300 text-[#1A1C1E] focus:ring-slate-900/20"
-                        />
-                      </th>
-                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                        Team
-                      </th>
-                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                        Role
-                      </th>
-                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                        Status
-                      </th>
-                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                        Activity
-                      </th>
-                      <th className="text-left py-4 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                        Assign website
-                      </th>
-                      <th className="text-right py-4 pr-5 pl-3 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredAgents.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-16">
-                          <div className="flex flex-col items-center gap-3">
-                            <UserX size={44} className="text-slate-200" strokeWidth={1.5} />
-                            <p className="text-slate-600 font-medium">No team members found</p>
-                            <p className="text-slate-400 text-sm">Invite agents or adjust your filters</p>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredAgents.map((agent: HumanAgentType) => {
-                        const rowId = String(agent._id);
-                        const statusUi = getAccountStatusPresentation(agent);
-                        const avatarUrl = resolveHumanAgentAvatarUrl(agent.avatar);
-                        const isClientRow = Boolean(agent.isClient);
-                        return (
-                          <tr key={rowId} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-4 pl-5 pr-2 align-middle">
-                              <input
-                                type="checkbox"
-                                disabled={isClientRow}
-                                checked={!isClientRow && selectedRowIds.includes(rowId)}
-                                onChange={() => toggleRowSelected(agent)}
-                                className="h-4 w-4 rounded-full border-slate-300 text-[#1A1C1E] focus:ring-slate-900/20 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="py-4 px-3 align-middle">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-100 flex items-center justify-center">
-                                  {avatarUrl ? (
-                                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                                  ) : (
-                                    <User className="h-5 w-5 text-slate-400" strokeWidth={1.75} />
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-slate-900 truncate">{agent.name}</p>
-                                  <p className="text-sm text-slate-500 truncate">{agent.email}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-4 px-3 align-middle">
-                              <span
-                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                  isClientRow
-                                    ? 'bg-[#EBF5FF] text-[#3B82F6]'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {isClientRow ? 'Admin' : 'Agent'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-3 align-middle">
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusUi.className}`}
-                              >
-                                {statusUi.icon === 'clock' ? (
-                                  <Clock size={12} strokeWidth={2} className="shrink-0" />
-                                ) : (
-                                  <span
-                                    className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                      statusUi.dotActive ? 'bg-emerald-500' : 'bg-slate-400'
-                                    }`}
-                                  />
-                                )}
-                                {statusUi.label}
-                              </span>
-                            </td>
-                            <td className="py-4 px-3 align-middle">
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={agent.isActive}
-                                onClick={() => handleStatusToggle(rowId, agent.isActive)}
-                                className={`relative inline-flex h-7 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400 ${
-                                  agent.isActive ? 'bg-emerald-500' : 'bg-slate-200'
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                                    agent.isActive ? 'translate-x-5' : 'translate-x-1'
-                                  }`}
-                                />
-                              </button>
-                            </td>
-                            <td className="py-4 px-3 align-middle max-w-[220px]">
+            <div className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white">
+              <Table className="w-full min-w-[900px]">
+                <TableHeader>
+                  <TableRow className="h-[44px] border-b border-[#F1F5F9] bg-[#F8FAFC] hover:bg-[#F8FAFC]">
+                    <TableHead className="w-[60px] !px-[20px] text-left">
+                      <Checkbox
+                        className={headerCheckboxUiClass}
+                        checked={allSelectableRowsSelected ? true : hasPartialSelection ? 'indeterminate' : false}
+                        onCheckedChange={(checked) => toggleSelectAllFiltered(Boolean(checked))}
+                      />
+                    </TableHead>
+                    <TableHead className="!pl-0 !pr-[20px] text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">
+                      Team
+                    </TableHead>
+                    <TableHead className="w-[130px] px-[20px] text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">
+                      Role
+                    </TableHead>
+                    <TableHead className="w-[130px] px-[20px] text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">
+                      Status
+                    </TableHead>
+                    <TableHead className="w-[130px] px-[20px] text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">
+                      Activity
+                    </TableHead>
+                    <TableHead className="px-[20px] text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">
+                      Assign website
+                    </TableHead>
+                    <TableHead className="w-[108px] px-[20px] text-right text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">
+                      Action
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100">
+                  {filteredAgents.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-16">
+                        <div className="flex flex-col items-center gap-3 py-[50px]">
+                          <span className="material-symbols-outlined text-[#64748B] !text-[60px]">
+                            person_cancel
+                          </span>
+                          <p className="text-[#111827] font-bold text-[24px]">No Team Member Found</p>
+                          <p className="text-[#64748B] text-[14px]">Invite agents or adjust your filters</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredAgents.map((agent: HumanAgentType) => {
+                      const rowId = String(agent._id);
+                      const statusUi = getAccountStatusPresentation(agent);
+                      const avatarUrl = resolveHumanAgentAvatarUrl(agent.avatar);
+                      const isClientRow = Boolean(agent.isClient);
+                      return (
+                        <TableRow key={rowId} className="min-h-[50px] transition-colors hover:bg-[#F8FAFC]">
+                            <TableCell className="w-[60px] !px-[20px] text-left">
                               {isClientRow ? (
-                                <span className="text-slate-300 select-none">&nbsp;</span>
+                                <span className="inline-block h-[20px] w-[20px]" aria-hidden />
                               ) : (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {agent.assignedAgents?.length ? (
-                                    agent.assignedAgents.map((aid) => {
-                                      const aidStr = typeof aid === 'string' ? aid : String((aid as any)?.toString?.() ?? aid);
-                                      return (
-                                        <span
-                                          key={aidStr}
-                                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 pl-2 pr-1 py-0.5 text-xs text-slate-600"
-                                        >
-                                          <span className="truncate max-w-[120px]">{getAgentName(aidStr)}</span>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRemoveAssignedWebsite(agent, aidStr)}
-                                            className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                                            aria-label="Remove website"
-                                          >
-                                            <X size={12} strokeWidth={2} />
-                                          </button>
-                                        </span>
-                                      );
-                                    })
-                                  ) : (
-                                    <span className="text-slate-400 text-xs">—</span>
-                                  )}
-                                </div>
+                                <Checkbox
+                                  className={checkboxUiClass}
+                                  checked={selectedRowIds.includes(rowId)}
+                                  onCheckedChange={() => toggleRowSelected(agent)}
+                                />
                               )}
-                            </td>
-                            <td className="py-4 pr-5 pl-3 align-middle">
-                              <div className="flex items-center justify-end gap-0.5">
-                                <button
-                                  type="button"
-                                  disabled={isClientRow}
-                                  onClick={() => openEditModal(agent)}
-                                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-35 disabled:pointer-events-none transition-colors"
-                                  title="Edit"
-                                >
-                                  <Pencil size={18} strokeWidth={1.75} />
-                                </button>
-                                {isClientRow ? (
-                                  <span className="inline-flex w-[42px]" aria-hidden />
+                            </TableCell>
+                          <TableCell className="px-[20px] !pl-0 !pr-[20px] py-[10px]">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-100 flex items-center justify-center">
+                                {avatarUrl ? (
+                                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
                                 ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirmDeleteId(agent._id)}
-                                    className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                    title="Delete"
-                                  >
-                                    <Trash size={18} strokeWidth={1.75} />
-                                  </button>
+                                  <User className="h-5 w-5 text-slate-400" strokeWidth={1.75} />
                                 )}
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-900 truncate">{agent.name}</p>
+                                <p className="text-sm text-slate-500 truncate">{agent.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-[130px] px-[20px] py-[10px]">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium border ${isClientRow
+                                ? 'bg-[#EFF5FF] text-[#4686FE] border-[#4686FE]'
+                                : 'bg-[#F8FAFC] text-[#64748B] border-[#64748B]'
+                                }`}
+                            >
+                              {isClientRow ? 'Admin' : 'Agent'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-[130px] px-[20px] py-[10px]">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-medium h-[26px] min-h-[26px] ${statusUi.className}`}
+                            >
+                              {statusUi.icon === 'clock' ? (
+                                <Clock size={12} strokeWidth={2} className="shrink-0" />
+                              ) : (
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusUi.dotActive ? 'bg-emerald-500' : 'bg-slate-400'
+                                    }`}
+                                />
+                              )}
+                              {statusUi.label}
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-[130px] px-[20px] py-[10px]">
+                            <label className="toggle">
+                              <input
+                                className="toggle-checkbox"
+                                type="checkbox"
+                                checked={agent.isActive}
+                                onChange={() => handleStatusToggle(rowId, agent.isActive)}
+                                disabled={isClientRow}
+                              />
+                              <div className="toggle-switch" />
+                            </label>
+                          </TableCell>
+                          <TableCell className="px-[20px] py-[10px] max-w-[220px]">
+                            {isClientRow ? (
+                              <span className="text-slate-300 select-none">&nbsp;</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1.5">
+                                {agent.assignedAgents?.length ? (
+                                  agent.assignedAgents.map((aid) => {
+                                    const aidStr = typeof aid === 'string' ? aid : String((aid as any)?.toString?.() ?? aid);
+                                    return (
+                                      <span
+                                        key={aidStr}
+                                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 pl-2 pr-1 py-0.5 text-xs text-slate-600"
+                                      >
+                                        <span className="truncate max-w-[120px]">{getAgentName(aidStr)}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveAssignedWebsite(agent, aidStr)}
+                                          className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                                          aria-label="Remove website"
+                                        >
+                                          <X size={12} strokeWidth={2} />
+                                        </button>
+                                      </span>
+                                    );
+                                  })
+                                ) : (
+                                  <span className="text-slate-400 text-xs">—</span>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-[20px] !pl-0 !pr-[20px] py-[10px]">
+                            <div className="flex items-center justify-end gap-0.5">
+                                {isClientRow ? (
+                                  <span className="inline-block h-8 w-8 shrink-0" aria-hidden />
+                                ) : (
+                                  <TooltipProvider delayDuration={0}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={() => openEditModal(agent)}
+                                          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#111827]"
+                                        >
+                                          <span className="material-symbols-outlined text-[#94A3B8] !text-[20px]">
+                                            edit
+                                          </span>
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Edit</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+
+                              {isClientRow ? (
+                                <span className="inline-block h-8 w-8 shrink-0" aria-hidden />
+                              ) : (
+                                <TooltipProvider delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmDeleteId(agent._id)}
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-red-50 hover:text-red-500"
+                                      >
+                                        <span className="material-symbols-outlined text-[#94A3B8] !text-[20px]">
+                                          delete
+                                        </span>
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
 
               {selectedRowIds.length > 0 && (
-                <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/90 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-t border-[#EEF2F7] bg-[#F8FAFC] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-[14px] font-semibold leading-5 text-[#111827]">
                       {selectedRowIds.length} selected
                     </p>
-                    <p className="text-xs text-slate-500">Actions apply to selected rows</p>
+                    <p className="text-[13px] leading-5 text-[#64748B]">Actions apply to selected content</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setBulkDeleteOpen(true)}
-                    className="inline-flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
+                    className="inline-flex items-center gap-2 text-[14px] font-medium text-[#EC4899] transition-colors hover:text-[#DB2777]"
                   >
                     <Trash size={18} strokeWidth={1.75} />
                     Delete
@@ -715,51 +766,44 @@ export default function HumanAgentPage() {
         </div>
 
         {/* Add Agent Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scaleIn max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <Plus size={20} className="text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Add New Human Agent</h3>
-                    <p className="text-sm text-slate-500">Assign to websites they can handle chats for</p>
-                  </div>
-                </div>
-                <button onClick={resetModals} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                  <X size={20} className="text-slate-400" />
-                </button>
-              </div>
+        <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) resetModals() }}>
+          <DialogContent className="w-full max-w-[450px] gap-0 overflow-hidden border border-[#E2E8F0] bg-white p-0">
+            <div className="flex items-center gap-2 border-b border-[#E5E5E5] bg-[#F9FBFD] px-[20px] py-[15px]">
+              <h1 className="text-sm font-semibold text-[#111827]">Add New Human Agent</h1>
+            </div>
 
-              <form onSubmit={handleAddAgent} className="p-6 space-y-5">
+            <form onSubmit={handleAddAgent} className="px-[20px] py-[18px]">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
-                  <div className="relative">
-                    <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Full Name</label>
+                  <div className='h-[40px] w-full rounded-[8px] border bg-white px-[14px] flex items-center gap-2 border-[#E2E8F0]'>
+                    <span className="material-symbols-outlined !text-[16px] text-[#64748B]">
+                      person
+                    </span>
                     <input
                       type="text"
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${formErrors.name ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}
-                      placeholder="Enter agent's full name"
+                      className={`w-full text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] ${formErrors.name ? 'border-red-300 bg-red-50' : 'border-[#E2E8F0]'}`}
+                      placeholder="Enter agent full name"
                     />
                   </div>
                   {formErrors.name && <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
-                  <div className="relative">
-                    <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Email Address</label>
+                  <div className='h-[40px] w-full rounded-[8px] border bg-white px-[14px] flex items-center gap-2 border-[#E2E8F0]'>
+                    <span className="material-symbols-outlined !text-[16px] text-[#64748B]">
+                      alternate_email
+                    </span>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${formErrors.email ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}
+                      className={`w-full text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] ${formErrors.email ? 'border-red-300 bg-red-50' : ''}`}
                       placeholder="agent@example.com"
                     />
                   </div>
@@ -767,142 +811,231 @@ export default function HumanAgentPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Websites (required)</label>
-                  <p className="text-xs text-slate-500 mb-2">Select which websites this agent can handle chats for</p>
-                  <div className="border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                    {aiAgents.length === 0 ? (
-                      <p className="text-slate-500 text-sm">No websites found. Create an AI agent first.</p>
-                    ) : (
-                      aiAgents.map((ai) => {
-                        const aid = String(ai._id ?? '');
-                        return (
-                          <label key={aid} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded">
-                            <input
-                              type="checkbox"
-                              checked={formData.assignedAgents.includes(aid)}
-                              onChange={(e) => handleAssignedAgentsChange(aid, e.target.checked)}
-                            />
-                            <span className="text-sm">{ai.agentName || ai.website_name || aid}</span>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Assigned Websites (required)</label>
+                  <Popover open={addWebsitePopoverOpen} onOpenChange={setAddWebsitePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex min-h-[40px] w-full items-center justify-between gap-2 rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] py-1 text-left"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="material-symbols-outlined !text-[16px] text-[#64748B]">language</span>
+                          {formData.assignedAgents.length === 0 ? (
+                            <span className="text-[13px] text-[#94A3B8]">Select websites...</span>
+                          ) : (
+                            formData.assignedAgents.map((aid) => (
+                              <span key={aid} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                                <span className="max-w-[140px] truncate">{getAgentName(aid)}</span>
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAssignedAgentsChange(aid, false);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleAssignedAgentsChange(aid, false);
+                                    }
+                                  }}
+                                  className="material-symbols-outlined !text-[14px] text-slate-400 hover:text-slate-700"
+                                >
+                                  close
+                                </span>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#94A3B8]" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2" align="start">
+                      <Input
+                        value={addWebsiteSearch}
+                        onChange={(e) => setAddWebsiteSearch(e.target.value)}
+                        placeholder="Search websites..."
+                        className="mb-2 h-9 border-[#E2E8F0] text-[13px]"
+                      />
+                      <div className="max-h-52 space-y-1 overflow-y-auto">
+                        {filteredAddWebsiteOptions.length === 0 ? (
+                          <p className="px-2 py-2 text-sm text-slate-500">No websites found.</p>
+                        ) : (
+                          filteredAddWebsiteOptions.map((ai) => {
+                            const aid = String(ai._id ?? '');
+                            const selected = formData.assignedAgents.includes(aid);
+                            return (
+                              <button
+                                key={aid}
+                                type="button"
+                                onClick={() => handleAssignedAgentsChange(aid, !selected)}
+                                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[#334155] hover:bg-slate-50"
+                              >
+                                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${selected ? 'border-[#4686FE] bg-[#4686FE] text-white' : 'border-[#CBD5E1] bg-white text-transparent'}`}>
+                                  <Check className="h-3 w-3" />
+                                </span>
+                                <span className="truncate">{ai.agentName || ai.website_name || aid}</span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   {formErrors.assignedAgents && <p className="mt-1 text-sm text-red-600">{formErrors.assignedAgents}</p>}
                 </div>
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button type="button" onClick={resetModals} className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-medium">
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || aiAgents.length === 0}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Adding...
-                      </>
-                    ) : (
-                      'Add Agent'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Agent Modal */}
-        {showEditModal && selectedAgent && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scaleIn max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <Pencil size={20} className="text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Edit Human Agent</h3>
-                    <p className="text-sm text-slate-500">Update agent and assigned websites</p>
-                  </div>
-                </div>
-                <button onClick={resetModals} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                  <X size={20} className="text-slate-400" />
-                </button>
               </div>
 
-              <form onSubmit={handleEditAgent} className="p-6 space-y-5">
+              <div className="grid grid-cols-2 gap-[20px] px-[20px] py-[20px] -mx-[20px] -mb-[18px]">
+                <button type="button" className="cursor-pointer justify-center border border-[#E2E8F0] bg-white text-sm font-bold text-[#64748B] hover:text-[#111827] rounded-lg" onClick={resetModals}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || aiAgents.length === 0}
+                  className="inline-flex justify-center h-10 items-center gap-2 rounded-lg bg-[#111827] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:bg-[#CBD5E1] disabled:text-[#64748B]"
+                >
+                  <span className="material-symbols-outlined !text-[18px]">add</span>
+                  {isSubmitting ? 'Adding...' : 'Add Agent'}
+                </button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Agent Modal */}
+        <Dialog open={showEditModal && !!selectedAgent} onOpenChange={(open) => { if (!open) resetModals() }}>
+          <DialogContent className="w-full max-w-[450px] gap-0 overflow-hidden border border-[#E2E8F0] bg-white p-0">
+            <div className="flex items-center gap-2 border-b border-[#E5E5E5] bg-[#F9FBFD] px-[20px] py-[15px]">
+              <h1 className="text-sm font-semibold text-[#111827]">Edit Human Agent</h1>
+            </div>
+
+            <form onSubmit={handleEditAgent} className="px-[20px] py-[18px]">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Full Name</label>
                   <div className="relative">
-                    <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                    <span className="material-symbols-outlined pointer-events-none absolute left-[12px] top-1/2 -translate-y-1/2 !text-[16px] text-[#94A3B8]">
+                      person
+                    </span>
                     <input
                       type="text"
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${formErrors.name ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}
-                      placeholder="Enter agent's full name"
+                      className={`h-[40px] w-full rounded-[8px] border bg-white pl-[38px] pr-[14px] text-[13px] leading-5 text-[#111827] outline-none placeholder:text-[#94A3B8] ${formErrors.name ? 'border-red-300 bg-red-50' : 'border-[#E2E8F0]'}`}
+                      placeholder="Enter agent full name"
                     />
                   </div>
                   {formErrors.name && <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>}
                 </div>
 
-                <div className="text-slate-600 text-sm">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                  <p>{selectedAgent.email}</p>
+                <div>
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Email</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-[12px] top-1/2 -translate-y-1/2 !text-[16px] text-[#94A3B8]">
+                      mail
+                    </span>
+                    <div className="h-[40px] w-full rounded-[8px] border border-[#E2E8F0] bg-[#F8FAFC] pl-[38px] pr-[14px] text-[13px] leading-[40px] text-[#64748B]">
+                      {selectedAgent?.email}
+                    </div>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Websites (required)</label>
-                  <div className="border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                    {aiAgents.length === 0 ? (
-                      <p className="text-slate-500 text-sm">No websites found.</p>
-                    ) : (
-                      aiAgents.map((ai) => {
-                        const aid = String(ai._id ?? '');
-                        return (
-                          <label key={aid} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded">
-                            <input
-                              type="checkbox"
-                              checked={formData.assignedAgents.includes(aid)}
-                              onChange={(e) => handleAssignedAgentsChange(aid, e.target.checked)}
-                            />
-                            <span className="text-sm">{ai.agentName || ai.website_name || aid}</span>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Assigned Websites (required)</label>
+                  <Popover open={editWebsitePopoverOpen} onOpenChange={setEditWebsitePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex min-h-[40px] w-full items-center justify-between gap-2 rounded-[8px] border border-[#E2E8F0] bg-white px-[10px] py-1 text-left"
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="material-symbols-outlined !text-[16px] text-[#94A3B8]">language</span>
+                          {formData.assignedAgents.length === 0 ? (
+                            <span className="text-[13px] text-[#94A3B8]">Select websites...</span>
+                          ) : (
+                            formData.assignedAgents.map((aid) => (
+                              <span key={aid} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                                <span className="max-w-[140px] truncate">{getAgentName(aid)}</span>
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAssignedAgentsChange(aid, false);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleAssignedAgentsChange(aid, false);
+                                    }
+                                  }}
+                                  className="material-symbols-outlined !text-[14px] text-slate-400 hover:text-slate-700"
+                                >
+                                  close
+                                </span>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#94A3B8]" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2" align="start">
+                      <Input
+                        value={editWebsiteSearch}
+                        onChange={(e) => setEditWebsiteSearch(e.target.value)}
+                        placeholder="Search websites..."
+                        className="mb-2 h-9 border-[#E2E8F0] text-[13px]"
+                      />
+                      <div className="max-h-52 space-y-1 overflow-y-auto">
+                        {filteredEditWebsiteOptions.length === 0 ? (
+                          <p className="px-2 py-2 text-sm text-slate-500">No websites found.</p>
+                        ) : (
+                          filteredEditWebsiteOptions.map((ai) => {
+                            const aid = String(ai._id ?? '');
+                            const selected = formData.assignedAgents.includes(aid);
+                            return (
+                              <button
+                                key={aid}
+                                type="button"
+                                onClick={() => handleAssignedAgentsChange(aid, !selected)}
+                                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[#334155] hover:bg-slate-50"
+                              >
+                                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${selected ? 'border-[#4686FE] bg-[#4686FE] text-white' : 'border-[#CBD5E1] bg-white text-transparent'}`}>
+                                  <Check className="h-3 w-3" />
+                                </span>
+                                <span className="truncate">{ai.agentName || ai.website_name || aid}</span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   {formErrors.assignedAgents && <p className="mt-1 text-sm text-red-600">{formErrors.assignedAgents}</p>}
                 </div>
+              </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button type="button" onClick={resetModals} className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-medium">
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Updating...
-                      </>
-                    ) : (
-                      'Update Agent'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+              <div className="grid grid-cols-2 gap-[20px] px-[20px] py-[20px] -mx-[20px] -mb-[18px]">
+                <button type="button" className="cursor-pointer justify-center border border-[#E2E8F0] bg-white text-sm font-bold text-[#64748B] hover:text-[#111827] rounded-lg" onClick={resetModals}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex justify-center h-10 items-center gap-2 rounded-lg bg-[#111827] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:bg-[#CBD5E1] disabled:text-[#64748B]"
+                >
+                  <span className="material-symbols-outlined !text-[18px]">save</span>
+                  {isSubmitting ? 'Updating...' : 'Update Agent'}
+                </button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation Modal */}
         {confirmDeleteId && (

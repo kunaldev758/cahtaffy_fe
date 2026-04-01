@@ -15,6 +15,7 @@ type TopHeadProps = {
   showWebsiteSelect?: boolean
   showDatePicker?: boolean
   showNotificationBell?: boolean
+  rightContent?: React.ReactNode
 }
 
 export default function TopHead({
@@ -27,6 +28,7 @@ export default function TopHead({
   showWebsiteSelect = true,
   showDatePicker = true,
   showNotificationBell = true,
+  rightContent,
 }: TopHeadProps) {
   return (
     <header className="flex flex-col gap-5 bg-[#F9F9F9] pr-[20px] py-[20px] lg:flex-row lg:items-center lg:justify-between">
@@ -52,6 +54,7 @@ export default function TopHead({
       </div>
 
       <div className="flex items-center gap-[16px] lg:justify-end">
+        {rightContent}
         {showWebsiteSelect && <WebsiteSelect />}
         {showDatePicker && dateRange && onDateChange && (
           <DatePickerWithRange value={dateRange} onDateChange={onDateChange} />

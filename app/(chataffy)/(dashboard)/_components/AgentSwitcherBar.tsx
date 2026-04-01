@@ -17,8 +17,8 @@ type Agent = {
 }
 
 // Routes where the bar should appear (dashboard has its own integrated header)
-const SHOW_ON_PATHS = ['/setup', '/training']
-const HIDE_ON_PATHS = ['/setup/training', '/training']
+const SHOW_ON_PATHS = ['']
+const HIDE_ON_PATHS = ['']
 
 type PageHeading = { title: string; subtitle?: string }
 

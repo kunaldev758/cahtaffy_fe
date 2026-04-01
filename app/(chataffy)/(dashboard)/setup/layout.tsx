@@ -1,3 +1,4 @@
+import TopHead from '../_components/TopHead'
 import Navigation from './_components/navigation'
 
 export default function SetupLayout({
@@ -7,8 +8,15 @@ export default function SetupLayout({
 }) {
   return (
     <>
-      <div className="main-content">
-        {/* <Navigation /> */}
+      <div className="min-h-screen bg-[#F8FAFC]">
+        <TopHead
+          title="Setup"
+          subtitle="Manage you widget setup."
+          showDatePicker={false}
+          showWebsiteSelect={true}
+          showNotificationBell={true}
+          showStatusBadge={false}
+        />
         {children}
       </div>
     </>
