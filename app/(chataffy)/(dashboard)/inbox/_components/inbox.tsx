@@ -873,10 +873,18 @@ export default function Inbox(Props: any) {
   };
 
   const handleReply = (messageData: any) => {
+    const human = messageData.humanAgentId;
+    const humanName =
+      human && typeof human === 'object' && 'name' in human ? human.name : undefined;
+    const agent = messageData.agentId;
+    const agentDisplay =
+      agent && typeof agent === 'object'
+        ? agent.name || agent.agentName
+        : undefined;
     const senderName =
       messageData.sender_type === 'visitor'
         ? conversationMessages?.visitorName || 'Visitor'
-        : messageData.humanAgentId?.name || messageData.agentId?.name || 'Agent';
+        : humanName || agentDisplay || 'Agent';
     setReplyingTo({
       _id: messageData._id,
       message: messageData.message || '',

@@ -39,6 +39,8 @@ export default function NewAgentOnboardingPage() {
   const [fetchStep, setFetchStep] = useState<'idle' | 'logo' | 'colors' | 'links' | 'done' | 'error'>('idle')
   const [isFetchingUrls, setIsFetchingUrls] = useState(false)
   const [isTrainingUrls, setIsTrainingUrls] = useState(false)
+  const [isDocsTraining, setIsDocsTraining] = useState(false)
+  const [isFaqTraining, setIsFaqTraining] = useState(false)
 
   const [agentId, setAgentId] = useState<string | null>(null)
   useEffect(() => {
@@ -235,6 +237,7 @@ export default function NewAgentOnboardingPage() {
       formData.append('content', snippetContent)
     }
     if (!uploadedFile && !isSnippetsEnabled) { toast.error('Please upload a file or add a snippet'); return }
+    setIsDocsTraining(true)
     try {
       const res = await openaiCreateSnippet(formData, agentId)
       if (res?.status !== false && !res?.errorCode) {
@@ -246,6 +249,8 @@ export default function NewAgentOnboardingPage() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add document')
+    } finally {
+      setIsDocsTraining(false)
     }
   }
 
@@ -255,6 +260,7 @@ export default function NewAgentOnboardingPage() {
       .filter((f) => f.question.trim() && f.answer.trim())
       .map((f) => ({ question: f.question.trim(), answer: f.answer.trim(), id: f.id }))
     if (validFaqs.length === 0) { toast.error('Add at least one FAQ with question and answer'); return }
+    setIsFaqTraining(true)
     try {
       const res = await openaiCreateFaq(validFaqs, agentId)
       if (res?.status !== false && !res?.errorCode) {
@@ -266,6 +272,8 @@ export default function NewAgentOnboardingPage() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add FAQs')
+    } finally {
+      setIsFaqTraining(false)
     }
   }
 
@@ -409,10 +417,20 @@ export default function NewAgentOnboardingPage() {
                       <button
                         type="button"
                         onClick={handleDocsTrain}
-                        className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
+                        disabled={isDocsTraining}
+                        className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed disabled:hover:bg-[#CBD5E1]"
                       >
-                        <span>Train & Continue</span>
-                        <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
+                        {isDocsTraining ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                            Training...
+                          </>
+                        ) : (
+                          <>
+                            <span>Train & Continue</span>
+                            <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -480,10 +498,20 @@ export default function NewAgentOnboardingPage() {
                     <button
                       type="button"
                       onClick={handleFaqTrain}
-                      className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
+                      disabled={isFaqTraining}
+                      className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed disabled:hover:bg-[#CBD5E1]"
                     >
-                      <span>Train & Continue</span>
-                      <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
+                      {isFaqTraining ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                          Training...
+                        </>
+                      ) : (
+                        <>
+                          <span>Train & Continue</span>
+                          <Image src={publicAsset('/images/new/sparkle-icon.svg')} alt="Sparkle" width={18} height={18} />
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
