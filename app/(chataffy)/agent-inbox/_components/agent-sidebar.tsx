@@ -11,12 +11,9 @@ import {
   Menu,
   X,
   Edit3,
-  Eye,
-  EyeOff,
-  Save,
-  AlertCircle
 } from "lucide-react";
-import { toggleActiveStatus, updateAgent, uploadAgentAvatar, logoutApi } from "@/app/_api/dashboard/action";
+import { toggleActiveStatus, logoutApi } from "@/app/_api/dashboard/action";
+import AgentEditProfileModal, { type AgentEditProfileAgent } from "./AgentEditProfileModal";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
 import { useSocket } from "@/app/socketContext";
 import Image from "next/image";
@@ -37,40 +34,15 @@ export default function AgentSidebar() {
   const { socket } = useSocket();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
   
   const router = useRouter();
 
   const [agent, setAgent] = useState<Agent | null>(null);
-  const [editForm, setEditForm] = useState({
-    name: '',
-    email: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-
   // Only read from localStorage on the client
   useEffect(() => {
     const agentData = localStorage.getItem('agent');
     const parsedAgent = agentData ? JSON.parse(agentData) : null;
     setAgent(parsedAgent);
-    if (parsedAgent?.avatar && parsedAgent.avatar !== 'null' && parsedAgent.avatar.trim() !== '') {
-      // Use full URL if avatar path doesn't start with http
-      const avatarPath = parsedAgent.avatar.startsWith('http') 
-        ? parsedAgent.avatar 
-        : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${parsedAgent.avatar}`;
-      setAvatarPreview(avatarPath);
-    } else {
-      setAvatarPreview(defaultImage);
-    }
   }, []);
 
   const handleLogout = async () => {
@@ -153,149 +125,6 @@ export default function AgentSidebar() {
     }
   }, [socket, agent])
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!agent) return;
-
-    setIsUpdating(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const updateData: any = {
-        name: editForm.name,
-        // email: editForm.email
-      };
-
-      // Only include password if provided
-      if (editForm.newPassword) {
-        if (editForm.newPassword !== editForm.confirmPassword) {
-          setError("New passwords don't match");
-          setIsUpdating(false);
-          return;
-        }
-        updateData.currentPassword = editForm.currentPassword;
-        updateData.newPassword = editForm.newPassword;
-      }
-
-      const result = await updateAgent(agent.id,updateData)
-      console.log(result,"update result")
-
-      // Backend returns { humanAgent: {...} }; avatar upload returns { agent: {...} }
-      const payloadAgent =  result?.humanAgent
-      if (!payloadAgent) {
-        throw new Error(result.message || 'Failed to update agent');
-      }
-
-      // Update localStorage with new data
-      const updatedAgent = {
-        ...agent,
-        name: payloadAgent.name ?? agent.name,
-        avatar: payloadAgent.avatar ?? agent.avatar,
-        // email: result.agent.email
-      };
-      
-      localStorage.setItem('agent', JSON.stringify(updatedAgent));
-      setAgent(updatedAgent);
-      window.dispatchEvent(new CustomEvent('agent-status-updated'));
-      
-      // Upload avatar if selected (do this after profile update)
-      if (avatarFile && agent.id) {
-        await handleAvatarUpload(agent.id);
-      } else {
-        setSuccess("Profile updated successfully!");
-      }
-      
-      // Reset password fields
-      setEditForm(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      }));
-      
-      setTimeout(() => {
-        setShowEditModal(false);
-        setSuccess("");
-        setAvatarError(false);
-      }, 2000);
-
-    } catch (error) {
-      console.error('Update error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update profile');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleAvatarUpload = async (agentId: string) => {
-    if (!avatarFile) return;
-
-    setIsUploadingAvatar(true);
-    try {
-      const formData = new FormData();
-      formData.append('avatar', avatarFile);
-
-      const result = await uploadAgentAvatar(formData, agentId);
-      
-      if (result.status_code === 200 && result.agent) {
-        const updatedAgent = {
-          ...agent!,
-          avatar: result.agent.avatar
-        };
-        
-        localStorage.setItem('agent', JSON.stringify(updatedAgent));
-        setAgent(updatedAgent);
-        // Use full URL if avatar path doesn't start with http
-        const avatarPath = result.agent.avatar.startsWith('http') 
-          ? result.agent.avatar 
-          : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${result.agent.avatar}`;
-        setAvatarPreview(avatarPath);
-        setAvatarFile(null);
-        setAvatarError(false);
-        setSuccess("Avatar uploaded successfully!");
-        window.dispatchEvent(new CustomEvent('agent-status-updated'));
-
-        setTimeout(() => {
-          setSuccess("");
-        }, 2000);
-      } else {
-        throw new Error(result.message || 'Failed to upload avatar');
-      }
-    } catch (error) {
-      console.error('Avatar upload error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to upload avatar');
-    } finally {
-      setIsUploadingAvatar(false);
-    }
-  };
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
-        setError("Please select a valid image file (JPG or PNG)");
-        return;
-      }
-      
-      // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError("File size must be less than 5MB");
-        return;
-      }
-
-      setAvatarFile(file);
-      setAvatarError(false);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      setError("");
-    }
-  };
-
   const toggleAgentStatus = async () => {
     if (!agent) return;
 
@@ -316,7 +145,6 @@ export default function AgentSidebar() {
 
     } catch (error) {
       console.error('Status update error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update status');
     }
   };
 
@@ -330,26 +158,7 @@ export default function AgentSidebar() {
     {
       label: "Edit Profile",
       icon: Edit3,
-      onClick: () => {
-        setEditForm({
-          name: agent?.name || '',
-          // email: agent?.email || '',
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        } as any);
-        setAvatarFile(null);
-        setAvatarError(false);
-        if (agent?.avatar && agent.avatar !== 'null' && agent.avatar.trim() !== '') {
-          const avatarPath = agent.avatar.startsWith('http') 
-            ? agent.avatar 
-            : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${agent.avatar}`;
-          setAvatarPreview(avatarPath);
-        } else {
-          setAvatarPreview(defaultImage);
-        }
-        setShowEditModal(true);
-      }
+      onClick: () => setShowEditModal(true),
     }
   ];
 
@@ -460,193 +269,12 @@ export default function AgentSidebar() {
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Profile</h3>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setAvatarError(false);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg flex items-center space-x-2">
-                <AlertCircle size={16} className="text-red-500" />
-                <span className="text-red-700 text-sm">{error}</span>
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg">
-                <span className="text-green-700 text-sm">{success}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              {/* Avatar Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Avatar
-                </label>
-                <div className="flex items-center space-x-4">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                    {avatarError || !avatarPreview ? (
-                      <img 
-                        src={defaultImage} 
-                        alt="Avatar preview" 
-                        className="w-20 h-20 object-cover"
-                      />
-                    ) : (
-                      <img 
-                        src={avatarPreview} 
-                        alt="Avatar preview" 
-                        className="w-20 h-20 object-cover"
-                        onError={() => {
-                          if (!avatarError) {
-                            setAvatarError(true);
-                            setAvatarPreview(defaultImage);
-                          }
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <label className="cursor-pointer">
-                      <span className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block text-sm">
-                        {avatarFile ? 'Change Photo' : 'Choose Photo'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png"
-                        onChange={handleAvatarChange}
-                        className="hidden"
-                        disabled={isUploadingAvatar}
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">JPG or PNG, max 5MB</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  required
-                />
-              </div>
-
-              {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  required
-                />
-              </div> */}
-
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Change Password (Optional)</h4>
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Current Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={editForm.currentPassword}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      New Password
-                    </label>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={editForm.newPassword}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={editForm.confirmPassword}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setAvatarError(false);
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  disabled={isUpdating}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUpdating || isUploadingAvatar}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                >
-                  {(isUpdating || isUploadingAvatar) ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>{isUploadingAvatar ? 'Uploading Avatar...' : 'Updating...'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save size={16} />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AgentEditProfileModal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        agent={agent as unknown as AgentEditProfileAgent | null}
+        onAgentUpdated={(a) => setAgent(a as unknown as Agent)}
+      />
     </>
   );
 }
