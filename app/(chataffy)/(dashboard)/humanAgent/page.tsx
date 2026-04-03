@@ -179,15 +179,27 @@ export default function HumanAgentPage() {
             : new Date(updatedAgent.lastActive).toISOString()
           : undefined;
       setAgents((prevAgents) =>
-        prevAgents.map((agent) =>
-          String(agent._id) === String(uid)
-            ? {
-              ...agent,
-              isActive: updatedAgent.isActive,
-              ...(last !== undefined ? { lastActive: last } : {}),
-            }
-            : agent
-        )
+        prevAgents.map((agent) => {
+          if (String(agent._id) !== String(uid)) return agent;
+          const assigned =
+            updatedAgent.assignedAgents != null
+              ? Array.isArray(updatedAgent.assignedAgents)
+                ? updatedAgent.assignedAgents.map((x: any) =>
+                    typeof x === 'string' ? x : String(x?._id ?? x?.id ?? x ?? '')
+                  )
+                : agent.assignedAgents
+              : agent.assignedAgents;
+          return {
+            ...agent,
+            ...(updatedAgent.name != null ? { name: updatedAgent.name } : {}),
+            ...(updatedAgent.status != null ? { status: updatedAgent.status } : {}),
+            ...(updatedAgent.email != null ? { email: updatedAgent.email } : {}),
+            ...(updatedAgent.avatar !== undefined ? { avatar: updatedAgent.avatar } : {}),
+            ...(assigned !== undefined ? { assignedAgents: assigned } : {}),
+            isActive: updatedAgent.isActive ?? agent.isActive,
+            ...(last !== undefined ? { lastActive: last } : {}),
+          };
+        })
       );
     };
 
@@ -330,16 +342,26 @@ export default function HumanAgentPage() {
     }
   };
 
+  const getAgentName = (agentId: string) => {
+    const ai = aiAgents.find((a) => a._id === agentId || a._id?.toString() === agentId);
+    return ai?.agentName || ai?.website_name || agentId;
+  };
+
+  const websiteIdExists = (websiteId: string) =>
+    aiAgents.some((a) => String(a._id ?? '') === String(websiteId));
+
   const openEditModal = (agent: HumanAgentType) => {
     if (agent.isClient) return;
     setSelectedAgent(agent);
     const normalizedIds = (agent.assignedAgents || []).map((id) =>
       typeof id === 'string' ? id : (id as any)?.toString?.() || ''
     );
+    const assignedForForm =
+      aiAgents.length > 0 ? normalizedIds.filter((id) => id && websiteIdExists(id)) : normalizedIds;
     setFormData({
       name: agent.name,
       email: agent.email,
-      assignedAgents: normalizedIds
+      assignedAgents: assignedForForm
     });
     setFormErrors({});
     setShowEditModal(true);
@@ -459,11 +481,6 @@ export default function HumanAgentPage() {
       icon: 'dot' as const,
       dotActive: true,
     };
-  };
-
-  const getAgentName = (agentId: string) => {
-    const ai = aiAgents.find((a) => a._id === agentId || a._id?.toString() === agentId);
-    return ai?.agentName || ai?.website_name || agentId;
   };
 
   const filteredAddWebsiteOptions = aiAgents.filter((ai) =>
@@ -665,10 +682,17 @@ export default function HumanAgentPage() {
                               <span className="text-slate-300 select-none">&nbsp;</span>
                             ) : (
                               <div className="flex flex-wrap gap-1.5">
-                                {agent.assignedAgents?.length ? (
-                                  agent.assignedAgents.map((aid) => {
-                                    const aidStr = typeof aid === 'string' ? aid : String((aid as any)?.toString?.() ?? aid);
-                                    return (
+                                {(() => {
+                                  const rawIds =
+                                    agent.assignedAgents?.map((aid) =>
+                                      typeof aid === 'string'
+                                        ? aid
+                                        : String((aid as any)?.toString?.() ?? aid)
+                                    ) ?? [];
+                                  const rowWebsiteIds =
+                                    aiAgents.length > 0 ? rawIds.filter((id) => id && websiteIdExists(id)) : rawIds;
+                                  return rowWebsiteIds.length ? (
+                                    rowWebsiteIds.map((aidStr) => (
                                       <span
                                         key={aidStr}
                                         className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 pl-2 pr-1 py-0.5 text-xs text-slate-600"
@@ -683,11 +707,11 @@ export default function HumanAgentPage() {
                                           <X size={12} strokeWidth={2} />
                                         </button>
                                       </span>
-                                    );
-                                  })
-                                ) : (
-                                  <span className="text-slate-400 text-xs">—</span>
-                                )}
+                                    ))
+                                  ) : (
+                                    <span className="text-slate-400 text-xs">—</span>
+                                  );
+                                })()}
                               </div>
                             )}
                           </TableCell>

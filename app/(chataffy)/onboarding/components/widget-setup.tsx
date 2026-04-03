@@ -435,6 +435,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
       case 'agentName':
         if (!String(value).trim()) return 'Agent name is required'
         if (String(value).trim().length < 2) return 'Must be at least 2 characters'
+        if (String(value).length > 20) return 'Maximum 20 characters'
         return ''
       case 'fallbackMessage':
         if (!String(value).trim()) return 'Fallback message is required'
@@ -586,11 +587,19 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                 <div className="flex-1">
                   <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Agent Name <span className="text-red-500">*</span></label>
                   <input type="text" value={agentData.agentName}
-                    onChange={e => setAgent('agentName', e.target.value)}
+                    onChange={e => setAgent('agentName', e.target.value.slice(0, 20))}
                     onBlur={() => handleAgentBlur('agentName')}
+                    maxLength={20}
                     className={`h-[40px] w-full rounded-[8px] border bg-white px-[14px] text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] focus:border-[#4686FE] ${fieldErrors.agentName ? 'border-red-400' : 'border-[#E2E8F0]'}`}
                     placeholder="Enter agent name" />
-                  {fieldErrors.agentName && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.agentName}</p>}
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    {fieldErrors.agentName ? (
+                      <p className="text-[11px] text-red-500">{fieldErrors.agentName}</p>
+                    ) : (
+                      <span />
+                    )}
+                    <span className="text-[11px] text-[#94A3B8]">{agentData.agentName.length}/20</span>
+                  </div>
                 </div>
               </div>
 
