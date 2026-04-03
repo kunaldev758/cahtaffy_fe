@@ -59,6 +59,7 @@ export default function Inbox(Props: any) {
   const [tags, setTags] = useState<any>([]);
   const [openConversationStatus, setOpenConversationStatus] = useState<any>("close");
   const [isAIChat, setIsAIChat] = useState(true);
+  const [isVisitorClosed, setIsVisitorClosed] = useState(false);
   const [agentConnectionRequest, setAgentConnectionRequest] = useState<{
     conversationId: string;
     visitorName?: string;
@@ -359,6 +360,7 @@ export default function Inbox(Props: any) {
     setOpenConversationId,
     setIsConversationAvailable,
     setAITyping: setIsAITyping,
+    setIsVisitorClosed,
     status,
     rating,
     handledBy,
@@ -502,6 +504,7 @@ export default function Inbox(Props: any) {
 
         setVisitorDetails(transformedVisitorDetails);
         setIsAIChat(ConversationData.aiChat);
+        setIsVisitorClosed(ConversationData.visitorClosed === true);
         setCurrentConversation(ConversationData);
       }
     } catch (error) {
@@ -615,6 +618,7 @@ export default function Inbox(Props: any) {
     const messageData = {
       message: inputMessage,
       visitorId: openVisitorId,
+      conversationId: openConversationId,
       replyTo: replyingTo?._id || null,
     };
     emitSendMessage(messageData, (response: any) => {
@@ -994,6 +998,7 @@ export default function Inbox(Props: any) {
                 maxWords={MAX_WORDS}
                 isNoteActive={isNoteActive}
                 isAIChat={isAIChat}
+                isVisitorClosed={isVisitorClosed}
                 openConversationStatus={openConversationStatus}
                 conversationId={openConversationId}
                 visitorId={openVisitorId}

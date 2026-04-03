@@ -251,7 +251,6 @@ export default function EnhancedChatWidget({ params }: any) {
       const { conversationId: cid, conversation: conv } = closeConversationContextRef.current;
       socket.emit('close-conversation-visitor', {
         conversationId: cid ? cid : conv[0]?.conversation_id,
-        status: 'close'
       });
       setConversationStatus('close');
       setShowWidget(true);
@@ -584,7 +583,6 @@ export default function EnhancedChatWidget({ params }: any) {
 
       socket.emit('close-conversation-visitor', {
         conversationId: conversationId ? conversationId : (conversation[0]?.conversation_id),
-        status: 'close'
       });
     } catch (e) {
       setUnavailableError('Failed to submit. Please try again.');
@@ -851,7 +849,6 @@ export default function EnhancedChatWidget({ params }: any) {
 
     socket.emit('close-conversation-visitor', {
       conversationId: conversationId ? conversationId : (conversation[0]?.conversation_id),
-      status: 'close'
     });
     setConversationStatus('close');
   };
