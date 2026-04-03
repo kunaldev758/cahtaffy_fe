@@ -236,10 +236,15 @@ const Message = ({
 
   const renderReplyQuote = (replyTo: ReplyTo, align: 'left' | 'right') => {
     const replyId = replyTo._id?.toString?.() || (replyTo as any)._id;
+    const agentRef = (replyTo as any).agentId;
+    const agentReplyName =
+      agentRef && typeof agentRef === 'object'
+        ? agentRef.name || agentRef.agentName
+        : undefined;
     const senderLabel =
       replyTo.sender_type === 'visitor'
         ? visitorName || 'Visitor'
-        : replyTo.humanAgentId?.name || 'Agent';
+        : replyTo.humanAgentId?.name || agentReplyName || 'Agent';
     const preview = stripHtml(replyTo.message).slice(0, 120);
     const borderColor = align === 'right' ? 'rgba(255,255,255,0.5)' : '#fff';
     const bgColor = align === 'right' ? 'rgba(255,255,255,0.15)' : '#eff6ff';
@@ -355,7 +360,11 @@ const Message = ({
         return name;
       };
 
-      const displayName = getDisplayName(agentSource?.name, agentSource?.isClient);
+      const sourceAny = agentSource as { name?: string; agentName?: string; isClient?: boolean } | undefined;
+      const displayName = getDisplayName(
+        sourceAny?.name || sourceAny?.agentName,
+        sourceAny?.isClient
+      );
 
       message = (
         <div className="message-box ai-message">

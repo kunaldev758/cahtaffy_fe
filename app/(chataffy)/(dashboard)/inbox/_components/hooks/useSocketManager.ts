@@ -22,6 +22,7 @@ interface SocketManagerProps {
   setOpenConversationId: (value: any) => void;
   setIsConversationAvailable: (value: boolean) => void;
   setAITyping?: (value: boolean) => void;
+  setIsVisitorClosed: (value: boolean) => void;
 
   // Current state values
   status: string;
@@ -44,6 +45,7 @@ export const useSocketManager = ({
   setOpenConversationId,
   setIsConversationAvailable,
   setAITyping,
+  setIsVisitorClosed,
   status,
   rating,
   handledBy,
@@ -306,9 +308,11 @@ export const useSocketManager = ({
 
     const handleVisitorCloseChat = (data: any) => {
       console.log("Visitor closed chat event received:", data);
-      setOpenConversationStatus("close");
+      // Conversation stays open for the agent (conversationOpenStatus unchanged in DB).
+      // Mark visitorClosed so the chat input is enabled even when aiChat is true.
+      setIsVisitorClosed(true);
 
-      // Refresh the conversations list so the closed conversation is removed / updated
+      // Refresh the conversations list
       socket.emit(
         "get-filtered-conversations-list",
         { status, rating, handledBy },
@@ -504,7 +508,7 @@ export const useSocketManager = ({
       socket.off("visitor-close-chat", handleVisitorCloseChat);
       socket.off("conversation-feedback-update", handleConversationFeedbackUpdate);
     };
-  }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setAITyping]);
+  }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setAITyping, setIsVisitorClosed]);
 
   const setupConversationListHandlers = useCallback(() => {
     const socket = socketRef.current;

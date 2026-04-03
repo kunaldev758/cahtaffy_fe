@@ -16,6 +16,7 @@ interface MessageInputProps {
   maxWords: number;
   isNoteActive: boolean;
   isAIChat: boolean;
+  isVisitorClosed?: boolean;
   openConversationStatus: string;
   conversationId: string | null;
   visitorId: string | null;
@@ -36,6 +37,7 @@ export default function MessageInput({
   maxWords,
   isNoteActive,
   isAIChat,
+  isVisitorClosed = false,
   openConversationStatus,
   conversationId,
   visitorId,
@@ -69,7 +71,7 @@ export default function MessageInput({
     // 2. Not in note mode
     // 3. Conversation is open
     // 4. We have valid conversationId and visitorId
-    if (!isAIChat && !isNoteActive && openConversationStatus === 'open') {
+    if ((!isAIChat || isVisitorClosed) && !isNoteActive && openConversationStatus === 'open') {
       const eventName = isTyping ? 'agent-start-typing' : 'agent-stop-typing';
       console.log(`⌨️ Emitting ${eventName}:`, { conversationId, visitorId, isAIChat });
       
@@ -81,7 +83,7 @@ export default function MessageInput({
         }
       });
     }
-  }, [socketRef, conversationId, visitorId, isAIChat, isNoteActive, openConversationStatus]);
+  }, [socketRef, conversationId, visitorId, isAIChat, isVisitorClosed, isNoteActive, openConversationStatus]);
 
   // Handle typing with debouncing
   const handleTyping = useCallback(() => {
@@ -223,7 +225,7 @@ export default function MessageInput({
       recognitionRef.current.start();
       setIsRecording(true);
       // Emit start-typing when recording starts (only in agent chat mode)
-      if (!isAIChat && !isNoteActive && openConversationStatus === 'open') {
+      if ((!isAIChat || isVisitorClosed) && !isNoteActive && openConversationStatus === 'open') {
         handleTyping();
       }
     } catch (err) {
@@ -233,14 +235,14 @@ export default function MessageInput({
   };
 
   const allowsVoiceForChat =
-    !isNoteActive && openConversationStatus === "open" && !isAIChat;
+    !isNoteActive && openConversationStatus === "open" && (!isAIChat || isVisitorClosed);
   const allowsVoiceForNotes = isNoteActive || openConversationStatus === "close";
   const allowVoiceCapture = allowsVoiceForChat || allowsVoiceForNotes;
   const showVoiceButton = isSpeechSupported && allowVoiceCapture;
   const voiceDisabled = !isOnline || !allowVoiceCapture;
   const sendDisabled =
     !inputMessage.trim() ||
-    (!isNoteActive && isAIChat && openConversationStatus === "open") ||
+    (!isNoteActive && isAIChat && !isVisitorClosed && openConversationStatus === "open") ||
     !isOnline ||
     !canReply;
   const stripHtml = (html: string) => html?.replace(/<[^>]+>/g, '').trim() || '';
@@ -301,7 +303,7 @@ export default function MessageInput({
       )}
       <div className="pt-2">
         <div className="flex items-center border-b border-[#E5E7EB]">
-          {openConversationStatus === "open" && !isAIChat && (
+          {openConversationStatus === "open" && (!isAIChat || isVisitorClosed) && (
             <button
               onClick={() => setIsNoteActive(false)}
               className={`inline-flex h-10 items-center gap-2 border-b-2 px-[24px] text-[12px] font-bold uppercase tracking-[0.02em] transition-colors ${
@@ -346,7 +348,7 @@ export default function MessageInput({
               }}
               disabled={!isOnline}
             />
-          ) : isAIChat ? (
+          ) : isAIChat && !isVisitorClosed ? (
             <div className="w-full rounded-lg bg-gray-50 text-gray-500 text-sm">
               Chat is disabled. Please disable AI Chat to send messages.
             </div>

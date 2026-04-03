@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import Image from "next/image"
+import { Loader2 } from "lucide-react"
 import { publicAsset } from "@/lib/publicAsset"
 
 type TrainingRow = {
@@ -172,7 +173,7 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
               >
                 {isTraining ? (
                   <>
-                    <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                     Training...
                   </>
                 ) : (
