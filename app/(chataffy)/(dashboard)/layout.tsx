@@ -8,7 +8,7 @@ export default function DashboardLayout({
 }) {
   return (
     <>
-      <section className="main-area">
+      <section className="main-area pl-[256px]">
         <Navigation />
         <div className="flex flex-col flex-1 min-h-screen">
           <AgentSwitcherBar />

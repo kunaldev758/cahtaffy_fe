@@ -11,7 +11,7 @@ interface AgentLayoutProps {
 export default function AgentLayout({ children }: AgentLayoutProps) {
   return (
     <div className="flex h-screen bg-gray-100">
-      <AgentSidebar />
+      {/* <AgentSidebar /> */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <AgentTopBar />
         <main className="flex-1 overflow-hidden">

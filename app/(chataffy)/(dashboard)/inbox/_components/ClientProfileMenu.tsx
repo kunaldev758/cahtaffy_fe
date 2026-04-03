@@ -151,7 +151,7 @@ export default function ClientProfileMenu({
           if (isActive === undefined) {
             setIsOnline(parsedClient.isActive !== false);
           }
-        } catch {}
+        } catch { }
       }
     }
   }, [isActive]);
@@ -192,7 +192,7 @@ export default function ClientProfileMenu({
                 lastActive: updatedClient.lastActive,
               })
             );
-          } catch {}
+          } catch { }
         }
       } catch {
         /* ignore */
@@ -287,7 +287,7 @@ export default function ClientProfileMenu({
               if (parsedAgent.isClient) {
                 localStorage.setItem('agent', JSON.stringify({ ...parsedAgent, ...response.agent }));
               }
-            } catch {}
+            } catch { }
           }
         }
       }
@@ -302,7 +302,7 @@ export default function ClientProfileMenu({
   const handleLogout = async () => {
     try {
       await logoutApi();
-    } catch {}
+    } catch { }
     localStorage.clear();
     dispatchAuthStorageSync();
     router.replace('/login');
@@ -313,14 +313,14 @@ export default function ClientProfileMenu({
     clientEmail ??
     (typeof window !== 'undefined'
       ? (() => {
-          try {
-            const clientData = localStorage.getItem('client');
-            if (clientData) return JSON.parse(clientData).email || '';
-            const userData = localStorage.getItem('user');
-            if (userData) return JSON.parse(userData).email || '';
-          } catch {}
-          return '';
-        })()
+        try {
+          const clientData = localStorage.getItem('client');
+          if (clientData) return JSON.parse(clientData).email || '';
+          const userData = localStorage.getItem('user');
+          if (userData) return JSON.parse(userData).email || '';
+        } catch { }
+        return '';
+      })()
       : '');
 
   const displayName =
@@ -334,8 +334,7 @@ export default function ClientProfileMenu({
       {/* Agent card trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 w-full px-2 py-2 rounded-xl hover:bg-gray-100 transition-colors duration-150 group"
-      >
+        className="flex items-center gap-3 w-full bg-white rounded-2xl shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] p-[16px] transition-colors duration-150 group">
         <ClientMenuAvatar
           avatarUrl={displayAvatarUrl}
           displayName={displayName}
@@ -351,10 +350,10 @@ export default function ClientProfileMenu({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden w-[250px]">
           {/* Profile header */}
-          <div className="px-5 pt-5 pb-4 text-center border-b border-gray-100">
-            <div className="mx-auto mb-3 flex justify-center">
+          <div className="py-[16px] text-center border-b border-gray-100">
+            <div className="mx-auto mb-[12px] flex justify-center">
               <ClientMenuAvatar
                 avatarUrl={displayAvatarUrl}
                 displayName={displayName}
@@ -362,39 +361,38 @@ export default function ClientProfileMenu({
                 className="w-14 h-14"
               />
             </div>
-            <p className="text-sm font-bold text-gray-900">{displayName}</p>
-            <p className="text-xs text-[#94A3B8] mt-0.5">{displayEmail || 'No email'}</p>
+            <p className="text-[14px] font-semibold text-[#111827] truncate px-[20px]">{displayName}</p>
+            <p className="text-[13px] text-[#64748B] mt-0.5 truncate px-[20px]">{displayEmail || 'No email'}</p>
           </div>
 
           {/* Accept Chats toggle */}
-          <div className="px-5 py-3 border-b border-gray-100">
+          <div className="px-[16px] py-[12px] border-b border-gray-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-[#FF6D6D]'}`} />
                 <span className="text-sm font-medium text-gray-700">Accept Chats</span>
               </div>
-              <button
-                onClick={handleToggleStatus}
-                disabled={isUpdating}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                  isOnline ? 'bg-green-500' : 'bg-gray-200'
-                } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                    isOnline ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+              <label className={`toggle ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <input
+                  className="toggle-checkbox"
+                  type="checkbox"
+                  checked={isOnline}
+                  onChange={handleToggleStatus}
+                  disabled={isUpdating}
                 />
-              </button>
+                <div className="toggle-switch" />
+              </label>
             </div>
           </div>
 
           {/* Menu items */}
-          <div className="px-3 py-2 space-y-0.5">
+          <div className="space-y-0.5">
             <button
-              className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
+              className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
             >
-              <CreditCard className="w-4 h-4 text-[#64748B]" />
+              <span className="material-symbols-outlined text-[#64748B] !text-[20px]">
+                receipt_long
+              </span>
               Billing
             </button>
 
@@ -404,20 +402,24 @@ export default function ClientProfileMenu({
                 setIsOpen(false)
                 router.push('/profile')
               }}
-              className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
+              className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
             >
-              <User className="w-4 h-4 text-[#64748B]" />
+              <span className="material-symbols-outlined text-[#64748B] !text-[20px]">
+                person
+              </span>
               Profile
             </button>
           </div>
 
           {/* Logout */}
-          <div className="px-3 pb-3">
+          <div className="border-t border-gray-100">
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150"
+              className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150 justify-center"
             >
-              <LogOut className="w-4 h-4" />
+              <span className="material-symbols-outlined !text-[20px]">
+                logout
+              </span>
               Logout
             </button>
           </div>

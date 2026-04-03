@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Globe, Check, Loader2, Circle } from 'lucide-react'
 import { getAIAgents } from '@/app/_api/dashboard/action'
 import NotificationBell from '@/app/(chataffy)/(dashboard)/_components/NotificationBell'
+import Image from 'next/image'
 
 type AIAgent = {
   _id: string
@@ -35,7 +36,7 @@ export default function AgentTopBar() {
     try {
       const raw = localStorage.getItem('agent')
       if (raw) setHumanAgent(JSON.parse(raw))
-    } catch {}
+    } catch { }
 
     setCurrentAgentId(localStorage.getItem('currentAgentId'))
 
@@ -45,7 +46,7 @@ export default function AgentTopBar() {
       try {
         const data = await getAIAgents()
         setAllAgents(Array.isArray(data) ? data : [])
-      } catch {}
+      } catch { }
       finally { setIsLoading(false) }
     }
     fetchAgents()
@@ -58,7 +59,7 @@ export default function AgentTopBar() {
       try {
         const raw = localStorage.getItem('agent')
         if (raw) setHumanAgent(JSON.parse(raw))
-      } catch {}
+      } catch { }
     }
 
     window.addEventListener('agent-changed', handleAgentChanged as EventListener)
@@ -93,8 +94,8 @@ export default function AgentTopBar() {
   const displayName = currentAgent
     ? currentAgent.agentName || currentAgent.website_name || 'Unnamed Agent'
     : isLoading
-    ? 'Loading...'
-    : 'No agent selected'
+      ? 'Loading...'
+      : 'No agent selected'
 
   const handleSwitch = (agentId: string) => {
     if (agentId === currentAgentId) { setIsOpen(false); return }
@@ -105,12 +106,24 @@ export default function AgentTopBar() {
   }
 
   return (
-    <div className="h-12 bg-white border-b border-gray-200 flex items-center px-4 gap-4 shrink-0">
+    <div className="flex flex-col gap-5 bg-[#F9F9F9] px-[24px] lg:flex-row lg:items-center lg:justify-between">
       {/* Agent switcher */}
-      <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide shrink-0">
-        Active Agent
-      </span>
-      <span className="w-px h-4 bg-gray-200 shrink-0" />
+      <div className='flex items-center gap-[20px]'>
+        <div className='border-r border-[#E8E8E8] pr-[20px] py-[20px]'>
+          <Image
+            src="/images/agent-logo.svg"
+            alt="Agent Logo"
+            width={123}
+            height={46}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-[14px]">
+            <h1 className="text-[24px] font-bold leading-5 text-[#111827]">Inbox</h1>
+          </div>
+          <p className="text-[13px] leading-5 text-[#64748B]">View and respond to messages from your customers.</p>
+        </div>
+      </div>
 
       <div className="relative" ref={dropdownRef}>
         <button
@@ -176,13 +189,12 @@ export default function AgentTopBar() {
 
       {/* Status pill for current agent */}
       {!isLoading && currentAgent && (
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-          currentAgent.dataTrainingStatus === 1
-            ? 'bg-[#FFFBEB] text-[#D97706]'
-            : currentAgent.isActive
+        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${currentAgent.dataTrainingStatus === 1
+          ? 'bg-[#FFFBEB] text-[#D97706]'
+          : currentAgent.isActive
             ? 'bg-[#ECFDF5] text-[#059669]'
             : 'bg-gray-100 text-gray-500'
-        }`}>
+          }`}>
           {currentAgent.dataTrainingStatus === 1 ? 'Training...' : currentAgent.isActive ? 'Active' : 'Inactive'}
         </span>
       )}

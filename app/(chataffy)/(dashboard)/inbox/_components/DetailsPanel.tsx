@@ -64,9 +64,9 @@ export default function DetailsPanel({
   return (
     <div className="w-80 bg-white border-l border-gray-200 flex flex-col rounded-[20px]">
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 p-[20px] gap-[20px] flex flex-col overflow-y-auto">
         {/* Visitor Details */}
-        <div className="p-[20px] border-b border-gray-200">
+        <div>
           <div className="rounded-[20px] border border-[#E8E8E8] bg-[#ffffff] p-[16px]">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-full border border-[#D9D9D9] bg-[#ffffff] flex items-center justify-center text-[16px] font-semibold text-[#94A3B8]">
@@ -107,7 +107,7 @@ export default function DetailsPanel({
         </div>
 
         {/* Notes Section */}
-        <div className="p-[20px]">
+        <div>
           <div className="rounded-[20px] border border-[#E8E8E8] bg-[#ffffff] p-[16px]">
             <div className="flex items-center gap-[8px] mb-[14px]">
               <span className="material-symbols-outlined !text-[18px] text-[#64748B]">
@@ -137,7 +137,7 @@ export default function DetailsPanel({
         </div>
 
         {/* Previous Conversations */}
-        <div className="p-[20px]">
+        <div>
           <div className="rounded-[20px] border border-[#E8E8E8] bg-[#ffffff] p-[16px]">
             <div className="flex items-center gap-[8px] mb-[14px]">
               <span className="material-symbols-outlined !text-[18px] text-[#64748B]">
@@ -155,27 +155,27 @@ export default function DetailsPanel({
                   return (
                     <div
                       key={conversation._id}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${isActive
-                        ? 'bg-blue-50 border border-blue-200'
-                        : 'bg-gray-50 hover:bg-gray-100'
-                        }`}
+                      className="cursor-pointer transition-colors border-b border-[#E8E8E8] pb-[14px] last:border-b-0 last:pb-0"
                       onClick={() => onOldConversationClick(conversation._id, openVisitorName)}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      {/* <div className="flex items-center justify-between mb-1">
                         <h6 className="text-xs font-medium text-gray-700">@{openVisitorName}</h6>
                         <div className="flex items-center gap-1">
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${aiChatValue ? 'bg-white text-gray-600 border-gray-300' : 'bg-white text-purple-600 border-purple-400'}`}>
-                            {aiChatValue ? "AI-ONLY" : "AI + AGENT"}
-                          </span>
+                          
                           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${isOpen ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
                             {isOpen ? "Open" : "Closed"}
                           </span>
                         </div>
+                      </div> */}
+                      <div className="flex justify-between items-center mb-[4px]">
+                        <p className="text-[10px] font-semibold text-[#64748B] uppercase">
+                          {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
+                        </p>
+                        <span className={`text-[9px] h-[18px] flex items-center justify-center min-h-[18px] font-semibold px-1.5 py-0.5 rounded-[4px] border ${aiChatValue ? 'bg-[#F1F5F9] text-[#64748B] border-[#E8E8E8]' : 'bg-[#FAF5FF] text-[#A855F7] border-[#A855F7]'}`}>
+                          {aiChatValue ? "AI-ONLY" : "AI + AGENT"}
+                        </span>
                       </div>
-                      <p className="text-sm text-gray-900 truncate">{stripHtml(conversation.message)}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
-                      </p>
+                      <p className="text-[12px] text-[#64748B] leading-[16px] truncate">{stripHtml(conversation.message)}</p>
                     </div>
                   );
                 })}

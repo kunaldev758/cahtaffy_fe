@@ -106,9 +106,9 @@ export default function IntegratedSidebar() {
     `w-5 h-5 flex-shrink-0 ${active ? 'text-white' : 'text-[#64748B]'}`
 
   return (
-    <div className="bg-[#F9F9F9] w-64 min-h-screen flex flex-col">
+    <div className="bg-[#F9F9F9] w-[256px] min-h-screen flex flex-col fixed top-0 left-0 z-10">
       {/* Logo */}
-      <div className="px-5 py-5">
+      <div className="flex justify-center items-center p-[24px]">
         <Link href="/dashboard" className="flex items-center gap-2.5">
           <Image
             loader={imageLoader as any}
@@ -126,7 +126,7 @@ export default function IntegratedSidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 pb-4 space-y-0.5">
         {/* HOME section */}
-        <p className="px-3 pt-4 pb-2 text-[#94A3B8] text-[13px] font-bold uppercase tracking-wide">
+        <p className="px-3 pb-2 text-[#94A3B8] text-[13px] font-bold uppercase tracking-wide">
           Home
         </p>
 
@@ -191,7 +191,7 @@ export default function IntegratedSidebar() {
         </button>
 
         {/* Agent card */}
-        <div className="border-t border-gray-200 pt-3">
+        <div className="">
           <ClientProfileMenu
             clientEmail={clientData?.email}
             clientId={clientData?._id}
