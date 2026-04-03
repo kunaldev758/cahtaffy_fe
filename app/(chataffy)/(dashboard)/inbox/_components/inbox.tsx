@@ -91,9 +91,11 @@ export default function Inbox(Props: any) {
   // Avoid parallel openConversation() for the same URL id (list/socket can retrigger the effect)
   const urlConversationOpenInFlightRef = useRef<string | null>(null);
 
-  // Get agent data from localStorage (for agent-inbox context)
+  // Get agent data from localStorage (for agent-inbox context); re-sync when admin updates profile via socket
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+
+    const loadAgentFromStorage = () => {
       const agentData = localStorage.getItem('agent');
       if (agentData) {
         try {
@@ -103,7 +105,11 @@ export default function Inbox(Props: any) {
           console.error('Error parsing agent data:', error);
         }
       }
-    }
+    };
+
+    loadAgentFromStorage();
+    window.addEventListener('agent-status-updated', loadAgentFromStorage);
+    return () => window.removeEventListener('agent-status-updated', loadAgentFromStorage);
   }, []);
 
   // Get client agent data from localStorage and API (for client-inbox context)
@@ -408,14 +414,40 @@ export default function Inbox(Props: any) {
           return updatedClientData;
         });
       } else {
-        // Regular agent path: only update if this update is for the current agent
+        // Human team agent: merge full profile (admin edits name / websites / status from dashboard)
         setAgent((prevAgent: any) => {
           if (!prevAgent) return prevAgent;
           const prevId = prevAgent.id?.toString() || prevAgent._id?.toString();
           const updId = updatedAgent.id?.toString() || updatedAgent._id?.toString();
           if (prevId !== updId) return prevAgent;
-          const merged = { ...prevAgent, isActive: updatedAgent.isActive, lastActive: updatedAgent.lastActive };
-          localStorage.setItem('agent', JSON.stringify(merged));
+          const normalizeAssigned = (arr: any, fb: any) => {
+            if (!Array.isArray(arr)) return fb;
+            return arr.map((x: any) =>
+              typeof x === "string" ? x : String(x?._id ?? x?.id ?? x ?? "")
+            );
+          };
+          const merged = {
+            ...prevAgent,
+            name: updatedAgent.name ?? prevAgent.name,
+            email: updatedAgent.email ?? prevAgent.email,
+            isActive: updatedAgent.isActive ?? prevAgent.isActive,
+            lastActive:
+              updatedAgent.lastActive !== undefined ? updatedAgent.lastActive : prevAgent.lastActive,
+            avatar: updatedAgent.avatar !== undefined ? updatedAgent.avatar : prevAgent.avatar,
+            status: updatedAgent.status ?? prevAgent.status,
+            assignedAgents:
+              updatedAgent.assignedAgents != null
+                ? normalizeAssigned(updatedAgent.assignedAgents, prevAgent.assignedAgents)
+                : prevAgent.assignedAgents,
+          };
+          localStorage.setItem("agent", JSON.stringify(merged));
+          const ids = (merged.assignedAgents || []).map((x: string) => String(x));
+          const cur = localStorage.getItem("currentAgentId");
+          if (cur && ids.length > 0 && !ids.includes(cur)) {
+            localStorage.setItem("currentAgentId", ids[0]);
+            window.dispatchEvent(new CustomEvent("agent-changed", { detail: { agentId: ids[0] } }));
+          }
+          window.dispatchEvent(new CustomEvent("agent-status-updated"));
           return merged;
         });
       }

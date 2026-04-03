@@ -59,6 +59,7 @@ export default function AgentTopBar() {
         const raw = localStorage.getItem('agent')
         if (raw) setHumanAgent(JSON.parse(raw))
       } catch {}
+      void fetchAgents()
     }
 
     window.addEventListener('agent-changed', handleAgentChanged as EventListener)

@@ -116,12 +116,37 @@ export default function AgentSwitcherBar() {
     setCurrentAgentId(storedId)
     fetchAgents()
 
+    const syncAssignedIdsFromStorage = () => {
+      try {
+        const agentRaw = localStorage.getItem('agent')
+        if (agentRaw) {
+          const parsed = JSON.parse(agentRaw)
+          if (Array.isArray(parsed?.assignedAgents) && parsed.assignedAgents.length > 0) {
+            setAssignedAgentIds(parsed.assignedAgents.map((id: unknown) => String(id)))
+          } else {
+            setAssignedAgentIds([])
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     // Keep in sync if another part of the app changes the agent
     const handleAgentChanged = (e: CustomEvent) => {
       setCurrentAgentId(e.detail?.agentId ?? localStorage.getItem('currentAgentId'))
     }
+    const handleProfileOrAssignmentsSync = () => {
+      syncAssignedIdsFromStorage()
+      void fetchAgents()
+    }
+
     window.addEventListener('agent-changed', handleAgentChanged as EventListener)
-    return () => window.removeEventListener('agent-changed', handleAgentChanged as EventListener)
+    window.addEventListener('agent-status-updated', handleProfileOrAssignmentsSync)
+    return () => {
+      window.removeEventListener('agent-changed', handleAgentChanged as EventListener)
+      window.removeEventListener('agent-status-updated', handleProfileOrAssignmentsSync)
+    }
   }, [shouldShow])
 
   // Close dropdown on outside click

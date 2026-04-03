@@ -57,20 +57,24 @@ export default function AgentSidebar() {
     confirmPassword: ''
   });
 
-  // Only read from localStorage on the client
+  // Read agent from localStorage and re-read when socketContext syncs after admin edits
   useEffect(() => {
-    const agentData = localStorage.getItem('agent');
-    const parsedAgent = agentData ? JSON.parse(agentData) : null;
-    setAgent(parsedAgent);
-    if (parsedAgent?.avatar && parsedAgent.avatar !== 'null' && parsedAgent.avatar.trim() !== '') {
-      // Use full URL if avatar path doesn't start with http
-      const avatarPath = parsedAgent.avatar.startsWith('http') 
-        ? parsedAgent.avatar 
-        : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${parsedAgent.avatar}`;
-      setAvatarPreview(avatarPath);
-    } else {
-      setAvatarPreview(defaultImage);
-    }
+    const refreshAgentFromStorage = () => {
+      const agentData = localStorage.getItem('agent');
+      const parsedAgent = agentData ? JSON.parse(agentData) : null;
+      setAgent(parsedAgent);
+      if (parsedAgent?.avatar && parsedAgent.avatar !== 'null' && parsedAgent.avatar.trim() !== '') {
+        const avatarPath = parsedAgent.avatar.startsWith('http')
+          ? parsedAgent.avatar
+          : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${parsedAgent.avatar}`;
+        setAvatarPreview(avatarPath);
+      } else {
+        setAvatarPreview(defaultImage);
+      }
+    };
+    refreshAgentFromStorage();
+    window.addEventListener('agent-status-updated', refreshAgentFromStorage);
+    return () => window.removeEventListener('agent-status-updated', refreshAgentFromStorage);
   }, []);
 
   const handleLogout = async () => {
@@ -120,38 +124,6 @@ export default function AgentSidebar() {
       socket?.off('agent-deleted-success', handleLogout)
     }
   },[socket])
-
-  // Listen for socket events to update agent status in real-time
-  useEffect(() => {
-    if (!socket || !agent) return
-
-    const handleAgentStatusUpdate = (updatedAgent: any) => {
-      console.log('Agent status updated via socket:', updatedAgent)
-      // Check if this update is for the current agent
-      const agentId = agent.id?.toString() || agent.id
-      const updatedId = updatedAgent.id?.toString() || updatedAgent.id
-      
-      if (agentId === updatedId) {
-        // Update localStorage and state
-        const updatedAgentData = {
-          ...agent,
-          isActive: updatedAgent.isActive,
-          lastActive: updatedAgent.lastActive,
-        }
-        
-        localStorage.setItem('agent', JSON.stringify(updatedAgentData))
-        setAgent(updatedAgentData)
-      }
-    }
-
-    // Listen for agent status updates
-    socket.on('agent-status-updated', handleAgentStatusUpdate)
-
-    // Cleanup listener on unmount
-    return () => {
-      socket.off('agent-status-updated', handleAgentStatusUpdate)
-    }
-  }, [socket, agent])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
