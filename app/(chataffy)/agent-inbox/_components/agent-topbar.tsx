@@ -86,6 +86,34 @@ const getInitials = (name: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+/** Same outer size as the real status pill so the header does not jump on hydrate. */
+function StatusBarSkeleton() {
+  return (
+    <div
+      className="inline-flex h-[40px] min-w-[148px] items-center gap-[9px] rounded-[8px] border border-[#E2E8F0] bg-white px-[14px]"
+      aria-hidden
+    >
+      <div className="flex flex-1 items-center justify-between gap-3">
+        <div className="flex flex-col gap-[6px] py-0.5">
+          <div className="h-2.5 w-9 rounded-sm bg-[#E2E8F0] animate-pulse" />
+          <div className="h-2.5 w-12 rounded-sm bg-[#F1F5F9] animate-pulse" />
+        </div>
+        <div className="h-[22px] w-[38px] shrink-0 rounded-full bg-[#F1F5F9] animate-pulse" />
+      </div>
+    </div>
+  )
+}
+
+/** Same footprint as the profile avatar control (w-9 h-9). */
+function ProfileAvatarSkeleton() {
+  return (
+    <div
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] animate-pulse shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)]"
+      aria-hidden
+    />
+  )
+}
+
 export default function AgentTopBar() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
@@ -99,6 +127,8 @@ export default function AgentTopBar() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
+  /** False on first paint; true after localStorage is read so we can reserve space for status/profile. */
+  const [hasReadAgentFromStorage, setHasReadAgentFromStorage] = useState(false)
 
   useEffect(() => {
     // Read human agent from localStorage
@@ -108,6 +138,7 @@ export default function AgentTopBar() {
     } catch { }
 
     setCurrentAgentId(localStorage.getItem('currentAgentId'))
+    setHasReadAgentFromStorage(true)
 
     // Fetch all AI agents then filter to assigned ones
     const fetchAgents = async () => {
@@ -245,8 +276,9 @@ export default function AgentTopBar() {
         </div>
 
         <div className='flex items-center gap-[20px]'>
-          {/* Status Toggle */}
-          {humanAgent && (
+          {/* Status Toggle — skeleton until localStorage agent is read to avoid layout shift */}
+          {!hasReadAgentFromStorage && <StatusBarSkeleton />}
+          {hasReadAgentFromStorage && humanAgent && (
             <div className="inline-flex h-[40px] items-center gap-[9px] rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] text-[#111827]">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-col gap-[4px]">
@@ -357,7 +389,8 @@ export default function AgentTopBar() {
 
 
           {/* Human agent profile (same pattern as ClientProfileMenu) */}
-          {humanAgent && (
+          {!hasReadAgentFromStorage && <ProfileAvatarSkeleton />}
+          {hasReadAgentFromStorage && humanAgent && (
             <div className="relative shrink-0" ref={profileMenuRef}>
               <button
                 type="button"
