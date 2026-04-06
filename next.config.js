@@ -18,6 +18,7 @@ const nextConfig = {
           "chataffy.com",
           "www.chataffy.com"
         ],
+        bodySizeLimit: '20mb',
     },
   },
   images: {
