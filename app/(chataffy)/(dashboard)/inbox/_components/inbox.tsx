@@ -319,6 +319,15 @@ export default function Inbox(Props: any) {
     setAgentConnectionRequest(null);
   }, []);
 
+  useEffect(() => {
+    if (!isVisitorClosed || !openConversationId) return;
+    setAgentConnectionRequest((prev) => {
+      if (!prev) return prev;
+      if (String(prev.conversationId) !== String(openConversationId)) return prev;
+      return null;
+    });
+  }, [isVisitorClosed, openConversationId]);
+
   // Reset all conversation state when the active agent changes
   useEffect(() => {
     const handleAgentChanged = () => {
@@ -646,6 +655,7 @@ export default function Inbox(Props: any) {
 
   const handleMessageSend = () => {
     if (!inputMessage.trim()) return;
+    if (isVisitorClosed || isAIChat || openConversationStatus !== "open") return;
 
     const messageData = {
       message: inputMessage,
@@ -966,6 +976,7 @@ export default function Inbox(Props: any) {
               <ChatHeader
                 visitorName={conversationMessages.visitorName}
                 isAIChat={isAIChat}
+                isVisitorClosed={isVisitorClosed}
                 openConversationStatus={openConversationStatus}
                 tags={tags}
                 inputAddTag={inputAddTag}

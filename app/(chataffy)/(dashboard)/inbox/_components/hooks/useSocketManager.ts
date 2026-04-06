@@ -309,7 +309,7 @@ export const useSocketManager = ({
     const handleVisitorCloseChat = (data: any) => {
       console.log("Visitor closed chat event received:", data);
       // Conversation stays open for the agent (conversationOpenStatus unchanged in DB).
-      // Mark visitorClosed so the chat input is enabled even when aiChat is true.
+      // Mark visitorClosed so agent chat sends stay disabled for this thread.
       setIsVisitorClosed(true);
 
       // Refresh the conversations list

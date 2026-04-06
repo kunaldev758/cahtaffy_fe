@@ -38,6 +38,7 @@ interface ChatHeaderProps {
   onTagDelete: (id: string) => void;
   onInputAddTagChange: (value: string) => void;
   canReply?: boolean;
+  isVisitorClosed?: boolean;
 }
 
 export default function ChatHeader({
@@ -53,6 +54,7 @@ export default function ChatHeader({
   onTagDelete,
   onInputAddTagChange,
   canReply = true,
+  isVisitorClosed = false,
 }: ChatHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -141,13 +143,19 @@ export default function ChatHeader({
         <div className="flex items-center gap-[12px] flex-shrink-0">
           {/* AI status button */}
           <button
-            onClick={canReply ? onToggleAI : undefined}
-            disabled={!canReply || !isAIChat}
-            title={isAIChat ? "Disable AI (hand off to agent)" : "AI is offline"}
+            onClick={canReply && !isVisitorClosed ? onToggleAI : undefined}
+            disabled={!canReply || !isAIChat || isVisitorClosed}
+            title={
+              isVisitorClosed
+                ? "The visitor ended this chat"
+                : isAIChat
+                  ? "Disable AI (hand off to agent)"
+                  : "AI is offline"
+            }
             className={`px-[18px] h-[38px] text-[13px] font-bold rounded-[12px] flex items-center justify-center gap-[8px] ${isAIChat
               ? "bg-[#111827] text-white shadow-[0px_10px_15px_-3px_rgba(15,23,42,0.10)]"
               : "bg-[#F1F5F9] text-[#64748B] border-gray-200 cursor-default"
-              } ${!canReply ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${!canReply || isVisitorClosed ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {isAIChat && (
               <span className="material-symbols-outlined !text-[18px]">
