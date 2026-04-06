@@ -5,8 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare,
-  Settings,
-  User,
   LogOut,
   Menu,
   X,
@@ -38,27 +36,16 @@ export default function AgentSidebar() {
   const router = useRouter();
 
   const [agent, setAgent] = useState<Agent | null>(null);
-  const [editForm, setEditForm] = useState({
-    name: '',
-    email: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
 
   // Read agent from localStorage and re-read when socketContext syncs after admin edits
   useEffect(() => {
     const refreshAgentFromStorage = () => {
-      const agentData = localStorage.getItem('agent');
-      const parsedAgent = agentData ? JSON.parse(agentData) : null;
-      setAgent(parsedAgent);
-      if (parsedAgent?.avatar && parsedAgent.avatar !== 'null' && parsedAgent.avatar.trim() !== '') {
-        const avatarPath = parsedAgent.avatar.startsWith('http')
-          ? parsedAgent.avatar
-          : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${parsedAgent.avatar}`;
-        setAvatarPreview(avatarPath);
-      } else {
-        setAvatarPreview(defaultImage);
+      try {
+        const agentData = localStorage.getItem('agent');
+        const parsedAgent = agentData ? JSON.parse(agentData) : null;
+        setAgent(parsedAgent);
+      } catch {
+        setAgent(null);
       }
     };
     refreshAgentFromStorage();
@@ -114,156 +101,13 @@ export default function AgentSidebar() {
     }
   },[socket])
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!agent) return;
-
-    setIsUpdating(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const updateData: any = {
-        name: editForm.name,
-        // email: editForm.email
-      };
-
-      // Only include password if provided
-      if (editForm.newPassword) {
-        if (editForm.newPassword !== editForm.confirmPassword) {
-          setError("New passwords don't match");
-          setIsUpdating(false);
-          return;
-        }
-        updateData.currentPassword = editForm.currentPassword;
-        updateData.newPassword = editForm.newPassword;
-      }
-
-      const result = await updateAgent(agent.id,updateData)
-      console.log(result,"update result")
-
-      // Backend returns { humanAgent: {...} }; avatar upload returns { agent: {...} }
-      const payloadAgent =  result?.humanAgent
-      if (!payloadAgent) {
-        throw new Error(result.message || 'Failed to update agent');
-      }
-
-      // Update localStorage with new data
-      const updatedAgent = {
-        ...agent,
-        name: payloadAgent.name ?? agent.name,
-        avatar: payloadAgent.avatar ?? agent.avatar,
-        // email: result.agent.email
-      };
-      
-      localStorage.setItem('agent', JSON.stringify(updatedAgent));
-      setAgent(updatedAgent);
-      window.dispatchEvent(new CustomEvent('agent-status-updated'));
-      
-      // Upload avatar if selected (do this after profile update)
-      if (avatarFile && agent.id) {
-        await handleAvatarUpload(agent.id);
-      } else {
-        setSuccess("Profile updated successfully!");
-      }
-      
-      // Reset password fields
-      setEditForm(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      }));
-      
-      setTimeout(() => {
-        setShowEditModal(false);
-        setSuccess("");
-        setAvatarError(false);
-      }, 2000);
-
-    } catch (error) {
-      console.error('Update error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update profile');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleAvatarUpload = async (agentId: string) => {
-    if (!avatarFile) return;
-
-    setIsUploadingAvatar(true);
-    try {
-      const formData = new FormData();
-      formData.append('avatar', avatarFile);
-
-      const result = await uploadAgentAvatar(formData, agentId);
-      
-      if (result.status_code === 200 && result.agent) {
-        const updatedAgent = {
-          ...agent!,
-          avatar: result.agent.avatar
-        };
-        
-        localStorage.setItem('agent', JSON.stringify(updatedAgent));
-        setAgent(updatedAgent);
-        // Use full URL if avatar path doesn't start with http
-        const avatarPath = result.agent.avatar.startsWith('http') 
-          ? result.agent.avatar 
-          : `${process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001'}${result.agent.avatar}`;
-        setAvatarPreview(avatarPath);
-        setAvatarFile(null);
-        setAvatarError(false);
-        setSuccess("Avatar uploaded successfully!");
-        window.dispatchEvent(new CustomEvent('agent-status-updated'));
-
-        setTimeout(() => {
-          setSuccess("");
-        }, 2000);
-      } else {
-        throw new Error(result.message || 'Failed to upload avatar');
-      }
-    } catch (error) {
-      console.error('Avatar upload error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to upload avatar');
-    } finally {
-      setIsUploadingAvatar(false);
-    }
-  };
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
-        setError("Please select a valid image file (JPG or PNG)");
-        return;
-      }
-      
-      // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError("File size must be less than 5MB");
-        return;
-      }
-
-      setAvatarFile(file);
-      setAvatarError(false);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      setError("");
-    }
-  };
-
   const toggleAgentStatus = async () => {
     if (!agent) return;
 
     try {
       const result = await toggleActiveStatus(agent.id,!agent.isActive)
       if (!result) {
-        throw new Error(result.message || 'Failed to update status');
+        throw new Error('Failed to update status');
       }
 
       // Update localStorage and state
