@@ -91,11 +91,21 @@ export default function OnboardingPage() {
     const isDocSnippets = activeTab === 'docs'
     const isFaqs = activeTab === 'faqs'
     const isWidgetStep = currentStep === 'widget'
+    const hasUploadedDocFile = Boolean(uploadedFile)
 
     const handleFileSelect = (files: FileList | null) => {
         if (!files || files.length === 0) return
         setUploadedFileName(files[0].name)
         setUploadedFile(files[0])
+    }
+
+    const handleClearUploadedFile = () => {
+        setUploadedFileName('')
+        setUploadedFile(null)
+        setIsDragOver(false)
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+        }
     }
 
     const handleAddFaq = () => {
@@ -331,28 +341,40 @@ export default function OnboardingPage() {
                             <div className='flex flex-col gap-3 w-full md:max-w-[560px]'>
                                 <div className="flex flex-col">
                                     <div
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => fileInputRef.current?.click()}
+                                        role={hasUploadedDocFile ? undefined : 'button'}
+                                        tabIndex={hasUploadedDocFile ? -1 : 0}
+                                        aria-disabled={hasUploadedDocFile}
+                                        onClick={() => {
+                                            if (hasUploadedDocFile) return
+                                            fileInputRef.current?.click()
+                                        }}
                                         onKeyDown={(event) => {
+                                            if (hasUploadedDocFile) return
                                             if (event.key === 'Enter' || event.key === ' ') {
                                                 event.preventDefault()
                                                 fileInputRef.current?.click()
                                             }
                                         }}
                                         onDragOver={(event) => {
+                                            if (hasUploadedDocFile) return
                                             event.preventDefault()
                                             setIsDragOver(true)
                                         }}
-                                        onDragLeave={() => setIsDragOver(false)}
+                                        onDragLeave={() => {
+                                            if (hasUploadedDocFile) return
+                                            setIsDragOver(false)
+                                        }}
                                         onDrop={(event) => {
                                             event.preventDefault()
                                             setIsDragOver(false)
+                                            if (hasUploadedDocFile) return
                                             handleFileSelect(event.dataTransfer.files)
                                         }}
-                                        className={`cursor-pointer rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors duration-200 ${isDragOver
-                                            ? 'border-[#4686FE] bg-[#EEF2FF]'
-                                            : 'border-[#E5E5E5] bg-[#fff]'
+                                        className={`rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors duration-200 ${hasUploadedDocFile
+                                            ? 'cursor-not-allowed border-[#E5E5E5] bg-[#F9FAFB] opacity-70'
+                                            : isDragOver
+                                                ? 'cursor-pointer border-[#4686FE] bg-[#EEF2FF]'
+                                                : 'cursor-pointer border-[#E5E5E5] bg-[#fff]'
                                             }`}
                                     >
                                         <input
@@ -360,6 +382,7 @@ export default function OnboardingPage() {
                                             type="file"
                                             accept=".doc,.docx,.pdf,.txt"
                                             className="hidden"
+                                            disabled={hasUploadedDocFile}
                                             onChange={(event) => handleFileSelect(event.target.files)}
                                         />
 
@@ -373,14 +396,24 @@ export default function OnboardingPage() {
                                         <p className="mt-2 text-[13px] font-normal leading-5 text-[#64748B]">
                                             Only DOC, DOCX, PDF, TXT files are allowed.
                                         </p>
-
-                                        {uploadedFileName && (
-                                            <p className="mt-3 text-[13px] font-medium leading-5 text-[#111827]">
-                                                Selected: {uploadedFileName}
-                                            </p>
-                                        )}
                                     </div>
                                 </div>
+
+                                {uploadedFileName && (
+                                    <div className="flex items-center justify-between gap-3 border-b border-dashed border-[#E5E5E5] pb-3">
+                                        <p className="min-w-0 flex-1 truncate text-[13px] font-medium leading-5 text-[#111827]">
+                                            Selected: {uploadedFileName}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={handleClearUploadedFile}
+                                            aria-label="Remove selected file"
+                                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-[#CBD5E1] hover:bg-[#F8FAFC] hover:text-[#111827]"
+                                        >
+                                            <span className="material-symbols-outlined !text-[20px]">close</span>
+                                        </button>
+                                    </div>
+                                )}
 
                                 <div className="flex flex-col overflow-hidden rounded-xl border border-[rgb(232,232,232)] bg-[#F8FAFC]">
                                     <div className="flex items-center justify-between gap-3 border-b border-[#E8E8E8] px-3 py-3">
