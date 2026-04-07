@@ -9,6 +9,7 @@ import { dispatchAuthStorageSync } from '@/app/socketContext'
 import NotificationBell from '@/app/(chataffy)/(dashboard)/_components/NotificationBell'
 import AgentEditProfileModal, { type AgentEditProfileAgent } from './AgentEditProfileModal'
 import defaultImageImport from '@/images/default-image.png'
+import { publicAsset } from '@/lib/publicAsset'
 
 const defaultImage = (defaultImageImport as any).src || defaultImageImport
 
@@ -261,7 +262,7 @@ export default function AgentTopBar() {
         <div className='flex items-center gap-[20px]'>
           <div className='border-r border-[#E8E8E8] pr-[20px] py-[20px]'>
             <Image
-              src="/images/agent-logo.svg"
+              src={publicAsset('/images/agent-logo.svg')}
               alt="Agent Logo"
               width={123}
               height={46}
