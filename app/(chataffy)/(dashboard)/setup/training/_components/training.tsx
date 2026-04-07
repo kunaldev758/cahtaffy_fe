@@ -828,13 +828,15 @@ export default function EnhancedTrainingPage() {
               <p className="text-[13px] text-[#64748B]">
                 Showing {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, trainingList.totalCount)} of {trainingList.totalCount}
               </p>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={handlePrevPage}
                   disabled={currentPage <= 1}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Previous page"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="h-4 w-4" strokeWidth={2} />
                 </button>
 
                 {Array.from({ length: Math.min(5, trainingList.totalPages) }, (_, i) => {
@@ -846,11 +848,12 @@ export default function EnhancedTrainingPage() {
 
                   return (
                     <button
-                      key={i}
+                      type="button"
+                      key={pg}
                       onClick={() => handlePageChange(pg)}
-                      className={`h-8 w-8 flex items-center justify-center rounded-lg text-[13px] font-medium transition-colors ${currentPage === pg
-                        ? 'bg-[#111827] text-white'
-                        : 'border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-[13px] font-medium transition-colors ${currentPage === pg
+                        ? 'border-[#111827] bg-[#111827] text-white'
+                        : 'border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]'
                         }`}
                     >
                       {pg}
@@ -859,11 +862,13 @@ export default function EnhancedTrainingPage() {
                 })}
 
                 <button
+                  type="button"
                   onClick={handleNextPage}
                   disabled={currentPage >= trainingList.totalPages}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Next page"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
                 </button>
               </div>
             </div>

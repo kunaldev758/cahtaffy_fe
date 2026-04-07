@@ -24,10 +24,19 @@ export default function SetupPage() {
     const isDocSnippets = activeTab === 'docs'
     const isFaqs = activeTab === 'faqs'
     const isWidgetStep = currentStep === 'widget'
+    const hasUploadedDocFile = Boolean(uploadedFileName)
 
     const handleFileSelect = (files: FileList | null) => {
         if (!files || files.length === 0) return
         setUploadedFileName(files[0].name)
+    }
+
+    const handleClearUploadedFile = () => {
+        setUploadedFileName('')
+        setIsDragOver(false)
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+        }
     }
 
     const handleAddFaq = () => {
@@ -95,28 +104,40 @@ export default function SetupPage() {
                             <div className='flex flex-col gap-3 w-full md:max-w-[560px]'>
                                 <div className="flex flex-col">
                                     <div
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => fileInputRef.current?.click()}
+                                        role={hasUploadedDocFile ? undefined : 'button'}
+                                        tabIndex={hasUploadedDocFile ? -1 : 0}
+                                        aria-disabled={hasUploadedDocFile}
+                                        onClick={() => {
+                                            if (hasUploadedDocFile) return
+                                            fileInputRef.current?.click()
+                                        }}
                                         onKeyDown={(event) => {
+                                            if (hasUploadedDocFile) return
                                             if (event.key === 'Enter' || event.key === ' ') {
                                                 event.preventDefault()
                                                 fileInputRef.current?.click()
                                             }
                                         }}
                                         onDragOver={(event) => {
+                                            if (hasUploadedDocFile) return
                                             event.preventDefault()
                                             setIsDragOver(true)
                                         }}
-                                        onDragLeave={() => setIsDragOver(false)}
+                                        onDragLeave={() => {
+                                            if (hasUploadedDocFile) return
+                                            setIsDragOver(false)
+                                        }}
                                         onDrop={(event) => {
                                             event.preventDefault()
                                             setIsDragOver(false)
+                                            if (hasUploadedDocFile) return
                                             handleFileSelect(event.dataTransfer.files)
                                         }}
-                                        className={`cursor-pointer rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors duration-200 ${isDragOver
-                                            ? 'border-[#4686FE] bg-[#EEF2FF]'
-                                            : 'border-[#E5E5E5] bg-[#fff]'
+                                        className={`rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors duration-200 ${hasUploadedDocFile
+                                            ? 'cursor-not-allowed border-[#E5E5E5] bg-[#F9FAFB] opacity-70'
+                                            : isDragOver
+                                                ? 'cursor-pointer border-[#4686FE] bg-[#EEF2FF]'
+                                                : 'cursor-pointer border-[#E5E5E5] bg-[#fff]'
                                             }`}
                                     >
                                         <input
@@ -124,6 +145,7 @@ export default function SetupPage() {
                                             type="file"
                                             accept=".doc,.docx,.pdf,.txt"
                                             className="hidden"
+                                            disabled={hasUploadedDocFile}
                                             onChange={(event) => handleFileSelect(event.target.files)}
                                         />
 

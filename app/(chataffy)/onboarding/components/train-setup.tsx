@@ -1,10 +1,9 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import Image from "next/image"
-import { Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { publicAsset } from "@/lib/publicAsset"
 
 type TrainingRow = {
@@ -20,6 +19,15 @@ type TrainSetupProps = {
   isTraining?: boolean
 }
 
+const PAGE_SIZE = 50
+
+const paginationBtnClass =
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-[13px] font-medium transition-colors"
+const paginationInactiveClass =
+  "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]"
+const paginationActiveClass = "border-[#111827] bg-[#111827] text-white"
+const paginationNavClass = `${paginationBtnClass} ${paginationInactiveClass}`
+
 const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupProps) => {
   const checkboxUiClass =
     "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white data-[state=indeterminate]:border-[#4686FE] data-[state=indeterminate]:bg-[#4686FE] data-[state=indeterminate]:text-white [&_svg]:h-[14px] [&_svg]:w-[14px]"
@@ -27,6 +35,7 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
     `${checkboxUiClass} data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]`
 
   const [searchValue, setSearchValue] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
 
   const rows: TrainingRow[] = useMemo(() =>
     urls.map((url, i) => ({
@@ -50,6 +59,22 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
     const keyword = searchValue.toLowerCase()
     return rows.filter((row) => row.url.toLowerCase().includes(keyword))
   }, [rows, searchValue])
+
+  const totalPages = Math.ceil(filteredRows.length / PAGE_SIZE)
+
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE
+    return filteredRows.slice(start, start + PAGE_SIZE)
+  }, [filteredRows, currentPage])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchValue, urls])
+
+  useEffect(() => {
+    if (totalPages === 0) return
+    setCurrentPage((p) => (p > totalPages ? totalPages : p))
+  }, [totalPages, filteredRows.length])
 
   const allSelected =
     filteredRows.length > 0 && filteredRows.every((row) => selectedRows[row.id])
@@ -111,7 +136,7 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
 
         <div className="h-[calc(100vh-370px)] min-h-[300px] overflow-y-auto overflow-x-hidden">
           <div className="divide-y divide-[#E2E8F0]">
-            {filteredRows.map((row) => (
+            {paginatedRows.map((row) => (
               <div key={row.id} className="h-[50px] px-4 flex items-center hover:bg-[#F8FAFC]">
                 <div className="w-full flex items-center gap-3">
                   <Checkbox
@@ -152,6 +177,49 @@ const TrainSetup = ({ urls, sourceDomain, onContinue, isTraining }: TrainSetupPr
             )}
           </div>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-center gap-2 border-t border-[#F1F5F9] bg-white px-4 py-3">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              aria-label="Previous page"
+              className={`${paginationNavClass} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white`}
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+            </button>
+
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pg: number
+              if (totalPages <= 5) pg = i + 1
+              else if (currentPage <= 3) pg = i + 1
+              else if (currentPage >= totalPages - 2) pg = totalPages - 4 + i
+              else pg = currentPage - 2 + i
+
+              return (
+                <button
+                  key={pg}
+                  type="button"
+                  onClick={() => setCurrentPage(pg)}
+                  className={`${paginationBtnClass} ${currentPage === pg ? paginationActiveClass : paginationInactiveClass}`}
+                >
+                  {pg}
+                </button>
+              )
+            })}
+
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              aria-label="Next page"
+              className={`${paginationNavClass} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white`}
+            >
+              <ChevronRight className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </div>
+        )}
 
         <div className="bg-[#F8FAFC] p-[20px]">
           <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-3 md:gap-2">
