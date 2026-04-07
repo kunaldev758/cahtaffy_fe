@@ -891,7 +891,7 @@ export default function HumanAgentPage() {
                     <PopoverContent
                       className="z-[100] w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2"
                       align="start"
-                      style={{ zIndex: 999999 }}
+                      style={{ zIndex: 999999, pointerEvents: 'auto' }}
                     >
                       <Input
                         value={addWebsiteSearch}
@@ -1036,7 +1036,7 @@ export default function HumanAgentPage() {
                     <PopoverContent
                       className="z-[100] w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2"
                       align="start"
-                      style={{ zIndex: 999999 }}
+                      style={{ zIndex: 999999, pointerEvents: 'auto' }}
                     >
                       <Input
                         value={editWebsiteSearch}
