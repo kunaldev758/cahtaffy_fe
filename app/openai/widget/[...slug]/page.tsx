@@ -1950,10 +1950,10 @@ export default function EnhancedChatWidget({ params }: any) {
                                         font: 'inherit',
                                       }}
                                     >
-                                      <div style={{ fontSize: '10px', fontWeight: 700, color: getThemeColor(3, '#1d4ed8'), marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                      <div style={{ fontSize: '10px', fontWeight: 700, color: getThemeColor(5, '#1d4ed8'), marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                         Replying to {replyingTo.senderName || 'Agent'}
                                       </div>
-                                      <div style={{ fontSize: '12px', color: getThemeColor(3, '#374151'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      <div style={{ fontSize: '12px', color: getThemeColor(5, '#374151'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {replyingTo.message?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '…'}
                                       </div>
                                     </button>
@@ -1962,7 +1962,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                       onClick={() => setReplyingTo(null)}
                                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
                                     >
-                                      <X className="w-4 h-4" />
+                                      <X className="w-4 h-4" style={{ color: getThemeColor(5, '#64748B') }} />
                                     </button>
                                   </div>
                                 )}

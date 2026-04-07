@@ -11,7 +11,8 @@ import {
   createHumanAgent,
   updateHumanAgent,
   deleteAgent,
-  updateAgentStatus
+  updateAgentStatus,
+  updateClientStatus
 } from '@/app/_api/dashboard/action'
 import React from 'react';
 import TopHead from '../_components/TopHead'
@@ -67,6 +68,11 @@ interface FormErrors {
   name?: string;
   email?: string;
   assignedAgents?: string;
+}
+
+/** Popover/Select portals sit outside DialogContent; Dialog would otherwise treat clicks as "outside" and block them. */
+function isPointerFromRadixPopperLayer(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('[data-radix-popper-content-wrapper]'))
 }
 
 function resolveHumanAgentAvatarUrl(avatar?: string | null): string | null {
@@ -330,12 +336,59 @@ export default function HumanAgentPage() {
     }
   };
 
-  const handleStatusToggle = async (id: string, currentStatus: boolean) => {
+  const handleStatusToggle = async (agent: HumanAgentType) => {
+    const id = String(agent._id);
+    const currentStatus = agent.isActive;
     try {
       const newStatus = !currentStatus;
-      await updateAgentStatus(id, newStatus);
+      if (agent.isClient) {
+        const response = await updateClientStatus(newStatus);
+        if (response === 'error') {
+          toast.error('Unauthorized: Please login again');
+          return;
+        }
+        if (
+          response &&
+          typeof response === 'object' &&
+          'status_code' in response &&
+          (response as { status_code?: number }).status_code !== undefined &&
+          (response as { status_code: number }).status_code !== 200
+        ) {
+          throw new Error((response as { message?: string }).message || 'Failed to update status');
+        }
+        const payloadAgent =
+          response && typeof response === 'object' && 'agent' in response
+            ? (response as { agent?: Record<string, unknown> }).agent
+            : undefined;
+        if (payloadAgent) {
+          const u = payloadAgent as { _id?: unknown; id?: unknown; isActive?: boolean; lastActive?: unknown };
+          const uid = u._id ?? u.id;
+          const last =
+            u.lastActive != null
+              ? typeof u.lastActive === 'string'
+                ? u.lastActive
+                : new Date(u.lastActive as string | number | Date).toISOString()
+              : undefined;
+          setAgents((prev) =>
+            prev.map((a) => {
+              if (!a.isClient) return a;
+              if (uid != null && String(a._id) !== String(uid)) return a;
+              return {
+                ...a,
+                isActive: u.isActive ?? newStatus,
+                ...(last !== undefined ? { lastActive: last } : {}),
+              };
+            })
+          );
+        } else {
+          setAgents((prev) =>
+            prev.map((a) => (a.isClient ? { ...a, isActive: newStatus } : a))
+          );
+        }
+      } else {
+        await updateAgentStatus(id, newStatus);
+      }
       toast.success('Agent status updated successfully');
-      // UI updates from socket events (human-agent-status-updated / agent-status-updated / client-status-updated)
     } catch (error: any) {
       toast.error('Failed to update agent status');
       fetchAgents();
@@ -671,9 +724,7 @@ export default function HumanAgentPage() {
                                 className="toggle-checkbox"
                                 type="checkbox"
                                 checked={agent.isActive}
-                                onChange={() => handleStatusToggle(rowId, agent.isActive)}
-                                disabled={isClientRow}
-                              />
+                                onChange={() => void handleStatusToggle(agent)}                              />
                               <div className="toggle-switch" />
                             </label>
                           </TableCell>
@@ -791,7 +842,15 @@ export default function HumanAgentPage() {
 
         {/* Add Agent Modal */}
         <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) resetModals() }}>
-          <DialogContent className="w-full max-w-[450px] gap-0 overflow-hidden border border-[#E2E8F0] bg-white p-0">
+          <DialogContent
+            className="w-full max-w-[450px] gap-0 overflow-hidden border border-[#E2E8F0] bg-white p-0"
+            onPointerDownOutside={(e) => {
+              if (isPointerFromRadixPopperLayer(e.target)) e.preventDefault()
+            }}
+            onInteractOutside={(e) => {
+              if (isPointerFromRadixPopperLayer(e.target)) e.preventDefault()
+            }}
+          >
             <div className="flex items-center gap-2 border-b border-[#E5E5E5] bg-[#F9FBFD] px-[20px] py-[15px]">
               <h1 className="text-sm font-semibold text-[#111827]">Add New Human Agent</h1>
             </div>
@@ -875,7 +934,10 @@ export default function HumanAgentPage() {
                         <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#94A3B8]" />
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2" align="start">
+                    <PopoverContent
+                      className="z-[100] w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2"
+                      align="start"
+                    >
                       <Input
                         value={addWebsiteSearch}
                         onChange={(e) => setAddWebsiteSearch(e.target.value)}
@@ -930,7 +992,15 @@ export default function HumanAgentPage() {
 
         {/* Edit Agent Modal */}
         <Dialog open={showEditModal && !!selectedAgent} onOpenChange={(open) => { if (!open) resetModals() }}>
-          <DialogContent className="w-full max-w-[450px] gap-0 overflow-hidden border border-[#E2E8F0] bg-white p-0">
+          <DialogContent
+            className="w-full max-w-[450px] gap-0 overflow-hidden border border-[#E2E8F0] bg-white p-0"
+            onPointerDownOutside={(e) => {
+              if (isPointerFromRadixPopperLayer(e.target)) e.preventDefault()
+            }}
+            onInteractOutside={(e) => {
+              if (isPointerFromRadixPopperLayer(e.target)) e.preventDefault()
+            }}
+          >
             <div className="flex items-center gap-2 border-b border-[#E5E5E5] bg-[#F9FBFD] px-[20px] py-[15px]">
               <h1 className="text-sm font-semibold text-[#111827]">Edit Human Agent</h1>
             </div>
@@ -1008,7 +1078,10 @@ export default function HumanAgentPage() {
                         <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#94A3B8]" />
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2" align="start">
+                    <PopoverContent
+                      className="z-[100] w-[--radix-popover-trigger-width] border-[#E2E8F0] p-2"
+                      align="start"
+                    >
                       <Input
                         value={editWebsiteSearch}
                         onChange={(e) => setEditWebsiteSearch(e.target.value)}
