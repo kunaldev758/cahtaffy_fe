@@ -344,7 +344,7 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
                   }
 
                   return (
-                    <pre className="max-h-[430px] overflow-y-auto whitespace-pre-wrap text-[14px] leading-6 text-[#E2E8F0]">
+                    <pre className="max-h-[430px] overflow-y-auto whitespace-pre-wrap text-[14px] leading-6 text-[#E2E8F0]" style={{ wordBreak: 'break-word' }}>
                       {rawContent}
                     </pre>
                   )

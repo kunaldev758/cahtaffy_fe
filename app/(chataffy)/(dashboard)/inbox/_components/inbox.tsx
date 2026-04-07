@@ -14,6 +14,7 @@ import MessageInput from "./MessageInput";
 import DetailsPanel from "./DetailsPanel";
 import EmptyState from "./EmptyState";
 import AgentConnectionRequest from "./AgentConnectionRequest";
+import InboxSkeleton from "./InboxSkeleton";
 
 export default function Inbox(Props: any) {
   const searchParams:any = useSearchParams();
@@ -32,7 +33,7 @@ export default function Inbox(Props: any) {
   });
   const [conversationMessages, setConversationMessages] = useState<any>({
     data: [],
-    loading: true,
+    loading: false,
     conversationId: null,
     visitorName: "",
   });
@@ -351,6 +352,7 @@ export default function Inbox(Props: any) {
   // Initialize socket manager
   const {
     socketRef,
+    socketConnected,
     // socket,
     emitJoinConversation,
     emitSendMessage,
@@ -952,7 +954,9 @@ export default function Inbox(Props: any) {
   console.log(openConversationId, "openConversationId the id");
 
   return (
-    <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)]">
+    <>
+    {(!socketConnected || conversationsList.loading || (openConversationId && conversationMessages.loading)) && <InboxSkeleton />}
+    <div className={`rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)] ${(!socketConnected || conversationsList.loading || (openConversationId && conversationMessages.loading)) ? 'hidden' : ''}`}>
       <ConversationsList
         conversationsList={conversationsList}
         searchConversationsList={searchConversationsList}
@@ -1100,5 +1104,6 @@ export default function Inbox(Props: any) {
         />
       )}
     </div>
+    </>
   );
 }

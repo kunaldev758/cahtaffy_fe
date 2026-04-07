@@ -59,6 +59,7 @@ export const useSocketManager = ({
   // Incremented every time the socket is re-created (e.g. on agent switch)
   // so that dependent effects re-run with the new socket instance.
   const [socketVersion, setSocketVersion] = useState(0);
+  const [socketConnected, setSocketConnected] = useState(false);
 
     // Socket initialization
     const initializeSocket = useCallback(() => {
@@ -149,6 +150,7 @@ export const useSocketManager = ({
         socketInstance.on("connect", () => {
           console.log("Socket connected successfully");
           isInitializingRef.current = false;
+          setSocketConnected(true);
         });
   
         socketInstance.on("connect_error", (error) => {
@@ -158,6 +160,7 @@ export const useSocketManager = ({
 
         socketInstance.on("disconnect", (reason) => {
           console.log("Socket disconnected:", reason);
+          setSocketConnected(false);
           // Only reconnect if it wasn't a manual disconnect
           if (reason === "io server disconnect") {
             // Server disconnected, reconnect manually
@@ -927,6 +930,7 @@ export const useSocketManager = ({
 
   return {
     socketRef,
+    socketConnected,
     // Emit functions
     // socket,
     emitJoinConversation,
