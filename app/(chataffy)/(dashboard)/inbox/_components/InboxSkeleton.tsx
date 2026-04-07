@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 function ConversationsListSkeleton() {
   return (
-    <div className="flex w-[220px] shrink-0 flex-col rounded-[20px] bg-white px-3 py-4">
+    <div className="flex w-80 shrink-0 flex-col rounded-[20px] bg-white px-3 py-4">
       {/* Search bar */}
       <div className="mb-4 flex items-center gap-2 px-1">
         <Skeleton className="h-8 flex-1 rounded-lg" />
@@ -103,7 +103,7 @@ function ChatAreaSkeleton() {
 
 function DetailsPanelSkeleton() {
   return (
-    <div className="flex w-[260px] shrink-0 flex-col gap-4 rounded-[20px] bg-white px-4 py-4">
+    <div className="flex w-80 shrink-0 flex-col gap-4 rounded-[20px] bg-white px-4 py-4">
       {/* Visitor card */}
       <div className="flex items-center gap-3 rounded-xl border border-[#F1F5F9] px-3 py-3">
         <Skeleton className="h-8 w-8 shrink-0 rounded-full" />

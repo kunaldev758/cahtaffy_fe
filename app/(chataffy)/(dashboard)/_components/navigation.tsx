@@ -176,7 +176,7 @@ export default function IntegratedSidebar() {
 
       {/* Bottom */}
       <div className="px-3 pb-4 space-y-3">
-        {/* New AI Agent button */}
+        {/* New website button */}
         <button
           onClick={handleNewAgent}
           disabled={isCreatingAgent}
@@ -187,7 +187,7 @@ export default function IntegratedSidebar() {
           ) : (
             <Plus className="w-4 h-4" />
           )}
-          {isCreatingAgent ? 'Creating...' : 'New AI agent'}
+          {isCreatingAgent ? 'Creating...' : 'New Website'}
         </button>
 
         {/* Agent card */}

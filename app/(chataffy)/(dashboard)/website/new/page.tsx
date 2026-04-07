@@ -282,8 +282,8 @@ export default function NewAgentOnboardingPage() {
       {/* Header row with title + cancel */}
       <div className="flex items-center justify-between mb-6 max-w-[1106px] mx-auto">
         <div>
-          <h1 className="text-xl font-bold text-[#111827]">New AI Agent Setup</h1>
-          <p className="text-sm text-[#64748B] mt-0.5">Train your agent with your content to get started.</p>
+          <h1 className="text-xl font-bold text-[#111827]">Add New Website</h1>
+          <p className="text-sm text-[#64748B] mt-0.5">Add a new website to your account to get started.</p>
         </div>
         <button
           onClick={handleCancel}

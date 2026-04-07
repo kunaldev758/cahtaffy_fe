@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useReducer, useRef } from 'react'
+import { ImagePlus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -553,45 +554,55 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
           {/* Basic Setup card */}
           <div className="rounded-[20px] bg-white shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] p-[20px]">
             <div className="mb-4">
-              <h2 className="text-sm font-bold text-[#111827]">Agent Setup</h2>
-              <p className="text-[13px] text-[#64748B]">Configure your agent identity and contact information</p>
+              <h2 className="text-sm font-bold text-[#111827]">Website Setup</h2>
+              <p className="text-[13px] text-[#64748B]">Configure your website identity and contact information</p>
             </div>
 
             <div className="flex flex-col gap-4">
               {/* Logo + Agent Name */}
               <div className="flex gap-4 items-start">
                 <div className="shrink-0 flex flex-col items-center gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}
-                    className="relative h-[70px] w-[70px] rounded-full border border-[#D9DFE8] bg-[#F8FAFC] flex items-center justify-center overflow-hidden group hover:border-[#4686FE] transition-colors">
-                    {logoSrc && logoSrc !== '/images/widget/human-avatar.png' ? (
-                      <img src={logoSrc} alt="logo" className="h-full w-full rounded-full object-cover" />
-                    ) : (
-                      <span className="text-[38px] font-bold text-[#3B82F6] leading-none">
-                        {agentData.agentName?.[0]?.toUpperCase() ?? 'C'}
+                  <div className="relative inline-block">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}
+                      className="relative h-[70px] w-[70px] rounded-full border border-[#D9DFE8] bg-[#F8FAFC] flex items-center justify-center overflow-hidden hover:border-[#4686FE] transition-colors">
+                      {logoSrc && logoSrc !== '/images/widget/human-avatar.png' ? (
+                        <img src={logoSrc} alt="logo" className="h-full w-full rounded-full object-cover" />
+                      ) : (
+                        <span className="text-[38px] font-bold text-[#3B82F6] leading-none">
+                          {agentData.agentName?.[0]?.toUpperCase() ?? 'C'}
+                        </span>
+                      )}
+                      {isUploading && (
+                        <div className="absolute inset-0 rounded-full bg-white/80 flex items-center justify-center">
+                          <span className="material-symbols-outlined !text-[18px] text-[#4686FE] animate-spin">progress_activity</span>
+                        </div>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="absolute -right-1 -top-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-[#4686FE] text-white shadow-md ring-2 ring-white transition hover:bg-[#3575e8] disabled:pointer-events-none disabled:opacity-50"
+                      aria-label="Upload photo"
+                    >
+                      <span className="material-symbols-outlined !text-[16px] !text-white">
+                        add_photo_alternate
                       </span>
-                    )}
-                    <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <span className="material-symbols-outlined !text-[20px] text-white">upload</span>
-                    </div>
-                    {isUploading && (
-                      <div className="absolute inset-0 rounded-full bg-white/80 flex items-center justify-center">
-                        <span className="material-symbols-outlined !text-[18px] text-[#4686FE] animate-spin">progress_activity</span>
-                      </div>
-                    )}
-                  </button>
+                    </button>
+                  </div>
                   <p className="text-[11px] text-[#94A3B8] text-center">JPG/PNG<br />max 5MB</p>
                   {logoErrors.map((e, i) => <p key={i} className="text-[11px] text-red-500 text-center max-w-[80px]">{e}</p>)}
                   <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png" className="hidden" onChange={handleLogoChange} />
                 </div>
 
                 <div className="flex-1">
-                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Agent Name <span className="text-red-500">*</span></label>
+                  <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Website Name <span className="text-red-500">*</span></label>
                   <input type="text" value={agentData.agentName}
                     onChange={e => setAgent('agentName', e.target.value.slice(0, 20))}
                     onBlur={() => handleAgentBlur('agentName')}
                     maxLength={20}
                     className={`h-[40px] w-full rounded-[8px] border bg-white px-[14px] text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] focus:border-[#4686FE] ${fieldErrors.agentName ? 'border-red-400' : 'border-[#E2E8F0]'}`}
-                    placeholder="Enter agent name" />
+                    placeholder="Enter website name" />
                   <div className="mt-1 flex items-center justify-between gap-2">
                     {fieldErrors.agentName ? (
                       <p className="text-[11px] text-red-500">{fieldErrors.agentName}</p>

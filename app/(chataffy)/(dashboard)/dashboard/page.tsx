@@ -263,12 +263,15 @@ export default function Dashboard2Page() {
                 <span>Hello, Chataffy User!</span>
                 <Image src={publicAsset('/images/new/wave-icon.png')} alt="Wave Icon" width={24} height={20} />
               </h2>
-              <p className="mt-3 text-[14px] font-medium leading-5 text-[#64748B]">
+              {/* <p className="mt-3 text-[14px] font-medium leading-5 text-[#64748B]">
                 You&apos;re on step {completedTasks} of 3. Start by adding your data sources.
+              </p> */}
+              <p className="mt-3 text-[14px] font-medium leading-5 text-[#64748B]">
+                You&apos;ve successfully completed all setup steps.
               </p>
             </div>
 
-            <div>
+            {/* <div>
               <Progress value={progressPercentage} className="h-[16px] rounded-full bg-[#F1F5F9] [&>div]:bg-[#4F7FF7]" />
             </div>
 
@@ -291,15 +294,35 @@ export default function Dashboard2Page() {
                   : <CircleOutlineIcon className="h-[17px] w-[17px] text-[#E2E8F0]" />}
                 <span>FAQ&apos;s{faqsAdded > 0 ? ` (${faqsAdded})` : ''}</span>
               </div>
+            </div> */}
+
+
+            <div>
+              <Progress value={100} className="h-[16px] rounded-full bg-[#F1F5F9] [&>div]:bg-[#4F7FF7]" />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-[22px] text-[13px] font-medium leading-5 text-[#64748B]">
+              <div className="flex items-center gap-[6px]">
+                <CheckCircleIcon className="h-[17px] w-[17px] text-[#16A34A]" />
+                <span>Scrap</span>
+              </div>
+              <div className="flex items-center gap-[6px]">
+                <CheckCircleIcon className="h-[17px] w-[17px] text-[#16A34A]" />
+                <span>Training</span>
+              </div>
+              <div className="flex items-center gap-[6px]">
+                <CheckCircleIcon className="h-[17px] w-[17px] text-[#16A34A]" />
+                <span>Widget Setup</span>
+              </div>
             </div>
 
             <div className='flex'>
               <button
                 type="button"
-                onClick={() => router.push('/setup/training')}
+                onClick={() => router.push('/training')}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
               >
-                <span>Continue Setup</span>
+                <span>Go To Training</span>
                 <span className="material-symbols-outlined !text-[14px]">arrow_forward_ios</span>
               </button>
             </div>
@@ -311,14 +334,14 @@ export default function Dashboard2Page() {
                 <h2 className="text-[18px] font-bold leading-5 text-[#111827]">Plan Limits &amp; Usage</h2>
                 <p className="mt-[6px] text-[13px] leading-5 text-[#64748B]">{plan?.displayName ?? 'Free Plan'}</p>
               </div>
-              <button
+              {/* <button
                 type="button"
                 // onClick={() => router.push('/billing')}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
               >
                 <span>Upgrade Plan</span>
                 <span className="material-symbols-outlined !text-[18px]">keyboard_double_arrow_up</span>
-              </button>
+              </button> */}
             </div>
 
             <div className="mt-[24px] space-y-4">
@@ -334,7 +357,7 @@ export default function Dashboard2Page() {
 
               <div>
                 <div className="flex items-end justify-between gap-4 text-[13px] font-medium leading-5 text-[#64748B]">
-                  <span>Agents</span>
+                  <span>Websites</span>
                   <span className="text-right font-bold text-[#111827]">{totalHumanAgents} / {maxAgents}</span>
                 </div>
                 <Progress value={agentPercent} className="mt-1.5 h-[8px] rounded-full bg-[#F1F5F9]" />
@@ -342,7 +365,7 @@ export default function Dashboard2Page() {
 
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
-                  <p className="text-[13px] font-bold text-[#111827]">Queries Handled</p>
+                  <p className="text-[13px] font-bold text-[#111827]">Chat Handled</p>
                   <p className="text-[11px] leading-4 text-[#64748B]">Deducted from shared pool</p>
                 </div>
                 <span

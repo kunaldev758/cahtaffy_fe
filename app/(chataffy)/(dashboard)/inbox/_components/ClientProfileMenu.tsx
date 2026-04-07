@@ -387,14 +387,14 @@ export default function ClientProfileMenu({
 
           {/* Menu items */}
           <div className="space-y-0.5">
-            <button
+            {/* <button
               className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-150"
             >
               <span className="material-symbols-outlined text-[#64748B] !text-[20px]">
                 receipt_long
               </span>
               Billing
-            </button>
+            </button> */}
 
             <button
               type="button"
