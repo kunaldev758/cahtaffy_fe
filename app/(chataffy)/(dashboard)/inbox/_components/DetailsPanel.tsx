@@ -126,7 +126,15 @@ export default function DetailsPanel({
                     <p className="text-[10px] font-semibold text-[#111827] uppercase">
                       {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
                     </p>
-                    <p className="text-[12px] font-normal text-[#64748B]">{note.message}</p>
+                    {note.message?.includes('<audio') ? (
+                      <p className="text-[12px] font-normal text-[#64748B] italic flex items-center gap-1">
+                        🎤 Voice note
+                      </p>
+                    ) : (
+                      <p className="text-[12px] font-normal text-[#64748B]">
+                        {note.message?.replace(/<[^>]+>/g, '').trim() || ''}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

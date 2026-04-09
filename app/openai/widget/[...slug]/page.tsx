@@ -217,6 +217,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const chatBottomRef = useRef<any>(null);
   const messageRowRefsById = useRef<Record<string, HTMLDivElement | null>>({});
   const socketRef = useRef<Socket | null>(null);
+  const hasSocketConnectedOnceRef = useRef(false);
   const closeConversationContextRef = useRef({ conversationId: null as string | null, conversation: [] as any[] });
   closeConversationContextRef.current = { conversationId, conversation };
   const recognitionRef = useRef<any>(null);
@@ -313,7 +314,7 @@ export default function EnhancedChatWidget({ params }: any) {
     }
   }, [conversation, showWidget, isMinimized]);
 
-  // Socket initialization
+  // Socket initialization — Engine.IO already does ping/pong; we rely on reconnection + browser online
   useEffect(() => {
     let storedVisitorId = localStorage.getItem('visitorId');
     if (!storedVisitorId) {
@@ -321,7 +322,14 @@ export default function EnhancedChatWidget({ params }: any) {
       localStorage.setItem('visitorId', storedVisitorId);
     }
 
-    let socketInstance: any;
+    hasSocketConnectedOnceRef.current = false;
+
+    let socketInstance: Socket | null = null;
+    const onBrowserOnline = () => {
+      const s = socketRef.current;
+      if (s && !s.connected) s.connect();
+    };
+
     try {
       socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
         query: {
@@ -331,25 +339,44 @@ export default function EnhancedChatWidget({ params }: any) {
           visitorId: localStorage.getItem('visitorId'),
         },
         transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000,
+        randomizationFactor: 0.5,
+        timeout: 20000,
       });
 
-      socketInstance.on('connect_error', (err: any) => {
-        setSocketError(true);
+      socketInstance.on("connect", () => {
+        hasSocketConnectedOnceRef.current = true;
+        setSocketError(false);
       });
-      socketInstance.on('error', (err: any) => {
-        setSocketError(true);
+
+      socketInstance.on("connect_error", () => {
+        if (!hasSocketConnectedOnceRef.current) setSocketError(true);
       });
-      socketInstance.on('disconnect', (reason: any) => {
-        if (reason !== 'io client disconnect') setSocketError(true);
+      socketInstance.on("error", () => {
+        if (!hasSocketConnectedOnceRef.current) setSocketError(true);
+      });
+      socketInstance.on("disconnect", (reason: string) => {
+        if (reason === "io client disconnect") return;
+        // Transient disconnects: Socket.IO reconnects in the background; do not lock the UI.
       });
 
       socketRef.current = socketInstance;
+
+      if (typeof window !== "undefined") {
+        window.addEventListener("online", onBrowserOnline);
+      }
     } catch (e) {
       console.error("Socket initialization error", e);
       setSocketError(true);
     }
 
     return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("online", onBrowserOnline);
+      }
       socketInstance?.disconnect();
       socketRef.current = null;
     };
