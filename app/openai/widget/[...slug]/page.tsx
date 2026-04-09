@@ -23,6 +23,7 @@ import {
 import { io, Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid";
 import { sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
+import { normalizePreChatFieldOrder } from '@/lib/preChatFields';
 import defaultImageImport from '@/images/default-image.png';
 import { Plus_Jakarta_Sans } from 'next/font/google'
 
@@ -513,7 +514,9 @@ export default function EnhancedChatWidget({ params }: any) {
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
       setBotVisible(data.themeSettings?.isActive === 1);
-      setFields(data.themeSettings?.fields || []);
+      setFields(
+        normalizePreChatFieldOrder(data.themeSettings?.fields || [])
+      );
       if (data.themeSettings.logo) {
         setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}`);
       }
@@ -1686,7 +1689,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
                             {fields?.map((field: any) => (
                               <FormField
-                                key={field._id}
+                                key={field.id ?? field._id}
                                 field={field}
                                 value={formData[field.value] || ''}
                                 onChange={(value: any) => handleFormFieldChange(field.value, value)}
