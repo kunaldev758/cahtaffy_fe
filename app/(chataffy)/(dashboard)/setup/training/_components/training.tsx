@@ -48,6 +48,7 @@ interface ClientData {
     storageLimitExceeded: boolean
     agentLimitExceeded: boolean
     chatLimitExceeded: boolean
+    humanAgentLimitExceeded: boolean
   }
   plan: string
   planStatus: string
