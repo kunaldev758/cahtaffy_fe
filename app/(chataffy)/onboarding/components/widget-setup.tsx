@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useReducer, useRef } from 'react'
-import { ImagePlus } from 'lucide-react'
+import { GripVertical, ImagePlus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -15,6 +15,7 @@ import {
 } from '@/app/_api/dashboard/action'
 import Image from 'next/image'
 import { publicAsset } from '@/lib/publicAsset'
+import { LOCKED_PRECHAT_FIELD_IDS, normalizePreChatFieldOrder } from '@/lib/preChatFields'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ const widgetInitialState = {
 }
 
 type WidgetState = typeof widgetInitialState
+
 type WidgetAction =
   | { type: 'SET_ALL'; payload: Partial<WidgetState> & { position?: { align?: string } } }
   | { type: 'SET'; field: keyof WidgetState; value: any }
@@ -73,6 +75,7 @@ type WidgetAction =
   | { type: 'ADD_FIELD'; payload: any }
   | { type: 'REMOVE_FIELD'; id: number }
   | { type: 'TOGGLE_FIELD_REQUIRED'; id: number }
+  | { type: 'REORDER_FIELDS'; payload: { from: number; to: number } }
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
   switch (action.type) {
@@ -91,10 +94,12 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
         p.displayBarMessage !== undefined
           ? String(p.displayBarMessage).trim() || widgetInitialState.displayBarMessage
           : state.displayBarMessage
+      const nextFields =
+        (p.fields as any)?.length ? normalizePreChatFieldOrder(p.fields as WidgetState['fields']) : state.fields
       return {
         ...state,
         ...rest,
-        fields: ((p.fields as any)?.length ? p.fields! : state.fields),
+        fields: nextFields,
         colorFields: ((p.colorFields as any)?.length ? p.colorFields! : state.colorFields),
         align: nextAlign,
         widgetType: nextWidgetType,
@@ -111,6 +116,14 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return { ...state, fields: state.fields.filter(f => f.id !== action.id) }
     case 'TOGGLE_FIELD_REQUIRED':
       return { ...state, fields: state.fields.map(f => f.id === action.id ? { ...f, required: !f.required } : f) }
+    case 'REORDER_FIELDS': {
+      const { from, to } = action.payload
+      const fields = [...state.fields]
+      if (from < 0 || from >= fields.length || to < 0 || to >= fields.length || from === to) return state
+      const [removed] = fields.splice(from, 1)
+      fields.splice(to, 0, removed)
+      return { ...state, fields }
+    }
     default:
       return state
   }
@@ -360,7 +373,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
             if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
             const wid = d.widgetId || d._id
             if (wid) {
-              setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}openai/widget/${wid}/${d.widgetToken}/${agentId}"></script>`)
+              setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js?wid=${wid}&token=${d.widgetToken}&agent=${agentId}"></script>`)
             }
           }
 
@@ -387,7 +400,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
   // Default embed script only when no agent is selected (avoids wrong URL while loading after switch)
   useEffect(() => {
     if (!embedScript && !agentId) {
-      setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}widget/"></script>`)
+      setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js"></script>`)
     }
   }, [embedScript, agentId])
 
@@ -531,13 +544,13 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
             <div className="flex flex-col gap-[16px]">
               <div className="flex flex-col gap-1">
                 <h2 className="text-sm font-bold text-[#111827]">Widget Embed Code</h2>
-                <p className="text-[13px] text-[#64748B]">
+                <div className="text-[13px] text-[#64748B] leading-relaxed">
                   Add this script to your website's{' '}
-                  <Badge className="ml-1 rounded-[6px] bg-[#FAF5FF] text-[10px] font-semibold text-[#A855F7] shadow-none hover:bg-[#F1F5F9] h-[17px] border border-[#A855F7] px-[7px]">
+                  <Badge className="ml-1 inline-flex rounded-[6px] bg-[#FAF5FF] text-[10px] font-semibold text-[#A855F7] shadow-none hover:bg-[#F1F5F9] h-[17px] border border-[#A855F7] px-[7px] align-middle">
                     &lt;Footer&gt;
                   </Badge>{' '}
                   section to activate the chatbot.
-                </p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <input value={embedScript} readOnly
@@ -823,13 +836,42 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
               {widgetState.isPreChatFormEnabled && (
                 <div className="flex flex-col gap-[20px]  p-[20px]">
-                  {widgetState.fields.map(field => (
-                    <div key={field.id} className="flex flex-col gap-2 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+                  <div className="text-[12px] text-[#64748B] -mt-1">
+                    Drag any field by the handle to change order. Name and Email cannot be removed. The live widget uses this order.
+                  </div>
+                  {widgetState.fields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      draggable
+                      onDragStart={e => {
+                        e.dataTransfer.setData('application/x-field-index', String(index))
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onDragOver={e => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                      }}
+                      onDrop={e => {
+                        e.preventDefault()
+                        const fromStr = e.dataTransfer.getData('application/x-field-index')
+                        if (fromStr === '') return
+                        const from = parseInt(fromStr, 10)
+                        const to = index
+                        if (!Number.isNaN(from) && from !== to) {
+                          dispatchWidget({ type: 'REORDER_FIELDS', payload: { from, to } })
+                        }
+                      }}
+                      className="flex flex-col gap-2 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 cursor-grab active:cursor-grabbing"
+                    >
+                      <div className="flex justify-between items-center w-full gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="shrink-0 text-[#94A3B8]" aria-hidden>
+                            <GripVertical className="h-5 w-5" />
+                          </span>
+                          <p className="text-[12px] font-medium text-[#64748B] truncate">{field.value}</p>
+                        </div>
 
-                      <div className='flex justify-between items-center w-full'>
-                        <p className="text-[12px] font-medium text-[#64748B]">{field.value}</p>
-
-                        <label className="flex items-center gap-1.5 cursor-pointer">
+                        <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
                           <Checkbox
                             className={checkboxUiClass}
                             checked={field.required}
@@ -839,7 +881,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                         </label>
                       </div>
 
-                      <div className='flex items-center gap-3'>
+                      <div className="flex items-center gap-3">
                         <input
                           type="text"
                           value={FIELD_TYPES.find(t => t.value === field.type)?.label ?? ''}
@@ -847,13 +889,17 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                           className="h-[40px] w-full rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] leading-5 text-[#111827] outline-none placeholder:text-[#94A3B8] flex-1"
                         />
 
-                        <button type="button"
-                          onClick={() => dispatchWidget({ type: 'REMOVE_FIELD', id: field.id })}
-                          className="w-10 h-10 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-gray-200 inline-flex justify-center items-center">
-                          <span className="material-symbols-outlined !text-[20px] text-[#FF6D6D]">
-                            delete
-                          </span>
-                        </button>
+                        {!LOCKED_PRECHAT_FIELD_IDS.has(field.id) ? (
+                          <button
+                            type="button"
+                            onClick={() => dispatchWidget({ type: 'REMOVE_FIELD', id: field.id })}
+                            className="w-10 h-10 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-gray-200 inline-flex justify-center items-center shrink-0"
+                          >
+                            <span className="material-symbols-outlined !text-[20px] text-[#FF6D6D]">delete</span>
+                          </button>
+                        ) : (
+                          <div className="w-10 h-10 shrink-0" aria-hidden />
+                        )}
                       </div>
                     </div>
                   ))}

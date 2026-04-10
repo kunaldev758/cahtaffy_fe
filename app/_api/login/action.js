@@ -78,12 +78,22 @@ export async function googleOAuthExchange(googleToken) {
 export async function verifyEmailApi(token) {
   const response = await fetch(`${process.env.API_HOST}verifyEmail`, {
     method: 'POST',
-    cache:'no-cache',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({token:token})
+    body: JSON.stringify({ token }),
   })
-  const result = await response.json()
-  return result
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { status: false, status_code: 500, message: 'Email verification failed' }
+  }
+}
+
+/** Call from client only (e.g. after verify-email). Cookies cannot be set when other server actions run during RSC render. */
+export async function setClientSessionCookies(token) {
+  cookies().set({ name: 'token', value: token, httpOnly: true })
+  cookies().set({ name: 'role', value: 'client', httpOnly: true })
 }
 
 export async function getAgentsApi() {

@@ -1,5 +1,5 @@
 "use client";
-import { Send, Mic, MessageCircle, StickyNote, X } from "lucide-react";
+import { Send, Mic, MessageCircle, StickyNote, X, Mic2, Square, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Socket } from 'socket.io-client';
 
@@ -58,6 +58,16 @@ export default function MessageInput({
   const recognitionRef = useRef<any>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef<boolean>(false);
+
+  // Voice note state (notes mode only)
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string | null>(null);
+  const [voiceSeconds, setVoiceSeconds] = useState(0);
+  const [isVoiceUploading, setIsVoiceUploading] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const voiceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Emit typing events to backend
   const emitTypingEvent = useCallback((isTyping: boolean) => {
@@ -206,6 +216,18 @@ export default function MessageInput({
     };
   }, [appendTranscript]);
 
+  // Cleanup voice note resources on unmount or conversation change
+  useEffect(() => {
+    return () => {
+      if (voiceTimerRef.current) clearInterval(voiceTimerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
   const toggleRecording = () => {
     if (!recognitionRef.current || !isSpeechSupported) {
       return;
@@ -231,6 +253,95 @@ export default function MessageInput({
     } catch (err) {
       setSpeechError("Unable to access microphone. Please try again.");
       setIsRecording(false);
+    }
+  };
+
+  const formatVoiceTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const mr = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mr;
+      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        setVoiceBlob(blob);
+        setVoicePreviewUrl(url);
+        setIsVoiceRecording(false);
+        if (voiceTimerRef.current) {
+          clearInterval(voiceTimerRef.current);
+          voiceTimerRef.current = null;
+        }
+      };
+      mr.start();
+      setVoiceSeconds(0);
+      setIsVoiceRecording(true);
+      voiceTimerRef.current = setInterval(() => setVoiceSeconds((s) => s + 1), 1000);
+    } catch {
+      setSpeechError('Microphone access denied. Please allow microphone permissions.');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const discardVoiceNote = () => {
+    if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+    setVoiceBlob(null);
+    setVoicePreviewUrl(null);
+    setVoiceSeconds(0);
+    setIsVoiceUploading(false);
+  };
+
+  const sendVoiceNote = async () => {
+    if (!voiceBlob || !conversationId || !visitorId) return;
+    setIsVoiceUploading(true);
+    setSpeechError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
+      const ext = voiceBlob.type.includes('mp4') ? 'mp4' : 'webm';
+      const formData = new FormData();
+      formData.append('audio', voiceBlob, `voice-note.${ext}`);
+      const res = await fetch(`${apiBase}/api/upload-voice-note`, {
+        method: 'POST',
+        headers: { Authorization: token },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      const audioUrl = `${apiBase}${data.url}`;
+      const message = `<audio src="${audioUrl}" controls style="max-width:220px;border-radius:8px;outline:none;display:block;margin:4px 0;"></audio>`;
+      const socket = socketRef.current;
+      if (socket) {
+        socket.emit(
+          'client-send-add-note',
+          { message, visitorId, conversationId, replyTo: null },
+          (response: any) => {
+            if (response?.success) {
+              discardVoiceNote();
+            } else {
+              setSpeechError('Failed to send voice note.');
+            }
+            setIsVoiceUploading(false);
+          }
+        );
+      }
+    } catch {
+      setSpeechError('Failed to upload voice note. Please try again.');
+      setIsVoiceUploading(false);
     }
   };
 
@@ -336,20 +447,65 @@ export default function MessageInput({
       <div className="">
         <div className={`relative rounded-b-[20px] min-h-[106px] px-4 pt-3 pb-12 ${isNoteActive || openConversationStatus === "close" ? "bg-[#fefce8]" : "bg-white"}`}>
           {isNoteActive || openConversationStatus === "close" ? (
-            <textarea
-              value={inputMessage}
-              onChange={(e) => onInputChange(e)}
-              placeholder="Enter note here..."
-              rows={2}
-              className="w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-[24px] text-[#111827] placeholder:text-[#94A3B8] outline-none focus:ring-0"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  onAddNote();
-                }
-              }}
-              disabled={!isOnline}
-            />
+            isVoiceRecording ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-2">
+                <div className="flex items-center gap-3">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+                  </span>
+                  <span className="text-[13px] font-semibold text-red-700">Recording</span>
+                  <span className="text-[13px] font-mono text-red-600 font-semibold">{formatVoiceTime(voiceSeconds)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={stopVoiceRecording}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-red-600 text-white text-[12px] font-semibold hover:bg-red-700 transition-colors"
+                >
+                  <Square className="w-3 h-3 fill-white" />
+                  Stop
+                </button>
+              </div>
+            ) : voicePreviewUrl ? (
+              <div className="flex flex-col gap-2 py-1">
+                <audio src={voicePreviewUrl} controls className="w-full h-8" style={{ borderRadius: '8px', outline: 'none' }} />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={sendVoiceNote}
+                    disabled={isVoiceUploading || !isOnline}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#3B82F6] text-white text-[12px] font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="w-3 h-3" />
+                    {isVoiceUploading ? 'Sending…' : 'Send Voice Note'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={discardVoiceNote}
+                    disabled={isVoiceUploading}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-200 text-gray-600 text-[12px] font-semibold hover:bg-gray-300 disabled:opacity-50 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Discard
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <textarea
+                value={inputMessage}
+                onChange={(e) => onInputChange(e)}
+                placeholder="Enter note here..."
+                rows={2}
+                className="w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-[24px] text-[#111827] placeholder:text-[#94A3B8] outline-none focus:ring-0"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    onAddNote();
+                  }
+                }}
+                disabled={!isOnline}
+              />
+            )
           ) : isVisitorClosed && openConversationStatus === "open" ? (
             <div className="w-full rounded-lg bg-gray-50 text-gray-500 text-sm px-1 py-2">
               The visitor ended this chat. Messaging is disabled; you can still use Notes for internal comments.
@@ -389,11 +545,26 @@ export default function MessageInput({
           )}
 
           <div className="absolute bottom-3 right-3 flex items-center gap-2">
-            <span className="text-[11px] text-[#94A3B8]">
-              {wordCount}/{maxWords}
-            </span>
+            {!isVoiceRecording && !voicePreviewUrl && (
+              <span className="text-[11px] text-[#94A3B8]">
+                {wordCount}/{maxWords}
+              </span>
+            )}
 
-            {showVoiceButton && (
+            {/* Voice note button — only in notes mode */}
+            {(isNoteActive || openConversationStatus === "close") && !isVoiceRecording && !voicePreviewUrl && (
+              <button
+                type="button"
+                onClick={startVoiceRecording}
+                disabled={!isOnline}
+                title="Record a voice note"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#EEF2F7] hover:text-[#64748B] disabled:opacity-40 transition-colors"
+              >
+                <Mic2 className="w-4 h-4" />
+              </button>
+            )}
+
+            {showVoiceButton && !isVoiceRecording && !voicePreviewUrl && (
               <button
                 onClick={toggleRecording}
                 disabled={voiceDisabled}
@@ -416,24 +587,26 @@ export default function MessageInput({
               </button>
             )}
 
-            <button
-              onClick={() => {
-                // Emit stop-typing before sending message/note
-                if (isTypingRef.current) {
-                  isTypingRef.current = false;
-                  emitTypingEvent(false);
-                }
-                if (isNoteActive || openConversationStatus === "close") {
-                  onAddNote();
-                } else {
-                  onMessageSend();
-                }
-              }}
-              disabled={sendDisabled}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#E2E8F0] text-[#94A3B8] hover:bg-[#CBD5E1] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-            >
-              <Send className="w-4 h-4" />
-            </button>
+            {!isVoiceRecording && !voicePreviewUrl && (
+              <button
+                onClick={() => {
+                  // Emit stop-typing before sending message/note
+                  if (isTypingRef.current) {
+                    isTypingRef.current = false;
+                    emitTypingEvent(false);
+                  }
+                  if (isNoteActive || openConversationStatus === "close") {
+                    onAddNote();
+                  } else {
+                    onMessageSend();
+                  }
+                }}
+                disabled={sendDisabled}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#E2E8F0] text-[#94A3B8] hover:bg-[#CBD5E1] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

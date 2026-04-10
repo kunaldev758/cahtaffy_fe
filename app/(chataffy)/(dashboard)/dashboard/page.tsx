@@ -76,6 +76,8 @@ export default function Dashboard2Page() {
   // Analytics & plan
   const [analytics, setAnalytics] = useState<any>(null)
   const [plan, setPlan] = useState<any>(null)
+  const [effectiveLimits, setEffectiveLimits] = useState<any>(null)
+  const [totalAiAgents, setTotalAiAgents] = useState(0)
 
   // Agent-specific setup data
   const [agentData, setAgentData] = useState<any>(null)
@@ -121,6 +123,7 @@ export default function Dashboard2Page() {
           totalMessage,
           csat,
           totalHumanAgents,
+          totalAiAgents: aiAgents,
           totalChatsInPlan,
           locationData: loc,
         } = response.data
@@ -129,6 +132,7 @@ export default function Dashboard2Page() {
         setCsat(parseFloat(Number(csat).toFixed(2)))
         setAiChat(aiAssists ?? 0)
         setTotalHumanAgents(totalHumanAgents ?? 0)
+        setTotalAiAgents(aiAgents ?? 0)
         setTotalChatsInPlan(totalChatsInPlan ?? 0)
         if (Array.isArray(loc) && loc.length > 0) {
           setLocationData(loc as (string | number)[][])
@@ -137,6 +141,7 @@ export default function Dashboard2Page() {
         }
         if (response.analytics) setAnalytics(response.analytics)
         if (response.plan) setPlan(response.plan)
+        if (response.effectiveLimits) setEffectiveLimits(response.effectiveLimits)
       }
     })
 
@@ -195,14 +200,17 @@ export default function Dashboard2Page() {
   const completedTasks = Number(pagesAdded > 0) + Number(filesAdded > 0) + Number(faqsAdded > 0)
   const progressPercentage = Math.ceil((completedTasks / 3) * 100)
 
-  // Plan limits
-  const maxStorage = plan?.limits?.maxStorage ?? 0
-  const maxAgents = plan?.limits?.maxAgentsPerAccount ?? 1
-  const maxQueries = plan?.limits?.maxQueries ?? 0
+  // Effective plan limits (custom limits override plan limits when set by superadmin)
+  const maxStorage = effectiveLimits?.maxStorage ?? plan?.limits?.maxStorage ?? 0
+  const maxAgents = effectiveLimits?.maxAgentsPerAccount ?? plan?.limits?.maxAgentsPerAccount ?? 1
+  const maxHumanAgents = effectiveLimits?.maxHumanAgentsPerAccount ?? plan?.limits?.maxHumanAgentsPerAccount ?? 0
+  const maxQueries = effectiveLimits?.maxQueries ?? plan?.limits?.maxQueries ?? 0
   const queriesAtLimit = maxQueries > 0 && totalChatsInPlan >= maxQueries
   const currentDataSize = analytics?.currentDataSize ?? 0
   const storagePercent = maxStorage > 0 ? Math.min((currentDataSize / maxStorage) * 100, 100) : 0
-  const agentPercent = maxAgents > 0 ? Math.min((totalHumanAgents / maxAgents) * 100, 100) : 0
+  const aiAgentPercent = maxAgents > 0 ? Math.min((totalAiAgents / maxAgents) * 100, 100) : 0
+  const humanAgentPercent = maxHumanAgents > 0 ? Math.min((totalHumanAgents / maxHumanAgents) * 100, 100) : 0
+  const isCustomLimits = effectiveLimits?.isCustom ?? false
 
   const autoResolvePercent = totalChat > 0 ? Math.round((aiChat / totalChat) * 100) : 0
 
@@ -332,19 +340,19 @@ export default function Dashboard2Page() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[18px] font-bold leading-5 text-[#111827]">Plan Limits &amp; Usage</h2>
-                <p className="mt-[6px] text-[13px] leading-5 text-[#64748B]">{plan?.displayName ?? 'Free Plan'}</p>
+                <div className="mt-[6px] flex items-center gap-2">
+                  <p className="text-[13px] leading-5 text-[#64748B]">{plan?.displayName ?? 'Free Plan'}</p>
+                  {/* {isCustomLimits && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                      Custom Limits
+                    </span>
+                  )} */}
+                </div>
               </div>
-              {/* <button
-                type="button"
-                // onClick={() => router.push('/billing')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#111827] px-[20px] text-center text-[14px] leading-5 text-white transition-colors duration-200 hover:bg-[#1f2937] font-semibold"
-              >
-                <span>Upgrade Plan</span>
-                <span className="material-symbols-outlined !text-[18px]">keyboard_double_arrow_up</span>
-              </button> */}
             </div>
 
             <div className="mt-[24px] space-y-4">
+              {/* Data Storage */}
               <div>
                 <div className="flex items-end justify-between gap-4 text-[13px] font-medium leading-5 text-[#64748B]">
                   <span>Data Storage</span>
@@ -355,14 +363,29 @@ export default function Dashboard2Page() {
                 <Progress value={storagePercent} className="mt-1.5 h-[8px] rounded-full bg-[#F1F5F9]" />
               </div>
 
+              {/* AI Chatbots */}
               <div>
                 <div className="flex items-end justify-between gap-4 text-[13px] font-medium leading-5 text-[#64748B]">
-                  <span>Websites</span>
-                  <span className="text-right font-bold text-[#111827]">{totalHumanAgents} / {maxAgents}</span>
+                  <span>AI Chatbots</span>
+                  <span className="text-right font-bold text-[#111827]">{totalAiAgents} / {maxAgents}</span>
                 </div>
-                <Progress value={agentPercent} className="mt-1.5 h-[8px] rounded-full bg-[#F1F5F9]" />
+                <Progress value={aiAgentPercent} className="mt-1.5 h-[8px] rounded-full bg-[#F1F5F9]" />
               </div>
 
+              {/* Human Agents */}
+              <div>
+                <div className="flex items-end justify-between gap-4 text-[13px] font-medium leading-5 text-[#64748B]">
+                  <span>Human Agents</span>
+                  <span className="text-right font-bold text-[#111827]">
+                    {totalHumanAgents}{maxHumanAgents > 0 ? ` / ${maxHumanAgents}` : ''}
+                  </span>
+                </div>
+                {maxHumanAgents > 0 && (
+                  <Progress value={humanAgentPercent} className="mt-1.5 h-[8px] rounded-full bg-[#F1F5F9]" />
+                )}
+              </div>
+
+              {/* Chat Handled */}
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                   <p className="text-[13px] font-bold text-[#111827]">Chat Handled</p>
