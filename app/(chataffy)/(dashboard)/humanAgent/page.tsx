@@ -500,19 +500,6 @@ export default function HumanAgentPage() {
       .includes(editWebsiteSearch.toLowerCase())
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-white">
-        <div className="flex items-center justify-center h-96">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            <p className="text-slate-600 font-medium">Loading human agents...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <div className="min-h-screen w-full bg-[#F8F9FA]">

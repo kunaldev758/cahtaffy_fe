@@ -14,6 +14,7 @@ import {
   Phone,
 } from 'lucide-react'
 import { toast } from 'react-toastify'
+import TopHead from '../_components/TopHead'
 import {
   getClientProfile,
   updateClientProfileGeneral,
@@ -210,37 +211,33 @@ export default function ClientProfileSettingsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center min-h-[40vh] text-[#64748B] text-sm">
-        Loading profile…
-      </div>
-    )
-  }
-
   const inputWrap =
-    'flex items-center gap-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1e293b]/15 focus-within:border-[#1e293b]/30 transition-shadow'
+    'flex h-[40px] w-full items-center gap-2 rounded-[8px] border border-[#E2E8F0] bg-white px-[14px]'
   const iconMuted = 'w-5 h-5 text-[#94A3B8] flex-shrink-0'
 
   return (
-    <div className="flex-1 bg-[#F1F5F9] min-h-screen p-6 md:p-10">
-      <div className="max-w-6xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Profile Setting</h1>
-          <p className="text-sm text-[#64748B] mt-1">Manage your personal details and account security.</p>
-        </header>
+    <div className="min-h-screen w-full bg-[#F8F9FA]">
+      <TopHead
+        title="Profile"
+        subtitle="Manage your personal details and account settings."
+        showDatePicker={false}
+        showWebsiteSelect={false}
+        showNotificationBell={false}
+        showStatusBadge={false}
+      />
 
+      <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6 h-[calc(100%-89px)]">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-stretch">
           {/* General */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-6 md:p-8 flex flex-col">
+          <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">General Information</h2>
-              <p className="text-sm text-[#64748B] mt-0.5">Manage your personal details and profile.</p>
+              <h2 className="text-[18px] font-bold text-[#111827]">General Information</h2>
+              <p className="text-[13px] leading-5 text-[#64748B]">Manage your personal details and profile.</p>
             </div>
 
-            <div className="flex justify-center mb-8">
-              <div className="relative">
-                <div className="w-28 h-28 rounded-full overflow-hidden bg-gradient-to-br from-violet-500 to-indigo-600 ring-4 ring-white shadow-md">
+            <div className="flex flex-col items-center justify-center mb-[20px]">
+              <div className="relative mb-4">
+                <div className="w-[90px] h-[90px] rounded-full overflow-hidden bg-gradient-to-br from-violet-500 to-indigo-600 ring-4 ring-white shadow-md">
                   {displayAvatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -257,10 +254,12 @@ export default function ClientProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute -top-0.5 -right-0.5 w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center shadow-lg hover:bg-[#1d4ed8] transition-colors"
+                  className="absolute -right-1 -top-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[#4686FE] text-white shadow-md ring-4 ring-white transition hover:bg-[#3575e8] "
                   aria-label="Change photo"
                 >
-                  <ImageIcon className="w-4 h-4" />
+                  <span className='material-symbols-outlined !text-[23px] text-white'>
+                    add_photo_alternate
+                  </span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -270,78 +269,92 @@ export default function ClientProfileSettingsPage() {
                   onChange={onPickAvatar}
                 />
               </div>
+
+              <div className="inline-flex items-center gap-1 p-1 bg-surface-container-lowest border border-outline-variant/20 rounded-xl shadow-sm">
+                <div className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-surface-container-low transition-colors rounded-lg cursor-default group">
+                  <span className="material-symbols-outlined text-primary/70 group-hover:text-primary !text-[18px]" data-icon="image">image</span>
+                  <div className="flex flex-col">
+                    <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant leading-none mb-0.5">Format</span>
+                    <span className="font-body text-[10px] font-semibold text-on-surface leading-none">JPG, PNG, WEBP</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-surface-container-low transition-colors rounded-lg cursor-default group">
+                  <span className="material-symbols-outlined text-primary/70 group-hover:text-primary !text-[18px]" data-icon="database">database</span>
+                  <div className="flex flex-col">
+                    <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant leading-none mb-0.5">Size</span>
+                    <span className="font-body text-[10px] font-semibold text-on-surface leading-none">Max 5MB</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-surface-container-low transition-colors rounded-lg cursor-default group">
+                  <span className="material-symbols-outlined text-primary/70 group-hover:text-primary !text-[18px]" data-icon="aspect_ratio">aspect_ratio</span>
+                  <div className="flex flex-col">
+                    <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant leading-none mb-0.5">Resolution</span>
+                    <span className="font-body text-[10px] font-semibold text-on-surface leading-none">90×90px</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-4 flex-1">
               <div>
-                <label className="block text-xs font-medium text-[#64748B] mb-1.5">Full Name</label>
+                <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Full Name</label>
                 <div className={inputWrap}>
-                  <User className={iconMuted} />
+                  <span className="material-symbols-outlined shrink-0 !text-[16px] text-[#64748B]">person</span>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8]"
                     placeholder="Your name"
                   />
                 </div>
               </div>
+
               <div>
-                <label className="block text-xs font-medium text-[#64748B] mb-1.5">Email Address</label>
+                <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Email Address</label>
                 <div className={inputWrap}>
-                  <Mail className={iconMuted} />
+                  <span className="material-symbols-outlined shrink-0 !text-[16px] text-[#64748B]">mail</span>
                   <input
                     type="email"
                     value={email}
                     disabled
-                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent bg-gray-100 cursor-not-allowed"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] cursor-not-allowed"
                     placeholder="you@example.com"
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-[#64748B] mb-1.5">Phone Number</label>
-                <div className={inputWrap}>
-                  <Phone className={iconMuted} />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent"
-                    placeholder="+1 555 000 0000"
-                  />
-                </div>
-              </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleUpdateProfile}
-              disabled={savingProfile}
-              className="mt-8 w-full flex items-center justify-center gap-2 rounded-xl bg-[#0F172A] text-white text-sm font-semibold py-3 px-4 hover:bg-[#1e293b] disabled:opacity-60 transition-colors"
-            >
-              <UserPen className="w-4 h-4" />
-              {savingProfile ? 'Saving…' : 'Update Profile'}
-            </button>
-          </section>
+              <button
+                type="button"
+                onClick={handleUpdateProfile}
+                disabled={savingProfile}
+                className="w-full flex justify-center h-10 items-center gap-2 rounded-lg bg-[#111827] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1f2937]"
+              >
+                <UserPen className="w-4 h-4" />
+                {savingProfile ? 'Saving…' : 'Update Profile'}
+              </button>
+            </div>
+          </div>
 
           {/* Security */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-6 md:p-8 flex flex-col">
+          <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Security</h2>
-              <p className="text-sm text-[#64748B] mt-0.5">Update your password and secure your account.</p>
+              <h2 className="text-[18px] font-bold text-[#111827]">Security</h2>
+              <p className="text-[13px] leading-5 text-[#64748B]">Update your password and secure your account.</p>
             </div>
 
             <div className="space-y-4 flex-1">
               <div>
                 <label className="block text-xs font-medium text-[#64748B] mb-1.5">Current Password</label>
                 <div className={inputWrap}>
-                  <Lock className={iconMuted} />
+                  <span className="material-symbols-outlined !text-[16px] text-[#64748B]">lock_open</span>
                   <input
                     type={showCurrent ? 'text' : 'password'}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8]"
                     placeholder="Enter current password"
                     autoComplete="current-password"
                   />
@@ -355,15 +368,16 @@ export default function ClientProfileSettingsPage() {
                   </button>
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-[#64748B] mb-1.5">New Password</label>
                 <div className={inputWrap}>
-                  <Lock className={iconMuted} />
+                  <span className="material-symbols-outlined !text-[16px] text-[#64748B]">password</span>
                   <input
                     type={showNew ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8]"
                     placeholder="Enter new password"
                     autoComplete="new-password"
                   />
@@ -377,15 +391,16 @@ export default function ClientProfileSettingsPage() {
                   </button>
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-[#64748B] mb-1.5">Confirm New Password</label>
                 <div className={inputWrap}>
-                  <Lock className={iconMuted} />
+                  <span className="material-symbols-outlined !text-[16px] text-[#64748B]">password</span>
                   <input
                     type={showConfirm ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8]"
                     placeholder="Confirm new password"
                     autoComplete="new-password"
                   />
@@ -401,28 +416,29 @@ export default function ClientProfileSettingsPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex gap-3 rounded-xl bg-sky-50 border border-sky-100 px-4 py-3 text-sm text-sky-900">
-              <Info className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
-              <p>
-                Password must be at least 8 characters long and include a combination of numbers, symbols, and
-                uppercase letters for maximum security.
-              </p>
-            </div>
+            <div className='flex flex-col gap-[20px]'>
+              <div className="flex items-center gap-3 rounded-xl bg-[#F8FAFC] px-[14px] py-[20px]">
+                <span className="material-symbols-outlined !text-[16px] text-[#64748B]">info</span>
+                <p className='text-[13px] text-[#64748B] italic'>
+                  Password must be at least 8 characters long and include a combination of numbers, symbols, and
+                  uppercase letters for maximum security.
+                </p>
+              </div>
 
-            <button
-              type="button"
-              onClick={handleUpdatePassword}
-              disabled={savingPassword || !passwordFormValid}
-              className={`mt-6 w-full flex items-center justify-center gap-2 rounded-xl text-sm font-semibold py-3 px-4 transition-colors ${
-                passwordFormValid
-                  ? 'bg-[#E2E8F0] text-gray-900 hover:bg-[#CBD5E1]'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              } disabled:opacity-70`}
-            >
-              <KeyRound className="w-4 h-4" />
-              {savingPassword ? 'Updating…' : 'Update Password'}
-            </button>
-          </section>
+              <button
+                type="button"
+                onClick={handleUpdatePassword}
+                disabled={savingPassword || !passwordFormValid}
+                className={`w-full flex justify-center h-10 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold text-white transition-colors ${passwordFormValid
+                  ? 'bg-[#111827] text-gray-900 hover:bg-[#1f2937]'
+                  : 'bg-[#B4B4B4] text-gray-400 cursor-not-allowed'
+                  } disabled:opacity-70`}
+              >
+                <KeyRound className="w-4 h-4" />
+                {savingPassword ? 'Updating…' : 'Update Password'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

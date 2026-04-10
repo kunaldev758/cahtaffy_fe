@@ -8,6 +8,7 @@ import { getAIAgents } from '@/app/_api/dashboard/action'
 import { toggleWidgetStatusApi } from '@/app/_api/dashboard/action'
 import { deleteAIAgentApi, createAIAgentApi } from '@/app/_api/login/action'
 import TopHead from '../_components/TopHead'
+import LottieAnimation from '../_components/LottieAnimation'
 
 type Agent = {
   _id: string
@@ -176,13 +177,19 @@ export default function WebsitePage() {
     router.push('/training')
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#111827]" />
-      </div>
-    )
-  }
+  // if (isLoading) {
+  //   return (
+  //     <div className="bg-[#F3F4F6] flex items-center justify-center h-screen">
+  //       <div
+  //         className="flex items-center justify-center"
+  //         aria-label="Loading"
+  //         role="status"
+  //       >
+  //         <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#E2E8F0] border-t-[#111827]" />
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
   return (
     <>
@@ -213,7 +220,7 @@ export default function WebsitePage() {
         <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6 h-[calc(100%-89px)]">
 
           {/* Empty state */}
-          {agents.length === 0 && (
+          {/* {agents.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 rounded-2xl border-2 border-dashed border-gray-200 bg-white">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EEF2FF] mb-4">
                 <Plus className="w-8 h-8 text-[#4B56F2]" />
@@ -231,10 +238,22 @@ export default function WebsitePage() {
                 {isCreatingAgent ? 'Creating...' : 'Create your first agent'}
               </button>
             </div>
-          )}
+          )} */}
 
           {/* Agent grid */}
-          {agents.length > 0 && (
+          {isLoading ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div
+                className="flex items-center justify-center"
+                aria-label="Loading"
+                role="status"
+              >
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#E2E8F0] border-t-[#111827]" />
+              </div>
+            </div>
+          ) : null}
+
+          {!isLoading && agents.length > 0 && (
             <div className="grid gap-[24px] sm:grid-cols-2 lg:grid-cols-3">
               {agents.map((agent, index) => {
                 const name = agent.agentName || agent.website_name || 'Unnamed Agent'

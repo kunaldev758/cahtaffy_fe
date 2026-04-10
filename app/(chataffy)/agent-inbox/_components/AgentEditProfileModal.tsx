@@ -252,9 +252,9 @@ export default function AgentEditProfileModal({ open, onClose, agent, onAgentUpd
             <div>
               <div className="flex flex-col items-center">
                 <div className="relative mb-4">
-                  <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-gray-200 ring-2 ring-[#F1F5F9]">
+                  <div className="flex h-[90px] w-[90px] items-center justify-center overflow-hidden rounded-full bg-gray-200 ring-2 ring-[#F1F5F9]">
                     {avatarError || !avatarPreview ? (
-                      <img src={defaultImage} alt="Avatar preview" className="h-28 w-28 object-cover" />
+                      <img src={defaultImage} alt="Avatar preview" className="h-[90px] w-[90px] object-cover" />
                     ) : (
                       <img
                         src={avatarPreview}
@@ -297,7 +297,7 @@ export default function AgentEditProfileModal({ open, onClose, agent, onAgentUpd
                       <span className="font-body text-[10px] font-semibold text-on-surface leading-none">JPG, PNG, WEBP</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-surface-container-low transition-colors rounded-lg cursor-default group">
                     <span className="material-symbols-outlined text-primary/70 group-hover:text-primary !text-[18px]" data-icon="database">database</span>
                     <div className="flex flex-col">
@@ -305,17 +305,15 @@ export default function AgentEditProfileModal({ open, onClose, agent, onAgentUpd
                       <span className="font-body text-[10px] font-semibold text-on-surface leading-none">Max 5MB</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-surface-container-low transition-colors rounded-lg cursor-default group">
                     <span className="material-symbols-outlined text-primary/70 group-hover:text-primary !text-[18px]" data-icon="aspect_ratio">aspect_ratio</span>
                     <div className="flex flex-col">
-                      <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant leading-none mb-0.5">Min Res</span>
-                      <span className="font-body text-[10px] font-semibold text-on-surface leading-none">400×400px</span>
+                      <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant leading-none mb-0.5">Resolution</span>
+                      <span className="font-body text-[10px] font-semibold text-on-surface leading-none">90×90px</span>
                     </div>
                   </div>
                 </div>
-
-
               </div>
             </div>
 
