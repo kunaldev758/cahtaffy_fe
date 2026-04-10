@@ -373,7 +373,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
             if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
             const wid = d.widgetId || d._id
             if (wid) {
-              setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}openai/widget/${wid}/${d.widgetToken}/${agentId}"></script>`)
+              setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js?wid=${wid}&token=${d.widgetToken}&agent=${agentId}"></script>`)
             }
           }
 
@@ -400,7 +400,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
   // Default embed script only when no agent is selected (avoids wrong URL while loading after switch)
   useEffect(() => {
     if (!embedScript && !agentId) {
-      setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com'}widget/"></script>`)
+      setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js"></script>`)
     }
   }, [embedScript, agentId])
 

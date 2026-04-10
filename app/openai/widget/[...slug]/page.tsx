@@ -1179,7 +1179,7 @@ export default function EnhancedChatWidget({ params }: any) {
   return (
     <>
       {botVisible && (
-        <div style={launcherContainerStyle} className="font-sans">
+        <div style={{ ...launcherContainerStyle, pointerEvents: 'auto' }} className="font-sans">
           {/* Chat Widget launcher: bubble or bar */}
           <div className={isBarLauncher ? 'relative w-[360px] max-w-[calc(100vw-20px)]' : 'relative'}>
             {isBarLauncher && !showWidget && (

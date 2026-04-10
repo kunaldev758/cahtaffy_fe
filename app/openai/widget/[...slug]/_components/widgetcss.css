@@ -4,6 +4,14 @@
     @tailwind components;
     @tailwind utilities;
 
+/* When the widget page is served inside an iframe the outer html/body must
+   be transparent and pass pointer-events to the parent page.  The actual
+   widget container overrides this with pointer-events:auto (set inline). */
+html, body {
+  background: transparent !important;
+  pointer-events: none;
+}
+
 /* Keyframe Animations */
 @keyframes slideInLeft {
   from {
