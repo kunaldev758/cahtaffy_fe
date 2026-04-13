@@ -1,11 +1,84 @@
 "use client";
 import { formatDistanceToNow } from "date-fns";
+import { useEffect, useState } from "react";
 import { Note } from "./types/inbox";
 import Image from "next/image";
 
 function stripHtml(html: string | null | undefined) {
   if (html == null) return "";
   return String(html).replace(/<[^>]+>/g, "").trim();
+}
+
+function getNoteSenderLabel(note: Note): string {
+  const h = note.humanAgentId;
+  if (h && typeof h === "object") {
+    const name = h.name?.trim();
+    if (name) return name;
+  }
+  const a = note.agentId;
+  if (a && typeof a === "object") {
+    const name = (a.agentName || a.name)?.trim();
+    if (name) return name;
+  }
+  return "";
+}
+
+/** Same base URL rules as ClientProfileMenu / message bubbles so /uploads/... resolves correctly. */
+function resolveStoredAvatarUrl(path: string | null | undefined): string | null {
+  if (!path || path === "null" || !String(path).trim()) return null;
+  const p = String(path).trim();
+  if (p.startsWith("http")) return p;
+  const base =
+    process.env.NEXT_PUBLIC_API_HOST ||
+    process.env.NEXT_PUBLIC_FILE_HOST ;
+  return `${base}${p.startsWith("/") ? p : `/${p}`}`;
+}
+
+function getNoteAvatarUrl(note: Note): string | null {
+  const h = note.humanAgentId;
+  if (h && typeof h === "object" && h.avatar) {
+    return resolveStoredAvatarUrl(h.avatar);
+  }
+  const a = note.agentId;
+  if (a && typeof a === "object" && a.avatar) {
+    return resolveStoredAvatarUrl(a.avatar);
+  }
+  return null;
+}
+
+function initialsFromLabel(label: string) {
+  return (
+    label
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join("") || "?"
+  );
+}
+
+function NoteSenderAvatar({ label, avatarUrl }: { label: string; avatarUrl: string | null }) {
+  const [imgError, setImgError] = useState(false);
+  useEffect(() => {
+    setImgError(false);
+  }, [avatarUrl]);
+  const initials = initialsFromLabel(label || "?");
+  const showImg = Boolean(avatarUrl && !imgError);
+  return (
+    <div className="h-[18px] w-[18px] rounded-full border border-[#E8E8E8] bg-[#F1F5F9] flex-shrink-0 overflow-hidden flex items-center justify-center text-[7px] font-semibold text-[#64748B]">
+      {showImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatarUrl!}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        initials
+      )}
+    </div>
+  );
 }
 
 interface DetailsPanelProps {
@@ -61,6 +134,10 @@ export default function DetailsPanel({
     .map((part) => part[0]?.toUpperCase())
     .join("") || "V";
 
+    const notesNewestFirst = [...notesList].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
   return (
     <div className="w-80 bg-white border-l border-gray-200 flex flex-col rounded-[20px]">
 
@@ -115,17 +192,35 @@ export default function DetailsPanel({
               </span>
               <h3 className="text-[13px] font-medium text-[#111827]">Notes</h3>
             </div>
-            {notesList.length > 0 ? (
+            {notesNewestFirst.length > 0 ? (
               <div className="space-y-3 max-h-48 overflow-y-auto">
-                {notesList.map((note: Note, index: number) => (
+                {notesNewestFirst.map((note: Note, index: number) => {
+                  const senderLabel = getNoteSenderLabel(note);
+                  const avatarUrl = getNoteAvatarUrl(note);
+                  return (
                   <div
                     key={note._id || index}
                     className="px-[12px] py-[10px] bg-[#FEFCE8] rounded-lg border border-[#E8E8E8] cursor-pointer hover:bg-yellow-100 transition-colors flex flex-col"
                     onClick={() => onScrollToMessage(note._id)}
                   >
-                    <p className="text-[10px] font-semibold text-[#111827] uppercase">
-                      {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
-                    </p>
+                    <div className="flex justify-between items-center gap-2 min-w-0 w-full">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <NoteSenderAvatar
+                          key={String(note._id)}
+                          label={senderLabel || "?"}
+                          avatarUrl={avatarUrl}
+                        />
+                        <p
+                          className="text-[10px] font-semibold text-[#64748B] truncate min-w-0 text-left"
+                          title={senderLabel || undefined}
+                        >
+                          {senderLabel || ""}
+                        </p>
+                      </div>
+                      <p className="text-[10px] font-semibold text-[#111827] uppercase shrink-0 text-right">
+                        {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
                     {note.message?.includes('<audio') ? (
                       <p className="text-[12px] font-normal text-[#64748B] italic flex items-center gap-1">
                         🎤 Voice note
@@ -136,7 +231,8 @@ export default function DetailsPanel({
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-gray-500">No notes found</p>

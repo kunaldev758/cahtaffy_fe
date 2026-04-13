@@ -60,6 +60,9 @@ export interface Conversation {
     _id: string;
     message: string;
     createdAt: string;
+    sender_type?: string;
+    humanAgentId?: { name?: string; isClient?: boolean; avatar?: string } | null;
+    agentId?: { agentName?: string; name?: string; avatar?: string } | null;
   }
 
 export interface Client {
