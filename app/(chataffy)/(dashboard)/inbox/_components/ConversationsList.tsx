@@ -1,13 +1,41 @@
 "use client";
 import { useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, X, MessageSquareX } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
 import Image from "next/image";
 import { publicAsset } from "@/lib/publicAsset";
 import { Conversation } from "./types/inbox";
 import defaultImageImport from '@/images/default-image.png';
+import { Checkbox } from "@/components/ui/checkbox";
 
 const defaultImage = (defaultImageImport as any).src || defaultImageImport;
+
+/** Keeps header "select all" / row keys aligned when API sends ObjectId objects vs strings. */
+function normalizeConversationId(raw: unknown): string {
+  if (raw == null || raw === "") return "";
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "object" && raw !== null) {
+    const o = raw as Record<string, unknown>;
+    if (typeof o.$oid === "string") return o.$oid;
+    if (typeof o._id === "string") return o._id;
+  }
+  try {
+    const s = (raw as { toString?: () => string }).toString?.();
+    if (s && s !== "[object Object]") return s;
+  } catch {
+    /* ignore */
+  }
+  return String(raw);
+}
+
+const checkboxUiClass =
+  "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none " +
+  "data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white " +
+  "data-[state=indeterminate]:border-[#4686FE] data-[state=indeterminate]:bg-[#4686FE] data-[state=indeterminate]:text-white " +
+  "[&_svg]:h-[14px] [&_svg]:w-[14px]";
+
+const headerCheckboxUiClass =
+  `${checkboxUiClass} data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]`;
 
 interface ConversationsListProps {
   conversationsList: {
@@ -29,6 +57,7 @@ interface ConversationsListProps {
   onStatusChange: (status: string) => void;
   onRatingChange: (rating: string) => void;
   onSortChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onCloseConversation?: (conversationId: string) => void;
 }
 
 const formatTime = (dateStr: string) => {
@@ -63,9 +92,13 @@ export default function ConversationsList({
   onStatusChange,
   onRatingChange,
   onSortChange,
+  onCloseConversation,
 }: ConversationsListProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [selectedConversationIds, setSelectedConversationIds] = useState<Record<string, boolean>>({});
+  /** CSS :group-hover was unreliable here (active row / layout); JS hover is consistent. */
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   const getAvatarColor = (index: number) => {
     const colors = [
@@ -103,6 +136,44 @@ export default function ConversationsList({
 
   const hasActiveFilters = status !== "open" || rating !== "all";
 
+  const visibleConversationIds = displayConversations.map((c) =>
+    normalizeConversationId(c._id)
+  );
+  const selectedCount = Object.values(selectedConversationIds).filter(Boolean).length;
+  const selectionMode = selectedCount > 0;
+  const selectedInViewCount = visibleConversationIds.filter(
+    (id) => id && selectedConversationIds[id]
+  ).length;
+  const allSelectableRowsSelected =
+    visibleConversationIds.length > 0 &&
+    visibleConversationIds.every((id) => id && selectedConversationIds[id]);
+  const hasPartialSelection =
+    selectedInViewCount > 0 && !allSelectableRowsSelected;
+  const hasSelectionOffCurrentView =
+    selectedCount > 0 &&
+    selectedInViewCount === 0 &&
+    visibleConversationIds.length > 0;
+
+  const handleHeaderSelectAllChange = (checked: boolean) => {
+    if (checked) {
+      const next: Record<string, boolean> = { ...selectedConversationIds };
+      visibleConversationIds.forEach((id) => {
+        next[id] = true;
+      });
+      setSelectedConversationIds(next);
+    } else {
+      setSelectedConversationIds({});
+    }
+  };
+
+  const handleBulkCloseSelected = () => {
+    if (!onCloseConversation) return;
+    Object.entries(selectedConversationIds).forEach(([id, on]) => {
+      if (on) onCloseConversation(id);
+    });
+    setSelectedConversationIds({});
+  };
+
   const FilterPill = ({
     label,
     active,
@@ -125,42 +196,114 @@ export default function ConversationsList({
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full rounded-[20px] relative">
-      {/* Header */}
-      <div className="px-[20px] py-[20px] flex items-center justify-between border-b border-gray-100">
-        <h1 className="text-lg font-semibold text-gray-900">Chat Logs</h1>
-        <div className="flex items-center gap-[10px]">
-          <button
-            onClick={() => {
-              setShowFilter((v) => !v);
-              setShowSearch(false);
-            }}
-            className={`rounded-lg transition-colors relative bg-[#F1F5F9] w-8 h-8 flex items-center justify-center ${showFilter || hasActiveFilters
-              ? "bg-blue-50 text-blue-600"
-              : "text-gray-500 hover:bg-gray-100"
-              }`}
-            title="Advance filter"
-          >
-            <span className="material-symbols-outlined !text-[20px]">
-              filter_list
-            </span>
-            {hasActiveFilters && !showFilter && (
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-500 rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => {
-              setShowSearch((v) => !v);
-              setShowFilter(false);
-            }}
-            className={`p-2 rounded-lg transition-colors bg-[#F1F5F9] w-8 h-8 ${showSearch
-              ? "bg-blue-50 text-blue-600"
-              : "text-gray-500 hover:bg-gray-100"
-              }`}
-            title="Search"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-        </div>
+      {/* Header — bulk selection bar when any row is checked (matches Human Agent–style toolbar) */}
+      <div className="px-[20px] py-[20px] flex items-center justify-between border-b border-gray-100 min-h-[64px]">
+        {selectionMode ? (
+          <>
+            <div className="flex items-center gap-3 min-w-0">
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  className={headerCheckboxUiClass}
+                  checked={
+                    allSelectableRowsSelected
+                      ? true
+                      : hasPartialSelection || hasSelectionOffCurrentView
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={(c) => handleHeaderSelectAllChange(c === true)}
+                />
+              </div>
+              <span className="text-lg font-semibold text-gray-900 tabular-nums leading-none">
+                {selectedCount}
+              </span>
+            </div>
+            <div className="flex items-center gap-[10px] flex-shrink-0">
+              {onCloseConversation && (
+                <button
+                  type="button"
+                  onClick={handleBulkCloseSelected}
+                  className="rounded-lg transition-colors bg-[#F1F5F9] w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100"
+                  title="Close selected chats"
+                >
+                  <MessageSquareX className="w-4 h-4" strokeWidth={2} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFilter((v) => !v);
+                  setShowSearch(false);
+                }}
+                className={`rounded-lg transition-colors relative bg-[#F1F5F9] w-8 h-8 flex items-center justify-center ${showFilter || hasActiveFilters
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                title="Advance filter"
+              >
+                <span className="material-symbols-outlined !text-[20px]">
+                  filter_list
+                </span>
+                {hasActiveFilters && !showFilter && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSearch((v) => !v);
+                  setShowFilter(false);
+                }}
+                className={`p-2 rounded-lg transition-colors bg-[#F1F5F9] w-8 h-8 ${showSearch
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                title="Search"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="text-lg font-semibold text-gray-900">Chat Logs</h1>
+            <div className="flex items-center gap-[10px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFilter((v) => !v);
+                  setShowSearch(false);
+                }}
+                className={`rounded-lg transition-colors relative bg-[#F1F5F9] w-8 h-8 flex items-center justify-center ${showFilter || hasActiveFilters
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                title="Advance filter"
+              >
+                <span className="material-symbols-outlined !text-[20px]">
+                  filter_list
+                </span>
+                {hasActiveFilters && !showFilter && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSearch((v) => !v);
+                  setShowFilter(false);
+                }}
+                className={`p-2 rounded-lg transition-colors bg-[#F1F5F9] w-8 h-8 ${showSearch
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                title="Search"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -272,9 +415,17 @@ export default function ConversationsList({
             <p className="text-sm">No conversations found</p>
           </div>
         ) : (
-          displayConversations.map((conversation: Conversation, index: number) => (
+          displayConversations.map((conversation: Conversation, index: number) => {
+            const rowId = normalizeConversationId(conversation._id);
+            const isRowSelected = !!selectedConversationIds[rowId];
+            const isHovered = hoveredRowId === rowId;
+            const showRowActions = isHovered || isRowSelected;
+
+            return (
             <div
               key={conversation._id}
+              onMouseEnter={() => setHoveredRowId(rowId)}
+              onMouseLeave={() => setHoveredRowId((id) => (id === rowId ? null : id))}
               onClick={async () =>
                 await onConversationClick(
                   conversation,
@@ -282,23 +433,43 @@ export default function ConversationsList({
                   index
                 )
               }
-              className={`p-3 border-b border-gray-100 cursor-pointer transition-colors ${openConversationId === conversation._id
+              className={`relative p-3 border-b border-gray-100 cursor-pointer transition-colors ${openConversationId === conversation._id
                 ? "bg-[#F8FAFC] border-r-2 border-r-blue-500"
                 : "hover:bg-gray-50"
                 }`}
             >
               <div className="flex items-start gap-3">
-                {/* Avatar */}
+                {/* Avatar / checkbox (Human Agent–style checkbox on hover or when selected) */}
                 <div
-                  className={`w-10 h-10 rounded-[10px] border border-[#E8E8E8] flex-shrink-0 flex items-center justify-center font-semibold text-sm bg-white ${openConversationId === conversation._id ? "text-[#4686FE]" : ""}`}
+                  className="relative h-10 w-10 flex-shrink-0"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {conversation?.visitor?.name?.[0]?.toUpperCase() || "U"}
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center rounded-[10px] border border-[#E8E8E8] font-semibold text-sm bg-white transition-opacity ${openConversationId === conversation._id ? "text-[#4686FE]" : "text-gray-800"
+                      } ${showRowActions ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+                  >
+                    {conversation?.visitor?.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center transition-opacity ${showRowActions ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                  >
+                    <Checkbox
+                      className={checkboxUiClass}
+                      checked={isRowSelected}
+                      onCheckedChange={(checked) => {
+                        setSelectedConversationIds((prev) => ({
+                          ...prev,
+                          [rowId]: checked === true,
+                        }));
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   {/* Name row */}
-                  <div className="flex items-center justify-between mb-0.5">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-sm font-medium text-gray-900 truncate">
                         {conversation?.visitor?.name}
@@ -347,11 +518,31 @@ export default function ConversationsList({
                         )
                       )}
                     </div>
-                    <span className="text-[10px] font-medium text-gray-400 ml-2 flex-shrink-0 tracking-wide">
-                      {conversation.updatedAt
-                        ? formatTime(conversation.updatedAt)
-                        : "JUST NOW"}
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[10px] font-medium text-gray-400 tracking-wide whitespace-nowrap">
+                        {conversation.updatedAt
+                          ? formatTime(conversation.updatedAt)
+                          : "JUST NOW"}
+                      </span>
+                      {onCloseConversation && (
+                        <button
+                          type="button"
+                          className={`items-center gap-1 text-[#64748B] hover:text-[#475569] transition-colors ${isHovered ? "inline-flex" : "hidden"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCloseConversation(rowId);
+                          }}
+                          aria-label="Close conversation"
+                        >
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-[#CBD5E1] bg-white">
+                            <X className="h-3 w-3" strokeWidth={2.25} />
+                          </span>
+                          <span className="text-[10px] font-semibold tracking-wide">
+                            CLOSE
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Last message */}
@@ -371,7 +562,8 @@ export default function ConversationsList({
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

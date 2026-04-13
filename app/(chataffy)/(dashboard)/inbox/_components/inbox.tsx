@@ -727,6 +727,11 @@ export default function Inbox(Props: any) {
     emitCloseConversation(openConversationId);
   };
 
+  const handleCloseConversationFromList = (conversationId: string) => {
+    if (!conversationId) return;
+    emitCloseConversation(conversationId);
+  };
+
   const handleBlockVisitor = async () => {
     if (!openVisitorId || !openConversationId) {
       console.error("Cannot block visitor: missing visitor ID or conversation ID");
@@ -971,6 +976,7 @@ export default function Inbox(Props: any) {
         onStatusChange={handleStatusChange}
         onRatingChange={handleRatingChange}
         onSortChange={handleSortChange}
+        onCloseConversation={handleCloseConversationFromList}
       />
 
       {isConversationAvailable ? (
