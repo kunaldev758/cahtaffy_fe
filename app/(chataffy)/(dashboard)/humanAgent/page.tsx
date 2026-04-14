@@ -663,8 +663,7 @@ export default function HumanAgentPage() {
                                 className="toggle-checkbox"
                                 type="checkbox"
                                 checked={agent.isActive}
-                                onChange={() => handleStatusToggle(rowId, agent.isActive)}
-                                disabled={isClientRow}
+                                onChange={() => handleStatusToggle(rowId, agent.isActive)}          
                               />
                               <div className="toggle-switch" />
                             </label>
