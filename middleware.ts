@@ -59,6 +59,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(baseUrl);
   }
 
+  if(hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname)){
+    return NextResponse.redirect(new URL('/agent-inbox', request.url));
+  }
+
   // ✅ Logged in
   if (currentUserRole === "agent") {
     // Check if pathname matches any agent route (with or without query params)

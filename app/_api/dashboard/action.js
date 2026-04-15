@@ -369,3 +369,10 @@ export async function toggleWidgetStatusApi(agentId, isActive) {
   return await fetchData('widget/toggle-status', { agentId, isActive });
 }
 
+export async function getChatTranscriptSettings() {
+  return await fetchData('chat-transcripts/settings/get');
+}
+
+export async function updateChatTranscriptSettings(payload) {
+  return await fetchData('chat-transcripts/settings/update', payload);
+}

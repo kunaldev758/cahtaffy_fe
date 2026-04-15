@@ -232,6 +232,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
   const voiceButtonDisabled = !isRecording && (!isOnline || (aiChat && isTyping));
+  const hasVisitorMessages = conversation.some((message: any) => message?.sender_type === 'visitor');
+  const isChatOngoing = conversationStatus === 'open' && hasVisitorMessages && Boolean(conversationId || conversation[0]?.conversation_id);
 
   const widgetId = params?.slug?.[0] || 'demo-widget';
   const widgetToken = params?.slug?.[1] || 'demo-token';
@@ -917,6 +919,7 @@ export default function EnhancedChatWidget({ params }: any) {
         }
       }
     );
+    setConversationId(null);
   };
 
   const handleStartNewChat = () => {
@@ -1300,7 +1303,9 @@ export default function EnhancedChatWidget({ params }: any) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                       if (isChatOngoing) {
                         setShowEndSessionConfirm(true);
+                       }
                       }}
                       className="p-2 hover:bg-white/20 rounded-full transition-colors"
                     >
