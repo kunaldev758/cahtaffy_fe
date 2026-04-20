@@ -257,6 +257,11 @@ export async function getAIAgents() {
   return Array.isArray(data?.agents) ? data.agents : (Array.isArray(data) ? data : []);
 }
 
+export async function getAgentData(agentId) {
+  console.log("agentId from getAgentData ->", agentId)
+  return await getFetchData(`ai-agents/agent-data/${agentId}`);
+}
+
 export async function createHumanAgent(agentData) {
   return await fetchData('agents', agentData);
 }

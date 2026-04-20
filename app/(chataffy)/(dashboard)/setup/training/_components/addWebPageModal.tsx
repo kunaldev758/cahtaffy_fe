@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { openaiWebPageScrapeApi } from '@/app/_api/dashboard/action'
+import { getAgentData, openaiWebPageScrapeApi } from '@/app/_api/dashboard/action'
 import { toast } from 'react-toastify';
 import { useRouter } from 'next/navigation'
 import { getClientData } from '@/app/_api/dashboard/action'
@@ -19,6 +19,7 @@ export default function Home(Props: any) {
   const [urlInputError, setUrlInputError] = useState<string | null>(null)
   const [buttonLoading, setButtonLoading] = useState(false)
   const [client, setClient] = useState(null) as any;
+  const [agent, setAgent] = useState(null) as any;
 
   const urlsForApi = urlTags.join(', ')
 
@@ -103,19 +104,39 @@ export default function Home(Props: any) {
     setUrlTags(prev => prev.filter((_, i) => i !== idx))
   }
 
-  useEffect(() => {
-    const fetchClientData = async () => {
-      try {
-        const clientData = await getClientData();
-        if (clientData) {
-          setClient(clientData.client);
-        }
-      } catch (error) {
-        console.error("Error fetching client data:", error);
+  const fetchAgentData = useCallback(async () => {
+    if (!agentId) return null
+
+    try {
+      const agentData = await getAgentData(agentId)
+      if (agentData) {
+        setAgent(agentData.agent)
+        return agentData.agent
       }
-    };
-    fetchClientData();
-  }, []);
+    } catch (error) {
+    }
+
+    return null
+  }, [agentId])
+
+  useEffect(() => {
+    if (!agentId) return
+
+    // const fetchClientData = async () => {
+    //   try {
+    //     const clientData = await getClientData();
+    //     console.log("client data from modal ->", clientData)
+    //     if (clientData) {
+    //       setClient(clientData.client);
+    //     }
+    //   } catch (error) {
+    //     console.error("Error fetching client data:", error);
+    //   }
+    // };
+
+    // fetchClientData();
+    fetchAgentData()
+  }, [agentId, fetchAgentData]);
 
 
   const handleButtonOnClick = async () => {
@@ -152,6 +173,7 @@ export default function Home(Props: any) {
     setUrlTags([])
     onHide()
     toast.success(response.message)
+    await fetchAgentData()
 
   }
 
@@ -180,7 +202,7 @@ export default function Home(Props: any) {
         <div className="px-[20px]">
           <div className="new-webPage-modalArea">
             {/* <h4>Enter the URL of your external support content</h4> */}
-            {client && client?.isSitemapAdded <= 0 ? (
+            {agent && !agent?.isSitemapAdded ? (
               <div>
                 <h4>Enter the URL of your external support content</h4>
                 <p>Top-level domains will give the best results (e.g. https://chataffy.com rather than https://chataffy.com/home)</p>
