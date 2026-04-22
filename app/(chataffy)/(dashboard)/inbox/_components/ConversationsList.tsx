@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { Search, X, MessageSquareX } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, X, MessageSquareX, ChevronLeft, ChevronRight } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
 import Image from "next/image";
 import { publicAsset } from "@/lib/publicAsset";
@@ -36,6 +36,9 @@ const checkboxUiClass =
 
 const headerCheckboxUiClass =
   `${checkboxUiClass} data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]`;
+
+/** Client-side page size for the conversation list (full list still loads via socket). */
+const CONVERSATIONS_PAGE_SIZE = 10;
 
 interface ConversationsListProps {
   conversationsList: {
@@ -99,6 +102,8 @@ export default function ConversationsList({
   const [selectedConversationIds, setSelectedConversationIds] = useState<Record<string, boolean>>({});
   /** CSS :group-hover was unreliable here (active row / layout); JS hover is consistent. */
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  const [listPage, setListPage] = useState(1);
+  const [pageJumpInput, setPageJumpInput] = useState("");
 
   const getAvatarColor = (index: number) => {
     const colors = [
@@ -133,6 +138,23 @@ export default function ConversationsList({
   const displayConversations = searchConversationsList.data.length
     ? sortConversations(searchConversationsList.data)
     : sortConversations(conversationsList.data);
+
+  const totalListItems = displayConversations.length;
+  const totalListPages = Math.max(1, Math.ceil(totalListItems / CONVERSATIONS_PAGE_SIZE) || 1);
+
+  const paginatedConversations = useMemo(() => {
+    const start = (listPage - 1) * CONVERSATIONS_PAGE_SIZE;
+    return displayConversations.slice(start, start + CONVERSATIONS_PAGE_SIZE);
+  }, [displayConversations, listPage]);
+
+  const isSearchResultsView = searchConversationsList.data.length > 0;
+  useEffect(() => {
+    setListPage(1);
+  }, [status, rating, sortBy, isSearchResultsView]);
+
+  useEffect(() => {
+    if (listPage > totalListPages) setListPage(totalListPages);
+  }, [totalListPages, listPage]);
 
   const hasActiveFilters = status !== "open" || rating !== "all";
 
@@ -397,7 +419,7 @@ export default function ConversationsList({
       )}
 
       {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {conversationsList.loading ? (
           <div className="p-4 space-y-4">
             {[...Array(8)].map((_, index) => (
@@ -415,11 +437,12 @@ export default function ConversationsList({
             <p className="text-sm">No conversations found</p>
           </div>
         ) : (
-          displayConversations.map((conversation: Conversation, index: number) => {
+          paginatedConversations.map((conversation: Conversation, index: number) => {
             const rowId = normalizeConversationId(conversation._id);
             const isRowSelected = !!selectedConversationIds[rowId];
             const isHovered = hoveredRowId === rowId;
             const showRowActions = isHovered || isRowSelected;
+            const globalIndex = (listPage - 1) * CONVERSATIONS_PAGE_SIZE + index;
 
             return (
             <div
@@ -430,7 +453,7 @@ export default function ConversationsList({
                 await onConversationClick(
                   conversation,
                   conversation?.visitor?.name,
-                  index
+                  globalIndex
                 )
               }
               className={`relative p-3 border-b border-gray-100 cursor-pointer transition-colors ${openConversationId === conversation._id
@@ -566,6 +589,54 @@ export default function ConversationsList({
           })
         )}
       </div>
+
+      {!conversationsList.loading && totalListItems > 0 && (
+        <div className="flex items-center justify-center gap-2 px-3 py-3 border-t border-gray-100 bg-white shrink-0 rounded-b-[20px]">
+          <button
+            type="button"
+            aria-label="Previous page"
+            disabled={listPage <= 1}
+            onClick={() => setListPage((p) => Math.max(1, p - 1))}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+          </button>
+          <div
+            className="flex h-9 min-w-[36px] items-center justify-center rounded-lg bg-[#4686FE] px-2 text-sm font-semibold text-white"
+            aria-current="page"
+          >
+            {listPage}
+          </div>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Page Number"
+            value={pageJumpInput}
+            onChange={(e) => setPageJumpInput(e.target.value.replace(/[^\d]/g, ""))}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              const n = parseInt(pageJumpInput, 10);
+              if (Number.isNaN(n)) return;
+              const next = Math.min(Math.max(1, n), totalListPages);
+              setListPage(next);
+              setPageJumpInput("");
+            }}
+            className="h-9 w-[104px] rounded-lg border border-gray-200 bg-white px-2 text-center text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#4686FE] focus:outline-none focus:ring-1 focus:ring-[#4686FE]"
+          />
+          <div className="flex h-9 min-w-[40px] items-center justify-center rounded-lg border border-gray-200 bg-[#F8FAFC] px-2 text-sm font-medium text-gray-800 tabular-nums">
+            {totalListPages}
+          </div>
+          <button
+            type="button"
+            aria-label="Next page"
+            disabled={listPage >= totalListPages}
+            onClick={() => setListPage((p) => Math.min(totalListPages, p + 1))}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronRight className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
