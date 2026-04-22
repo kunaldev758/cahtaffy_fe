@@ -31,10 +31,15 @@ function ChatTranscriptsPage() {
   const [salesPhone, setSalesPhone] = useState<string>("");
   const [supportPhone, setSupportPhone] = useState<string>("");
 
+  const getInitialCountryCode = (): string => {
+    if (typeof window === "undefined") return "IN";
+    return window.localStorage.getItem("userCountry") || "IN";
+  };
+
   const [salesPhoneCountryCode, setSalesPhoneCountryCode] =
-    useState<string>(localStorage.getItem("userCountry") as string || "IN");
+    useState<string>(getInitialCountryCode);
   const [supportPhoneCountryCode, setSupportPhoneCountryCode] =
-    useState<string>(localStorage.getItem("userCountry") as string || "IN");
+    useState<string>(getInitialCountryCode);
 
   const getCountryByCallingCode = (
     callingCode: string,
