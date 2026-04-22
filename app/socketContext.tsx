@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import initializeSocket from "./socket";
 import { Socket } from "socket.io-client";
+import { getToken } from "./_api/dashboard/action";
 
 interface SocketContextProps {
   socket: Socket | null;
@@ -29,8 +30,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [humanAgentId, setHumanAgentId] = useState<string | null>(null);
   const lastHumanAgentProfileSocketKey = useRef<string>("");
 
-  const readAndSetIdentifiers = () => {
-    const storedToken = localStorage.getItem("token");
+  const readAndSetIdentifiers = async () => {
+    const storedToken = await getToken() || '';
     const storedUserId = localStorage.getItem("userId");
     const storedAgentId = localStorage.getItem("currentAgentId");
     const storedHumanAgentId = localStorage.getItem("humanAgentId");

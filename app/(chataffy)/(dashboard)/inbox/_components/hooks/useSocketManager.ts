@@ -1,4 +1,5 @@
 // hooks/useSocketManager.ts
+import { getToken } from "@/app/_api/dashboard/action";
 import { useRef, useEffect, useCallback, useState } from "react";
 import { io, Socket } from 'socket.io-client';
 
@@ -62,7 +63,7 @@ export const useSocketManager = ({
   const [socketConnected, setSocketConnected] = useState(false);
 
     // Socket initialization
-    const initializeSocket = useCallback(() => {
+    const initializeSocket = useCallback(async () => {
       // Prevent multiple simultaneous initializations
       if (isInitializingRef.current) {
         return;
@@ -85,7 +86,7 @@ export const useSocketManager = ({
       isInitializingRef.current = true;
   
       try {
-        const token = localStorage.getItem('token');
+        const token = (await getToken()) || '';
         let humanAgentId: string | undefined;
         let agentId: string | undefined;
 
@@ -200,6 +201,8 @@ export const useSocketManager = ({
         });
   
         socketRef.current = socketInstance;
+        // Notify effects/callbacks that a new socket instance now exists.
+        setSocketVersion((v) => v + 1);
       } catch (error) {
         console.error("Error initializing socket:", error);
         isInitializingRef.current = false;

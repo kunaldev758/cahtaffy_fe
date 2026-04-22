@@ -12,12 +12,14 @@ import ClientProfileMenu from '../inbox/_components/ClientProfileMenu'
 import { getClientData } from '@/app/_api/dashboard/action'
 import { createAIAgentApi } from '@/app/_api/login/action'
 import { dispatchAuthStorageSync } from '@/app/socketContext'
+import { usePlanContext } from "@/app/planContext"
 
 export default function IntegratedSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [clientData, setClientData] = useState<any>(null)
   const [isCreatingAgent, setIsCreatingAgent] = useState(false)
+  const { effectiveLimits } = usePlanContext()
 
   useEffect(() => {
     const fetchClient = async () => {
@@ -65,6 +67,20 @@ export default function IntegratedSidebar() {
   }
 
   const handleNewAgent = async () => {
+    const maxAgentsPerAccount = Number(effectiveLimits?.maxAgentsPerAccount)
+    const currentAgentsCount = (() => {
+      try {
+        const storedAgents = JSON.parse(localStorage.getItem('agents') || '[]')
+        return Array.isArray(storedAgents) ? storedAgents.length : 0
+      } catch {
+        return 0
+      }
+    })()
+
+    if (Number.isFinite(maxAgentsPerAccount) && maxAgentsPerAccount > 0 && currentAgentsCount >= maxAgentsPerAccount) {
+      toast.error('You have reached the maximum number of agents allowed for your plan.')
+      return
+    }
     if (isCreatingAgent) return
     setIsCreatingAgent(true)
     try {
@@ -77,12 +93,12 @@ export default function IntegratedSidebar() {
       const previousAgentId = localStorage.getItem('currentAgentId') ?? ''
       localStorage.setItem('previousAgentId', previousAgentId)
       localStorage.setItem('currentAgentId', newAgentId)
-      try {
-        const existing = JSON.parse(localStorage.getItem('agents') || '[]')
-        if (!existing.some((a: any) => a._id === newAgentId)) {
-          localStorage.setItem('agents', JSON.stringify([...existing, res.agent]))
-        }
-      } catch { /* keep existing agents array as-is */ }
+      // try {
+      //   const existing = JSON.parse(localStorage.getItem('agents') || '[]')
+      //   if (!existing.some((a: any) => a._id === newAgentId)) {
+      //     localStorage.setItem('agents', JSON.stringify([...existing, res.agent]))
+      //   }
+      // } catch { /* keep existing agents array as-is */ }
       window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: newAgentId } }))
       router.push('/website/new')
     } catch {

@@ -1,7 +1,7 @@
 
 // Login Component
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { loginApi, googleOAuthExchange } from '../../../_api/login/action'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
@@ -11,8 +11,17 @@ import Link from 'next/link'
 import { useGoogleLogin } from '@react-oauth/google'
 const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
+interface Response {
+  status_code: number;
+  status: boolean;
+  token: string;
+  userId: string;
+  isOnboarded: boolean;
+  agents: any[];
+  message: string;
+}
 
-export function LoginForm() {
+export function LoginForm({ response }: { response?: Response }) {
   const { socket } = useSocket();
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -22,6 +31,22 @@ export function LoginForm() {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
 
+  useEffect(() => {
+   if(response){
+    console.log(response, "response verify email");
+    const hasShown = sessionStorage.getItem("hasShownToast");
+      if (!hasShown) {
+        if (response?.status === true ) {
+          toast.success(response?.message)
+        } else {
+          toast.error(response?.message)
+        }
+        sessionStorage.setItem("hasShownToast", "true");
+      }
+    
+   }
+  }, [response])
+
   const handleOnSubmit = async (event:any) => {
     event.preventDefault()
     if (email !== '' && password !== '') {
@@ -29,7 +54,7 @@ export function LoginForm() {
       const response = await loginApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
       if (response?.status_code == 200) {
-        localStorage.setItem('token', response.token);
+        // localStorage.setItem('token', response.token);
         localStorage.setItem('userId', response.userId);
         if (response.agents) {
           localStorage.setItem('agents', JSON.stringify(response.agents));
@@ -83,9 +108,9 @@ export function LoginForm() {
         setGoogleLoading(false);
         if (response?.status_code === 200) {
           toast.success('Signed in with Google')
-          if (response.token) {
-            localStorage.setItem('token', response.token)
-          }
+          // if (response.token) {
+          //   localStorage.setItem('token', response.token)
+          // }
           if (response.userId) {
             localStorage.setItem('userId', response.userId)
           }

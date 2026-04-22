@@ -6,6 +6,7 @@ import { Check, ChevronDown, Globe, Loader2, Plus } from 'lucide-react'
 import { getAIAgents } from '@/app/_api/dashboard/action'
 import { createAIAgentApi } from '@/app/_api/login/action'
 import { toast } from 'react-toastify'
+import { usePlanContext } from '@/app/planContext'
 
 type Agent = {
   _id: string
@@ -24,7 +25,7 @@ const getInitials = (name: string) => {
 
 export default function WebsiteSelect() {
   const router = useRouter()
-
+  const { effectiveLimits } = usePlanContext()
   const [agents, setAgents] = useState<Agent[]>([])
   const [isAgentDropdownOpen, setIsAgentDropdownOpen] = useState(false)
   const [isAgentLoading, setIsAgentLoading] = useState(true)
@@ -47,6 +48,9 @@ export default function WebsiteSelect() {
       try {
         const data = await getAIAgents()
         setAgents(Array.isArray(data) ? data : [])
+        if(data.length > 0) {
+          window.localStorage.setItem('agents', JSON.stringify(data))
+        }
       } catch {
         // silent
       } finally {
@@ -80,6 +84,10 @@ export default function WebsiteSelect() {
   }
 
   const handleNewAgent = async () => {
+    if (effectiveLimits?.maxAgentsPerAccount && effectiveLimits?.maxAgentsPerAccount <= agents.length) {
+      toast.error('You have reached the maximum number of websites allowed for your plan.')
+      return
+    }
     if (isCreatingAgent) return
     setIsAgentDropdownOpen(false)
     setIsCreatingAgent(true)
