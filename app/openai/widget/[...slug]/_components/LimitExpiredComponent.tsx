@@ -1,6 +1,6 @@
 import { leaveAMessage } from "@/app/_api/dashboard/action";
 import { useEffect, useState } from "react";
-import { FormField, validateField } from "../page";
+import { FormField, validateField } from "./FormField";
 
 const fields = [
     {
