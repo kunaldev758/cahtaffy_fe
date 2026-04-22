@@ -1,6 +1,5 @@
 'use server'
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers'
+import { cookies } from 'next/headers';
 
 async function fetchData(endpoint, requestData = {}) {
   const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
@@ -367,5 +366,9 @@ export async function sendEmailForOfflineChat(visitorDetails, contactNote,userId
 
 export async function toggleWidgetStatusApi(agentId, isActive) {
   return await fetchData('widget/toggle-status', { agentId, isActive });
+}
+
+export async function leaveAMessage(payload) {
+  return await fetchDatawithoutToken('leaveMessage', payload);
 }
 

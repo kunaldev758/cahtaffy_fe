@@ -1,31 +1,25 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
+import defaultImageImport from '@/images/default-image.png';
+import { normalizePreChatFieldOrder } from '@/lib/preChatFields';
 import {
-  X,
-  Send,
-  MessageCircle,
-  ThumbsUp,
-  ThumbsDown,
-  Smile,
-  Frown,
-  Minimize2,
-  User,
-  Clock,
-  CheckCircle,
   AlertCircle,
   Bot,
-  ArrowDown,
+  CheckCircle,
+  Clock,
+  Frown,
   Mic,
-  StopCircle,
-  Phone
+  Minimize2,
+  Send,
+  Smile,
+  X
 } from "lucide-react";
-import { io, Socket } from 'socket.io-client'
+import { Plus_Jakarta_Sans } from 'next/font/google';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from "uuid";
-import { sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
-import { normalizePreChatFieldOrder } from '@/lib/preChatFields';
-import defaultImageImport from '@/images/default-image.png';
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import LimitExpiredComponent from "./_components/LimitExpiredComponent";
 
 
 const jakarta = Plus_Jakarta_Sans({
@@ -39,7 +33,7 @@ const axios = require('axios');
 require('./_components/widgetcss.css');
 
 // Field validation helpers
-const validateField = (field: any, value: any) => {
+export const validateField = (field: any, value: any) => {
   const errors = [];
 
   if (field.required && (!value || value.trim() === '')) {
@@ -98,7 +92,7 @@ const validateField = (field: any, value: any) => {
 };
 
 // Form validation component
-const FormField = ({ field, value, onChange, error }: { field: any; value: any; onChange: any; error: any }) => {
+export const FormField = ({ field, value, onChange, error }: { field: any; value: any; onChange: any; error: any }) => {
   const baseClasses = "w-full h-[40px] text-[13px] font-normal text-[#111827] px-[16px] py-[12px] border border-[#E2E8F0] rounded-[8px] focus:ring-0 focus:outline-none focus:border-transparent transition-colors placeholder:text-[#94A3B8]";
   const errorClasses = error ? "border-red-500 bg-red-50" : "border-gray-300 bg-white";
 
@@ -211,6 +205,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ _id?: string; message: string; sender_type: string; senderName?: string } | null>(null);
   const [showEndSessionConfirm, setShowEndSessionConfirm] = useState(false);
+  const [isLimitExpired, setIsLimitExpired] = useState(false);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
 
@@ -535,7 +530,8 @@ export default function EnhancedChatWidget({ params }: any) {
         hasChatMessages: !!data?.chatMessages,
         chatMessagesCount: data?.chatMessages?.length,
         aiChatFromResponse: data?.aiChat,
-        currentAiChat: aiChatRef.current
+        currentAiChat: aiChatRef.current,
+        isLimitExpired: data?.isLimitExpired,
       });
 
       setConversation(data.chatMessages || []);
@@ -544,6 +540,7 @@ export default function EnhancedChatWidget({ params }: any) {
       setFields(
         normalizePreChatFieldOrder(data.themeSettings?.fields || [])
       );
+      setIsLimitExpired(data.isLimitExpired || false);
       if (data.themeSettings.logo) {
         setClientLogo(`${process.env.NEXT_PUBLIC_FILE_HOST}${data.themeSettings.logo}`);
       }
@@ -1279,8 +1276,17 @@ export default function EnhancedChatWidget({ params }: any) {
                         {(themeSettings as any)?.titleBar || "Support"}
                       </h3>
                       <div className="flex items-center space-x-2 text-xs opacity-90 mt-0.5">
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Online</span>
+                        {isLimitExpired ? (
+                          <>
+                          <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Offline</span>
+                          </>
+                        ) : (
+                          <>
+                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Online</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1403,6 +1409,8 @@ export default function EnhancedChatWidget({ params }: any) {
                       </div>
                     </div>
                   </div>
+                ) : isLimitExpired ? (
+                  <LimitExpiredComponent userId={userId} visitorId={typeof window !== 'undefined' ? localStorage.getItem('visitorId') : null}/>
                 ) : (
                   <>
                     {/* Messages Area */}
