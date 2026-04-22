@@ -28,7 +28,6 @@ export function VisitorTrafficMap({ data }: Props) {
 
   const counts = chartRows.slice(1).map((r) => Number(r[1]) || 0)
   const max = Math.max(...counts, 1)
-  const min = Math.min(...counts)
 
   // Country rows sorted by chat count descending (for the flag list)
   const countryRows = chartRows
@@ -63,17 +62,6 @@ export function VisitorTrafficMap({ data }: Props) {
               },
             }}
           />
-          <div className="px-4 pb-3 pt-1 flex max-w-[200px] flex-col gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-[#64748B]">Chat count</p>
-            <div className="flex items-center gap-2">
-              <span className="min-w-[1.5rem] text-right text-[11px] tabular-nums text-[#64748B]">{min}</span>
-              <div
-                className="h-2 flex-1 rounded-full"
-                style={{ background: 'linear-gradient(90deg, #EEF2FF 0%, #4B56F2 100%)' }}
-              />
-              <span className="min-w-[1.5rem] text-[11px] tabular-nums text-[#64748B]">{max}</span>
-            </div>
-          </div>
         </div>
 
         {/* Country breakdown list with flags */}
