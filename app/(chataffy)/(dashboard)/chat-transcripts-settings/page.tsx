@@ -32,9 +32,9 @@ function ChatTranscriptsPage() {
   const [supportPhone, setSupportPhone] = useState<string>("");
 
   const [salesPhoneCountryCode, setSalesPhoneCountryCode] =
-    useState<string>("IN");
+    useState<string>(localStorage.getItem("userCountry") as string || "IN");
   const [supportPhoneCountryCode, setSupportPhoneCountryCode] =
-    useState<string>("IN");
+    useState<string>(localStorage.getItem("userCountry") as string || "IN");
 
   const getCountryByCallingCode = (
     callingCode: string,

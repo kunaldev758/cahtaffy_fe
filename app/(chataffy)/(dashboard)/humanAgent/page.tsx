@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { usePlanContext } from '@/app/planContext';
 
 const checkboxUiClass =
   'h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none ' +
@@ -136,6 +137,7 @@ export default function HumanAgentPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const {effectiveLimits} = usePlanContext()
 
   // Fetch human agents
   const fetchAgents = async () => {
@@ -558,7 +560,14 @@ export default function HumanAgentPage() {
               <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(true)}
+                  // onClick={() => setShowAddModal(true)}
+                  onClick={() => {
+                    if (effectiveLimits?.maxHumanAgentsPerAccount <= agents?.filter((a) => !a.isClient).length) {
+                      toast.error('You have reached the maximum number of human agents');
+                      return;
+                    }
+                    setShowAddModal(true);
+                  }}
                   className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#111827] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1f2937]"
                 >
                   <Plus className="h-4 w-4" />

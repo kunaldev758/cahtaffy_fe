@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell, Bot } from "lucide-react";
 import { useSocket } from "@/app/socketContext";
 import { useRouter, usePathname } from "next/navigation";
+import { getToken } from "@/app/_api/dashboard/action";
 
 interface NotificationItem {
   _id: string;
@@ -106,7 +107,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   const fetchNotifications = useCallback(async () => {
     if (!humanAgentId) return;
     try {
-      const token = localStorage.getItem("token");
+      const token = await getToken() || '';
       const res = await fetch(
         `${apiBase}notifications/agent/${humanAgentId}`,
         { headers: { Authorization: token || "" } }
@@ -216,7 +217,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     );
     if (id.startsWith("tmp-")) return; // optimistic entries have no DB id yet
     try {
-      const token = localStorage.getItem("token");
+      const token = await getToken() || '';
       await fetch(
         `${apiBase}notifications/${id}/seen`,
         { method: "PUT", headers: { Authorization: token || "" } }
@@ -228,7 +229,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     if (!humanAgentId) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, isSeen: true })));
     try {
-      const token = localStorage.getItem("token");
+      const token = await getToken() || '';
       await fetch(
         `${apiBase}notifications/agent/${humanAgentId}/seen-all`,
         { method: "PUT", headers: { Authorization: token || "" } }

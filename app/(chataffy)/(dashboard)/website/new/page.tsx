@@ -11,6 +11,7 @@ import TrainSetup from '../../../onboarding/components/train-setup'
 import WidgetSetup from '../../../onboarding/components/widget-setup'
 import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi, updateOnboardingStepApi } from '@/app/_api/dashboard/action'
 import { deleteAIAgentApi } from '@/app/_api/login/action'
+import { usePlanContext } from '@/app/planContext'
 
 type SetupTab = 'web' | 'docs' | 'faqs'
 type SetupStep = 'source' | 'train' | 'widget'
@@ -33,6 +34,9 @@ export default function NewAgentOnboardingPage() {
   const [isCancelling, setIsCancelling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isIntentionalExit = useRef(false)
+  const onboardingAgentIdRef = useRef<string | null>(null)
+  const previousAgentIdRef = useRef<string | null>(null)
+  const hasOnboardingSessionRef = useRef(false)
 
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [extractedUrls, setExtractedUrls] = useState<string[]>([])
@@ -41,6 +45,9 @@ export default function NewAgentOnboardingPage() {
   const [isTrainingUrls, setIsTrainingUrls] = useState(false)
   const [isDocsTraining, setIsDocsTraining] = useState(false)
   const [isFaqTraining, setIsFaqTraining] = useState(false)
+  const { effectiveLimits } = usePlanContext()
+  const [isAgentLimitReached, setIsAgentLimitReached] = useState(false)
+  const [agentsLoading, setAgentsLoading] = useState(true)
 
   const [agentId, setAgentId] = useState<string | null>(null)
   useEffect(() => {
@@ -51,9 +58,35 @@ export default function NewAgentOnboardingPage() {
         router.replace('/website')
         return
       }
+
+      onboardingAgentIdRef.current = id
+      hasOnboardingSessionRef.current = localStorage.getItem('previousAgentId') ? true : false
+      previousAgentIdRef.current = hasOnboardingSessionRef.current ? localStorage.getItem('previousAgentId') : null
+
       setAgentId(id)
     }
   }, [router])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setAgentsLoading(true)
+    const maxAgentsPerAccount = Number(effectiveLimits?.maxAgentsPerAccount)
+    if (!Number.isFinite(maxAgentsPerAccount) || maxAgentsPerAccount <= 0) {
+      setIsAgentLimitReached(false)
+      setAgentsLoading(false)
+      return
+    }
+
+    try {
+      const storedAgents = JSON.parse(localStorage.getItem('agents') || '[]')
+      const currentAgentsCount = Array.isArray(storedAgents) ? storedAgents.length : 0
+      setIsAgentLimitReached(currentAgentsCount >= maxAgentsPerAccount)
+      setAgentsLoading(false)
+    } catch {
+      setIsAgentLimitReached(false)
+      setAgentsLoading(false)
+    }
+  }, [effectiveLimits])
 
   const removeAgentFromStorage = (deletedId: string | null, prevAgentId: string | null) => {
     if (deletedId) {
@@ -81,13 +114,18 @@ export default function NewAgentOnboardingPage() {
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (!hasOnboardingSessionRef.current) return
       if (!isIntentionalExit.current) {
-        const newAgentId = localStorage.getItem('currentAgentId')
-        const prevAgentId = localStorage.getItem('previousAgentId')
-        if (newAgentId) {
-          deleteAIAgentApi(newAgentId).catch(() => {})
+        const onboardingAgentId = onboardingAgentIdRef.current
+        const prevAgentId = previousAgentIdRef.current ?? localStorage.getItem('previousAgentId')
+        const currentAgentId = localStorage.getItem('currentAgentId')
+        const shouldDeleteOnboardingAgent = Boolean(onboardingAgentId && onboardingAgentId === currentAgentId)
+
+        if (shouldDeleteOnboardingAgent && onboardingAgentId) {
+          console.log('deleting onboarding agent from new page', onboardingAgentId)
+          deleteAIAgentApi(onboardingAgentId).catch(() => {})
         }
-        removeAgentFromStorage(newAgentId, prevAgentId)
+        removeAgentFromStorage(shouldDeleteOnboardingAgent ? onboardingAgentId : null, prevAgentId)
       }
     }
   }, [])
@@ -141,12 +179,19 @@ export default function NewAgentOnboardingPage() {
     isIntentionalExit.current = true
     setIsCancelling(true)
     try {
-      const newAgentId = localStorage.getItem('currentAgentId')
-      const prevAgentId = localStorage.getItem('previousAgentId')
-      if (newAgentId) {
-        await deleteAIAgentApi(newAgentId)
+      if (!hasOnboardingSessionRef.current) {
+        router.replace('/website')
+        return
       }
-      removeAgentFromStorage(newAgentId, prevAgentId)
+      const onboardingAgentId = onboardingAgentIdRef.current
+      const prevAgentId = previousAgentIdRef.current ?? localStorage.getItem('previousAgentId')
+      const currentAgentId = localStorage.getItem('currentAgentId')
+      const canDeleteOnboardingAgent = Boolean(onboardingAgentId && onboardingAgentId === currentAgentId)
+
+      if (canDeleteOnboardingAgent && onboardingAgentId) {
+        await deleteAIAgentApi(onboardingAgentId)
+      }
+      removeAgentFromStorage(canDeleteOnboardingAgent ? onboardingAgentId : null, prevAgentId)
       router.replace('/website')
     } catch {
       toast.error('Failed to cancel. Please try again.')
@@ -285,6 +330,38 @@ export default function NewAgentOnboardingPage() {
     } finally {
       setIsFaqTraining(false)
     }
+  }
+
+  if (agentsLoading) {
+    return (
+      <div className="min-h-screen bg-[#F3F4F6] p-6">
+        <div className="mx-auto mt-10 w-full max-w-[900px] flex items-center justify-center rounded-[20px] bg-white p-8 text-center shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)]">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
+  if (isAgentLimitReached) {
+    return (
+      <div className="min-h-screen bg-[#F3F4F6] p-6">
+        <div className="mx-auto mt-10 w-full max-w-[900px] rounded-[20px] bg-white p-8 text-center shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)]">
+          <h1 className="text-2xl font-bold text-[#111827]">Website Limit Reached</h1>
+          <p className="mt-3 text-sm text-[#64748B]">
+            You have reached the maximum number of websites allowed for your current plan.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white px-5 text-sm font-semibold text-[#111827] transition-colors hover:bg-[#F8FAFC]"
+            >
+              Back to Websites
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

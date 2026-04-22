@@ -5,6 +5,7 @@ import '@/app/fonts.css'
 import '@/app/globals.css'
 import { SocketProvider } from '../socketContext';
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import PlanProvider from '../planContext';
 
 // import { Inter } from 'next/font/google'
 
@@ -24,6 +25,7 @@ export default function DashboardLayout({
     <>
     {/* <div className={inter.className}> */}
     <SocketProvider>
+      <PlanProvider>
       {googleClientId ? (
         <GoogleOAuthProvider clientId={googleClientId}>
           {children}
@@ -31,6 +33,7 @@ export default function DashboardLayout({
       ) : (
         children
       )}
+      </PlanProvider>
       </SocketProvider>
     {/* </div> */}
 

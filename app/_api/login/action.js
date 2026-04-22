@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers'
 
+const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
 export async function loginAgentApi(email, password) {
   const response = await fetch(`${process.env.API_HOST}agents/login`, {
     method: 'POST',
@@ -15,8 +16,8 @@ export async function loginAgentApi(email, password) {
 
   const result = await response.json()
   if (result.message === "Login successful") {
-    cookies().set({ name: 'token', value: result.token, httpOnly: true })
-    cookies().set({ name: 'role', value: 'agent', httpOnly: true })
+    cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    cookies().set({ name: 'role', value: 'agent', httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
   }
   return result
 }
@@ -35,8 +36,8 @@ export async function loginApi(email, password) {
 
   const result = await response.json()
   if (result.status_code==200) {
-    cookies().set({ name: 'token', value: result.token, httpOnly: true})
-    cookies().set({name:"role",value:"client",httpOnly: true})
+    cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    cookies().set({name:"role",value:"client",httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
   }
   return result
 }
@@ -68,8 +69,8 @@ export async function googleOAuthExchange(googleToken) {
 
   const result = await response.json()
   if (result?.status_code === 200 && result?.token) {
-    cookies().set({ name: 'token', value: result.token, httpOnly: true })
-    cookies().set({ name: 'role', value: "client", httpOnly: true })
+    cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    cookies().set({ name: 'role', value: "client", httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
   }
   return result
 }

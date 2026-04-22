@@ -8,6 +8,7 @@ import { getAIAgents } from '@/app/_api/dashboard/action'
 import { toggleWidgetStatusApi } from '@/app/_api/dashboard/action'
 import { deleteAIAgentApi, createAIAgentApi } from '@/app/_api/login/action'
 import TopHead from '../_components/TopHead'
+import { usePlanContext } from '@/app/planContext'
 
 type Agent = {
   _id: string
@@ -52,13 +53,38 @@ function CardBanner({ index }: { index: number }) {
   )
 }
 
-function formatLastTrained(lastTrained: string | null): { label: string; isRecent: boolean } {
-  if (!lastTrained) return { label: 'NOT TRAINED YET', isRecent: false }
-  const diff = Date.now() - new Date(lastTrained).getTime()
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-  if (hours < 24) return { label: `Last trained ${hours <= 1 ? '1 hour' : `${hours} hours`} ago`, isRecent: true }
-  return { label: `LAST TRAINED ${days} DAY${days !== 1 ? 'S' : ''} AGO`, isRecent: false }
+function formatLastTrained(
+  lastTrained: string | null
+): { label: string; isRecent: boolean } {
+  if (!lastTrained) {
+    return { label: "NOT TRAINED YET", isRecent: false };
+  }
+
+  const diff = Date.now() - new Date(lastTrained).getTime();
+
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) {
+    return { label: "Last trained just now", isRecent: true };
+  }
+  if (minutes < 60) {
+    return {
+      label: `Last trained ${minutes} minute${minutes !== 1 ? "s" : ""} ago`,
+      isRecent: true,
+    };
+  }
+  if (hours < 24) {
+    return {
+      label: `Last trained ${hours} hour${hours !== 1 ? "s" : ""} ago`,
+      isRecent: true,
+    };
+  }
+  return {
+    label: `LAST TRAINED ${days} DAY${days !== 1 ? "S" : ""} AGO`,
+    isRecent: false,
+  };
 }
 
 export default function WebsitePage() {
@@ -69,6 +95,7 @@ export default function WebsitePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const { effectiveLimits } = usePlanContext()
 
   useEffect(() => {
     const cleanupOrphan = async () => {
@@ -94,6 +121,9 @@ export default function WebsitePage() {
       try {
         const data = await getAIAgents()
         setAgents(Array.isArray(data) ? data : [])
+        if(data.length > 0) {
+          window.localStorage.setItem('agents', JSON.stringify(data))
+        }
       } catch {
         toast.error('Failed to load agents')
       } finally {
@@ -105,6 +135,12 @@ export default function WebsitePage() {
   }, [])
 
   const handleNewAgent = async () => {
+    const maxAgentsPerAccount = Number(effectiveLimits?.maxAgentsPerAccount)
+    if (Number.isFinite(maxAgentsPerAccount) && maxAgentsPerAccount > 0 && agents.length >= maxAgentsPerAccount) {
+      toast.error('You have reached the maximum number of websites allowed for your plan.')
+      return
+    }
+
     if (isCreatingAgent) return
     setIsCreatingAgent(true)
     try {
@@ -141,6 +177,7 @@ export default function WebsitePage() {
         window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: null } }))
       }
       setAgents(prev => prev.filter(a => a._id !== agentId))
+      localStorage.setItem('agents', JSON.stringify(agents.filter(a => a._id !== agentId) || []))
       toast.success('Agent deleted successfully')
     } catch {
       toast.error('Failed to delete agent')

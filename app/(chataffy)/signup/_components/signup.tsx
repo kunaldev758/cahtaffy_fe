@@ -43,9 +43,9 @@ export function RegistrationForm() {
         setGoogleLoading(false)
         if (response?.status_code === 200) {
           toast.success('Signed up with Google')
-          if (response.token) {
-            localStorage.setItem('token', response.token)
-          }
+          // if (response.token) {
+          //   localStorage.setItem('token', response.token)
+          // }
           if (response.userId) {
             localStorage.setItem('userId', response.userId)
           }

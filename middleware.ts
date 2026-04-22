@@ -39,7 +39,7 @@ export function middleware(request: NextRequest) {
     url: request.url
   });
 
-  const publicRoutes = ["/login", "/agent-login", "/agent-accept-invite"];
+  const publicRoutes = ["/login","/signup", "/agent-login", "/agent-accept-invite"];
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
   const visitorAllowedPrefix = "/openai/widget";
 
@@ -61,6 +61,10 @@ export function middleware(request: NextRequest) {
 
   if(hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname)){
     return NextResponse.redirect(new URL('/agent-inbox', request.url));
+  }
+
+  if(hasToken && currentUserRole === "client" && publicRoutes.includes(pathname)){
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   // ✅ Logged in
@@ -116,6 +120,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|favicon.ico|verify-email|signup|widget|openai/widget|tensorflow/widget|_next|images|audio|\.well-known).*)",
+    "/((?!api|favicon.ico|verify-email|widget|openai/widget|tensorflow/widget|_next|images|audio|\.well-known).*)",
   ],
 };

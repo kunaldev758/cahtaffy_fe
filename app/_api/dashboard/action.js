@@ -2,13 +2,43 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers'
 
+export const getToken = async () => {
+  const token = cookies().get('token')?.value
+  if (!token) return null
+  return token
+}
+
+const ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
+
+function getAuthorizationHeader() {
+  return cookies().get('token')?.value || '';
+}
+
+function syncTokenFromSetCookieHeader(setCookieHeader) {
+  if (!setCookieHeader) return;
+
+  const token = setCookieHeader.match(/(?:^|,\s*)token=([^;]+)/)?.[1];
+  console.log("token from setCookieHeader ----> ",token)
+  if (!token) return;
+
+  cookies().set({
+    name: 'token',
+    value: token,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: false,
+    maxAge: ONE_WEEK_IN_SECONDS,
+    path: '/',
+  });
+}
+
 async function fetchData(endpoint, requestData = {}) {
   const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
     method: 'POST',
     cache: 'no-cache',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: cookies().get('token').value
+      Authorization: getAuthorizationHeader()
     },
     body: JSON.stringify(requestData)
   });
@@ -18,6 +48,8 @@ async function fetchData(endpoint, requestData = {}) {
     // cookies().delete('token')
     return 'error'
   }
+  const setCookie = response.headers.get('set-cookie');
+  syncTokenFromSetCookieHeader(setCookie);
   return data
 }
 async function fetchDatawithoutToken(endpoint, requestData = {}) {
@@ -44,7 +76,7 @@ async function uploadData(endpoint,formData,userId ) {
     method: 'POST',
     body: formData,
     headers: {
-      Authorization: cookies().get('token').value
+      Authorization: getAuthorizationHeader()
     },
   });
   const data = await response.json();
@@ -53,6 +85,8 @@ async function uploadData(endpoint,formData,userId ) {
     // cookies().delete('token')
     return 'error'
   }
+  const setCookie = response.headers.get('set-cookie');
+  syncTokenFromSetCookieHeader(setCookie);
   return data
 }
 
@@ -65,7 +99,7 @@ async function getFetchData(endpoint,params=null) {
     cache: 'no-cache',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: cookies().get('token').value
+      Authorization: getAuthorizationHeader()
     },
   });
 }else{
@@ -74,7 +108,7 @@ async function getFetchData(endpoint,params=null) {
     cache: 'no-cache',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: cookies().get('token').value
+      Authorization: getAuthorizationHeader()
     },
   });
 }
@@ -83,6 +117,8 @@ async function getFetchData(endpoint,params=null) {
     // cookies().delete('token')
     return 'error'
   }
+  const setCookie = response.headers.get('set-cookie');
+  syncTokenFromSetCookieHeader(setCookie);
   return data
 }
 
@@ -124,7 +160,7 @@ export async function openaiCreateSnippet(formData, agentId) {
     method: 'POST',
     cache: 'no-cache',
     headers: {
-      Authorization: cookies().get('token').value
+      Authorization: getAuthorizationHeader()
     },
     body: formData
   });
@@ -132,6 +168,8 @@ export async function openaiCreateSnippet(formData, agentId) {
   if(data.status_code==401){
     return 'error'
   }
+  const setCookie = response.headers.get('set-cookie');
+  syncTokenFromSetCookieHeader(setCookie);
   return data
 }
 
@@ -309,13 +347,15 @@ export async function uploadAgentAvatar(formData, agentId) {
     method: 'POST',
     body: formData,
     headers: {
-      Authorization: cookies().get('token').value
+      Authorization: getAuthorizationHeader()
     },
   });
   const data = await response.json();
   if(data.status_code==401){
     return 'error'
   }
+  const setCookie = response.headers.get('set-cookie');
+  syncTokenFromSetCookieHeader(setCookie);
   return data
 }
 

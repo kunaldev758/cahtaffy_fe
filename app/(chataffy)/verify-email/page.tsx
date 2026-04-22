@@ -20,8 +20,8 @@ export default async function Home({
   const response = await verifyEmailApi(token)
   return (
     <>
-    {response.message}
-      <LoginForm />
+    {/* {response.message} */}
+      <LoginForm response={response}/>
     </>
   )
 }
