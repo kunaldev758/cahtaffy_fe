@@ -10,6 +10,8 @@ import { type DateRange } from 'react-day-picker'
 import { subDays } from 'date-fns'
 import TopHead from '../_components/TopHead'
 import { VisitorTrafficMap } from './_components/VisitorTrafficMap'
+import { getAllHumanAgents } from '@/app/_api/dashboard/action'
+import { countBillableHumanAgents } from '@/lib/utils'
 
 type MetricCard = {
   title: string
@@ -110,6 +112,15 @@ export default function Dashboard2Page() {
   const fetchDashboardData = useCallback(() => {
     if (!socket || !currentAgentId) return
 
+    void (async () => {
+      try {
+        const team = await getAllHumanAgents()
+        if (Array.isArray(team)) setTotalHumanAgents(countBillableHumanAgents(team))
+      } catch {
+        /* keep previous count if request fails */
+      }
+    })()
+
     const range = [
       (dateRange.from ?? subDays(new Date(), 7)).toISOString(),
       (dateRange.to ?? new Date()).toISOString(),
@@ -122,7 +133,6 @@ export default function Dashboard2Page() {
           aiAssists,
           totalMessage,
           csat,
-          totalHumanAgents,
           totalAiAgents: aiAgents,
           totalChatsInPlan,
           locationData: loc,
@@ -131,7 +141,6 @@ export default function Dashboard2Page() {
         setTotalMessage(totalMessage ?? 0)
         setCsat(parseFloat(Number(csat).toFixed(2)))
         setAiChat(aiAssists ?? 0)
-        setTotalHumanAgents(totalHumanAgents ?? 0)
         setTotalAiAgents(aiAgents ?? 0)
         setTotalChatsInPlan(totalChatsInPlan ?? 0)
         if (Array.isArray(loc) && loc.length > 0) {

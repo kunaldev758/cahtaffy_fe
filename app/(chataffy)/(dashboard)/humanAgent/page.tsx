@@ -23,6 +23,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { usePlanContext } from '@/app/planContext';
+import { countBillableHumanAgents } from '@/lib/utils';
 
 const checkboxUiClass =
   'h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none ' +
@@ -549,7 +550,7 @@ export default function HumanAgentPage() {
                   type="button"
                   // onClick={() => setShowAddModal(true)}
                   onClick={() => {
-                    if (effectiveLimits?.maxHumanAgentsPerAccount <= agents?.filter((a) => !a.isClient).length) {
+                    if (effectiveLimits?.maxHumanAgentsPerAccount <= countBillableHumanAgents(agents)) {
                       toast.error('You have reached the maximum number of human agents');
                       return;
                     }
