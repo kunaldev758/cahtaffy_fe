@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 export function middleware(request: NextRequest) {
   let { pathname } = request.nextUrl;
+  const rawPathname = new URL(request.url).pathname;
   const appUrl: any = process.env.NEXT_PUBLIC_APP_URL;
 
   const baseUrl = appUrl.endsWith("/") ? appUrl : appUrl + "/";
@@ -10,6 +11,9 @@ export function middleware(request: NextRequest) {
   // Normalize pathname by removing base path prefix if present (for production)
   // This handles paths like /chataffy/cahtaffy_fe/agent-inbox -> /agent-inbox
   const basePathPrefix = "/chataffy/cahtaffy_fe";
+  const hasBasePathPrefix =
+    rawPathname.startsWith(basePathPrefix) ||
+    request.nextUrl.basePath === basePathPrefix;
   if (pathname.startsWith(basePathPrefix)) {
     pathname = pathname.slice(basePathPrefix.length) || "/";
   }
@@ -58,13 +62,12 @@ export function middleware(request: NextRequest) {
     }
     return NextResponse.redirect(baseUrl);
   }
-
-  if(hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname)){
-    return NextResponse.redirect(new URL(pathname.startsWith(basePathPrefix) ? basePathPrefix + '/agent-inbox' : '/agent-inbox', request.url));
+  if(hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname) && pathname !== "/agent-accept-invite"){
+    return NextResponse.redirect(new URL(hasBasePathPrefix ? basePathPrefix + '/agent-inbox' : '/agent-inbox', request.url));
   }
 
-  if(hasToken && currentUserRole === "client" && publicRoutes.includes(pathname)){
-    return NextResponse.redirect(new URL(pathname.startsWith(basePathPrefix) ? basePathPrefix + '/dashboard' : '/dashboard', request.url));
+  if(hasToken && currentUserRole === "client" && publicRoutes.includes(pathname) && pathname !== "/agent-accept-invite"){
+    return NextResponse.redirect(new URL(hasBasePathPrefix ? basePathPrefix + '/dashboard' : '/dashboard', request.url));
   }
 
   // ✅ Logged in
