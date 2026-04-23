@@ -60,11 +60,11 @@ export function middleware(request: NextRequest) {
   }
 
   if(hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname)){
-    return NextResponse.redirect(new URL('/agent-inbox', request.url));
+    return NextResponse.redirect(new URL(pathname.startsWith(basePathPrefix) ? basePathPrefix + '/agent-inbox' : '/agent-inbox', request.url));
   }
 
   if(hasToken && currentUserRole === "client" && publicRoutes.includes(pathname)){
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL(pathname.startsWith(basePathPrefix) ? basePathPrefix + '/dashboard' : '/dashboard', request.url));
   }
 
   // ✅ Logged in
