@@ -13,6 +13,8 @@ export interface Conversation {
     createdAt?: string;
     newMessage: number;
     is_started: boolean;
+    /** "open" | "close" — from API; when "close", row should not offer close/hover affordances. */
+    conversationOpenStatus?: "open" | "close";
     aiChat: boolean;
     feedback?: boolean | null;
     comment?: string;

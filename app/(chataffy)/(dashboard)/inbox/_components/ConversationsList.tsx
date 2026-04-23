@@ -441,7 +441,9 @@ export default function ConversationsList({
             const rowId = normalizeConversationId(conversation._id);
             const isRowSelected = !!selectedConversationIds[rowId];
             const isHovered = hoveredRowId === rowId;
-            const showRowActions = isHovered || isRowSelected;
+            const isConversationClosed = conversation.conversationOpenStatus === "close";
+            const showRowActions =
+              isRowSelected || (isHovered && !isConversationClosed);
             const globalIndex = (listPage - 1) * CONVERSATIONS_PAGE_SIZE + index;
 
             return (
@@ -458,7 +460,9 @@ export default function ConversationsList({
               }
               className={`relative p-3 border-b border-gray-100 cursor-pointer transition-colors ${openConversationId === conversation._id
                 ? "bg-[#F8FAFC] border-r-2 border-r-blue-500"
-                : "hover:bg-gray-50"
+                : isConversationClosed
+                  ? ""
+                  : "hover:bg-gray-50"
                 }`}
             >
               <div className="flex items-start gap-3">
@@ -547,7 +551,7 @@ export default function ConversationsList({
                           ? formatTime(conversation.updatedAt)
                           : "JUST NOW"}
                       </span>
-                      {onCloseConversation && (
+                      {onCloseConversation && !isConversationClosed && (
                         <button
                           type="button"
                           className={`items-center gap-1 text-[#64748B] hover:text-[#475569] transition-colors ${isHovered ? "inline-flex" : "hidden"}`}
