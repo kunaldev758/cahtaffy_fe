@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSocket } from "../../../../../socketContext"
 import { toast } from 'react-toastify'
 import { continueScrapping, deleteTrainingDataApi, retrainTrainingDataApi } from '@/app/_api/dashboard/action'
@@ -145,10 +145,26 @@ export default function EnhancedTrainingPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(20)
 
-  // Filter / search
+  // Filter / search (debounced for server-side list + pagination)
   const [searchValue, setSearchValue] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('all')
   const [actionTypeFilter, setActionTypeFilter] = useState<string>('all')
+
+  const listQueryRef = useRef({
+    currentPage,
+    pageSize,
+    sourceTypeFilter,
+    actionTypeFilter,
+    search: '' as string,
+  })
+  listQueryRef.current = {
+    currentPage,
+    pageSize,
+    sourceTypeFilter,
+    actionTypeFilter,
+    search: debouncedSearch.trim(),
+  }
 
   // Progress & alert states
   const [showContinueScrapping, setShowContinueScrapping] = useState(false)
@@ -197,27 +213,23 @@ export default function EnhancedTrainingPage() {
     return map[status] ?? map[0]
   }
 
-  // ── Filtered rows (client-side search) ───────────────────────────────────────
+  const prevDebouncedSearchRef = useRef(debouncedSearch)
 
-  const filteredData = useMemo(() => {
-    if (!searchValue.trim()) return trainingList.data
-    const kw = searchValue.toLowerCase()
-    return trainingList.data.filter(item =>
-      item.title.toLowerCase().includes(kw) ||
-      (item.url && item.url.toLowerCase().includes(kw))
-    )
-  }, [trainingList.data, searchValue])
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchValue), 300)
+    return () => window.clearTimeout(t)
+  }, [searchValue])
 
-  // ── Selection helpers ─────────────────────────────────────────────────────────
+  // ── Selection helpers (list rows are server-filtered when searching) ───────────
 
-  const allSelected = filteredData.length > 0 && filteredData.every(item => selectedRows[item._id])
-  const hasPartialSelection = filteredData.some(item => selectedRows[item._id]) && !allSelected
+  const allSelected = trainingList.data.length > 0 && trainingList.data.every(item => selectedRows[item._id])
+  const hasPartialSelection = trainingList.data.some(item => selectedRows[item._id]) && !allSelected
   const selectedCount = Object.values(selectedRows).filter(Boolean).length
   const selectedIds = Object.entries(selectedRows).filter(([, v]) => v).map(([k]) => k)
 
   const handleSelectAll = (checked: boolean) => {
     const updated: Record<string, boolean> = { ...selectedRows }
-    filteredData.forEach(item => { updated[item._id] = checked })
+    trainingList.data.forEach(item => { updated[item._id] = checked })
     setSelectedRows(updated)
   }
 
@@ -233,11 +245,13 @@ export default function EnhancedTrainingPage() {
   }
 
   const refreshList = () => {
+    const q = listQueryRef.current
     socket?.emit('get-training-list', {
-      skip: (currentPage - 1) * pageSize,
-      limit: pageSize,
-      sourcetype: sourceTypeFilter,
-      actionType: actionTypeFilter,
+      skip: (q.currentPage - 1) * q.pageSize,
+      limit: q.pageSize,
+      sourcetype: q.sourceTypeFilter,
+      actionType: q.actionTypeFilter,
+      ...(q.search ? { search: q.search } : {}),
     })
   }
 
@@ -324,19 +338,26 @@ export default function EnhancedTrainingPage() {
   const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(currentPage - 1) }
   const handleNextPage = () => { if (currentPage < trainingList.totalPages) setCurrentPage(currentPage + 1) }
 
+  const listFetchStateRef = useRef({
+    prevDebounced: undefined as string | undefined,
+    skipNext: false,
+  })
+
   // ── Socket ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!socket) return
 
     const onClientConnectResponse = () => {
+      const q = listQueryRef.current
       socket.emit('get-agent-data')
       socket.emit('get-client-data')
       socket.emit('get-training-list', {
-        skip: (currentPage - 1) * pageSize,
-        limit: pageSize,
-        sourcetype: sourceTypeFilter,
-        actionType: actionTypeFilter,
+        skip: (q.currentPage - 1) * q.pageSize,
+        limit: q.pageSize,
+        sourcetype: q.sourceTypeFilter,
+        actionType: q.actionTypeFilter,
+        ...(q.search ? { search: q.search } : {}),
       })
     }
 
@@ -404,11 +425,13 @@ export default function EnhancedTrainingPage() {
       if (client) { setClientData(client) }
 
       socket.emit('get-training-list-count')
+      const q = listQueryRef.current
       socket.emit('get-training-list', {
-        skip: (currentPage - 1) * pageSize,
-        limit: pageSize,
-        sourcetype: sourceTypeFilter,
-        actionType: actionTypeFilter,
+        skip: (q.currentPage - 1) * q.pageSize,
+        limit: q.pageSize,
+        sourcetype: q.sourceTypeFilter,
+        actionType: q.actionTypeFilter,
+        ...(q.search ? { search: q.search } : {}),
       })
     }
 
@@ -434,15 +457,25 @@ export default function EnhancedTrainingPage() {
   }, [agentData])
 
   useEffect(() => {
-    if (socket) {
-      socket.emit('get-training-list', {
-        skip: (currentPage - 1) * pageSize,
-        limit: pageSize,
-        sourcetype: sourceTypeFilter,
-        actionType: actionTypeFilter,
-      })
+    if (!socket) return
+
+    if (prevDebouncedSearchRef.current !== debouncedSearch) {
+      if (currentPage !== 1) {
+        setCurrentPage(1)
+        return
+      }
+      prevDebouncedSearchRef.current = debouncedSearch
     }
-  }, [sourceTypeFilter, actionTypeFilter, currentPage, socket])
+
+    const search = debouncedSearch.trim()
+    socket.emit('get-training-list', {
+      skip: (currentPage - 1) * pageSize,
+      limit: pageSize,
+      sourcetype: sourceTypeFilter,
+      actionType: actionTypeFilter,
+      ...(search ? { search } : {}),
+    })
+  }, [sourceTypeFilter, actionTypeFilter, currentPage, debouncedSearch, socket])
 
   // ── Checkbox styles ───────────────────────────────────────────────────────────
 
@@ -693,7 +726,7 @@ export default function EnhancedTrainingPage() {
                     </TableCell>
                   </TableRow>
                 ))
-              ) : filteredData.length === 0 ? (
+              ) : trainingList.data.length === 0 ? (
                 <TableRow className="border-0 hover:bg-[#F8FAFC]">
                   <TableCell colSpan={6} className="p-0 border-0">
                     <div className="py-16 flex flex-col items-center justify-center text-center">
@@ -704,7 +737,7 @@ export default function EnhancedTrainingPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredData.map(item => {
+                trainingList.data.map(item => {
                   const statusConfig = getStatusConfig(item.trainingStatus)
                   const isDeleting = deletingIds.has(item._id)
                   const isRetraining = retrainingIds.has(item._id)
