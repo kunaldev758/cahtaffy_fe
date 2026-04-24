@@ -27,6 +27,11 @@ function ChatTranscriptsPage() {
   const [allTranscriptInput, setAllTranscriptInput] = useState("");
   const [salesLeadInput, setSalesLeadInput] = useState("");
   const [supportTicketInput, setSupportTicketInput] = useState("");
+  const [emailErrors, setEmailErrors] = useState({
+    allTranscriptEmails: "",
+    salesLeadEmails: "",
+    supportTicketEmails: "",
+  });
 
   const [salesPhone, setSalesPhone] = useState<string>("");
   const [supportPhone, setSupportPhone] = useState<string>("");
@@ -132,11 +137,80 @@ function ChatTranscriptsPage() {
   };
 
   const handleSaveChanges = async () => {
+    const normalizeEmails = (emails: string[]) =>
+      emails.map((email) => email.trim()).filter(Boolean);
+
+    const buildFinalEmailList = (emails: string[], input: string) => {
+      const pending = input
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const merged = [...emails, ...pending];
+      const seen = new Set<string>();
+      return normalizeEmails(merged).filter((email) => {
+        const key = email.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+
+    const finalTranscriptEmails = buildFinalEmailList(
+      allTranscriptEmails,
+      allTranscriptInput,
+    );
+    const finalSalesLeadEmails = buildFinalEmailList(
+      salesLeadEmails,
+      salesLeadInput,
+    );
+    const finalSupportTicketEmails = buildFinalEmailList(
+      supportTicketEmails,
+      supportTicketInput,
+    );
+
+    const nextErrors = {
+      allTranscriptEmails: "",
+      salesLeadEmails: "",
+      supportTicketEmails: "",
+    };
+
+    if (!finalTranscriptEmails.length) {
+      nextErrors.allTranscriptEmails =
+        "At least one email is required for all chat transcripts.";
+    }
+
+    if (!finalSalesLeadEmails.length) {
+      nextErrors.salesLeadEmails =
+        "At least one email is required for sales leads.";
+    }
+
+    if (!finalSupportTicketEmails.length) {
+      nextErrors.supportTicketEmails =
+        "At least one email is required for support tickets.";
+    }
+
+    if (
+      nextErrors.allTranscriptEmails ||
+      nextErrors.salesLeadEmails ||
+      nextErrors.supportTicketEmails
+    ) {
+      setEmailErrors(nextErrors);
+      return;
+    }
+    setEmailErrors(nextErrors);
+
+    setAllTranscriptEmails(finalTranscriptEmails);
+    setSalesLeadEmails(finalSalesLeadEmails);
+    setSupportTicketEmails(finalSupportTicketEmails);
+    setAllTranscriptInput("");
+    setSalesLeadInput("");
+    setSupportTicketInput("");
+
     setUpdateLoading(true);
     const response = await updateChatTranscriptSettings({
-      transcriptEmails:allTranscriptEmails,
-      salesLeadEmails,
-      supportTicketEmails,
+      transcriptEmails: finalTranscriptEmails,
+      salesLeadEmails: finalSalesLeadEmails,
+      supportTicketEmails: finalSupportTicketEmails,
       salesLeadPhone:
         "+" +
         getCountryCallingCode(salesPhoneCountryCode as Country) +
@@ -211,17 +285,19 @@ function ChatTranscriptsPage() {
 
           <div className="space-y-4">
             <EmailField
-              label="All Chat Transcript Email Addresses"
+              label="Chat Transcript Email Addresses"
               tags={allTranscriptEmails}
               inputValue={allTranscriptInput}
-              onInputChange={(value) =>
+              error={emailErrors.allTranscriptEmails}
+              onInputChange={(value) => {
+                setEmailErrors((prev) => ({ ...prev, allTranscriptEmails: "" }));
                 handleTagInputChange(
                   value,
                   allTranscriptEmails,
                   setAllTranscriptEmails,
                   setAllTranscriptInput,
-                )
-              }
+                );
+              }}
               onKeyDown={(event) =>
                 handleTagKeyDown(
                   event,
@@ -231,30 +307,34 @@ function ChatTranscriptsPage() {
                   setAllTranscriptInput,
                 )
               }
-              onRemoveTag={(tag) =>
-                removeTag(tag, allTranscriptEmails, setAllTranscriptEmails)
-              }
-              onBlur={() =>
+              onRemoveTag={(tag) => {
+                setEmailErrors((prev) => ({ ...prev, allTranscriptEmails: "" }));
+                removeTag(tag, allTranscriptEmails, setAllTranscriptEmails);
+              }}
+              onBlur={() => {
+                setEmailErrors((prev) => ({ ...prev, allTranscriptEmails: "" }));
                 handleTagBlur(
                   allTranscriptEmails,
                   setAllTranscriptEmails,
                   allTranscriptInput,
                   setAllTranscriptInput,
-                )
-              }
+                );
+              }}
             />
             <EmailField
-              label="Sales Leads Email Addresses"
+              label="Sales Lead Email Addresses"
               tags={salesLeadEmails}
               inputValue={salesLeadInput}
-              onInputChange={(value) =>
+              error={emailErrors.salesLeadEmails}
+              onInputChange={(value) => {
+                setEmailErrors((prev) => ({ ...prev, salesLeadEmails: "" }));
                 handleTagInputChange(
                   value,
                   salesLeadEmails,
                   setSalesLeadEmails,
                   setSalesLeadInput,
-                )
-              }
+                );
+              }}
               onKeyDown={(event) =>
                 handleTagKeyDown(
                   event,
@@ -264,30 +344,34 @@ function ChatTranscriptsPage() {
                   setSalesLeadInput,
                 )
               }
-              onRemoveTag={(tag) =>
-                removeTag(tag, salesLeadEmails, setSalesLeadEmails)
-              }
-              onBlur={() =>
+              onRemoveTag={(tag) => {
+                setEmailErrors((prev) => ({ ...prev, salesLeadEmails: "" }));
+                removeTag(tag, salesLeadEmails, setSalesLeadEmails);
+              }}
+              onBlur={() => {
+                setEmailErrors((prev) => ({ ...prev, salesLeadEmails: "" }));
                 handleTagBlur(
                   salesLeadEmails,
                   setSalesLeadEmails,
                   salesLeadInput,
                   setSalesLeadInput,
-                )
-              }
+                );
+              }}
             />
             <EmailField
-              label="Support Tickets Email Addresses"
+              label="Support Ticket Email Addresses"
               tags={supportTicketEmails}
               inputValue={supportTicketInput}
-              onInputChange={(value) =>
+              error={emailErrors.supportTicketEmails}
+              onInputChange={(value) => {
+                setEmailErrors((prev) => ({ ...prev, supportTicketEmails: "" }));
                 handleTagInputChange(
                   value,
                   supportTicketEmails,
                   setSupportTicketEmails,
                   setSupportTicketInput,
-                )
-              }
+                );
+              }}
               onKeyDown={(event) =>
                 handleTagKeyDown(
                   event,
@@ -297,17 +381,19 @@ function ChatTranscriptsPage() {
                   setSupportTicketInput,
                 )
               }
-              onRemoveTag={(tag) =>
-                removeTag(tag, supportTicketEmails, setSupportTicketEmails)
-              }
-              onBlur={() =>
+              onRemoveTag={(tag) => {
+                setEmailErrors((prev) => ({ ...prev, supportTicketEmails: "" }));
+                removeTag(tag, supportTicketEmails, setSupportTicketEmails);
+              }}
+              onBlur={() => {
+                setEmailErrors((prev) => ({ ...prev, supportTicketEmails: "" }));
                 handleTagBlur(
                   supportTicketEmails,
                   setSupportTicketEmails,
                   supportTicketInput,
                   setSupportTicketInput,
-                )
-              }
+                );
+              }}
             />
 
             <div className="grid gap-4 md:grid-cols-2">
