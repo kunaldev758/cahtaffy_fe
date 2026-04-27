@@ -421,3 +421,12 @@ export async function getChatTranscriptSettings() {
 export async function updateChatTranscriptSettings(payload) {
   return await fetchData('chat-transcripts/settings/update', payload);
 }
+
+export async function getVisitorLocation() {
+  const response = await fetch(process.env.IPINFO_URL,{
+    method: 'GET',
+    cache: 'no-cache',
+  });
+  const data = await response.json();
+  return data;
+}

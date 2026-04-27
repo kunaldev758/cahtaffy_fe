@@ -3,6 +3,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { createContext } from 'react';
 import { useSocket } from './socketContext';
 import axios from 'axios';
+import { getVisitorLocation } from './_api/dashboard/action';
 
 interface PlanContextProps {
   plan: any;
@@ -43,8 +44,8 @@ function PlanProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       (async () => {
         try {
-          const response = await axios.get("https://ipinfo.io/?token=def346c1243a80");
-          window.localStorage.setItem("userCountry", response.data.country);
+          const response = await getVisitorLocation();  
+          window.localStorage.setItem("userCountry", response.country);
         } catch (error) {
         }
       })()

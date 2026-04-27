@@ -224,6 +224,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const shouldBeRecordingRef = useRef<boolean>(false);
   const recordingTimerRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const launcherButtonRef = useRef<HTMLButtonElement | null>(null);
+  const chatPanelRef = useRef<HTMLDivElement | null>(null);
   const shouldMaintainFocusRef = useRef<boolean>(false);
   const currentTranscriptRef = useRef<string>('');
   const lastFinalTranscriptRef = useRef<string>('');
@@ -238,6 +240,12 @@ export default function EnhancedChatWidget({ params }: any) {
   const widgetId = params?.slug?.[0] || 'demo-widget';
   const widgetToken = params?.slug?.[1] || 'demo-token';
   const agentId = params?.slug?.[2] || null;
+  const chatCompletedStorageKey = `chataffy-chat-completed-${widgetToken}-${agentId || 'default'}`;
+
+  const markChatCompletedForReload = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(chatCompletedStorageKey, '1');
+  }, [chatCompletedStorageKey]);
 
   const clearNoReplyTimer = () => {
     if (noReplyTimerRef.current) {
@@ -255,6 +263,7 @@ export default function EnhancedChatWidget({ params }: any) {
       socket.emit('close-conversation-visitor', {
         conversationId: cid ? cid : conv[0]?.conversation_id,
       });
+      markChatCompletedForReload();
       setConversationStatus('close');
       setShowWidget(true);
     }, NO_REPLY_MS);
@@ -317,6 +326,12 @@ export default function EnhancedChatWidget({ params }: any) {
 
   // Socket initialization — Engine.IO already does ping/pong; we rely on reconnection + browser online
   useEffect(() => {
+    const shouldRotateVisitorId = localStorage.getItem(chatCompletedStorageKey) === '1';
+    if (shouldRotateVisitorId) {
+      localStorage.removeItem('visitorId');
+      localStorage.removeItem(chatCompletedStorageKey);
+    }
+
     let storedVisitorId = localStorage.getItem('visitorId');
     if (!storedVisitorId) {
       storedVisitorId = uuidv4();
@@ -381,11 +396,12 @@ export default function EnhancedChatWidget({ params }: any) {
       socketInstance?.disconnect();
       socketRef.current = null;
     };
-  }, [widgetId, widgetToken, agentId]);
+  }, [widgetId, widgetToken, agentId, chatCompletedStorageKey]);
 
   const handleCloseConversationClient = useCallback(() => {
+    markChatCompletedForReload();
     setConversationStatus('close');
-  }, []);
+  }, [markChatCompletedForReload]);
 
   // Use a ref to track aiChat so socket listeners always have the latest value
   const aiChatRef = useRef(aiChat);
@@ -715,14 +731,23 @@ export default function EnhancedChatWidget({ params }: any) {
 
     // Only set isTyping to true if aiChat is true (AI chat mode)
     // In agent chat mode (aiChat = false), typing indicator is controlled by socket events
+    // if (aiChat) {
+    //   console.log('🤖 AI chat mode: Setting isTyping to true (waiting for bot response)');
+    //   setIsTyping(true);
+    // } else {
+    //   console.log('👤 Agent chat mode: NOT setting isTyping (will be controlled by agent-typing socket events)');
+    // }
+
+    socket?.emit("visitor-send-message", { ...messageData, replyTo: replyingTo?._id || null });
+
     if (aiChat) {
       console.log('🤖 AI chat mode: Setting isTyping to true (waiting for bot response)');
-      setIsTyping(true);
+      setTimeout(() => {
+        setIsTyping(true);
+      }, 0);
     } else {
       console.log('👤 Agent chat mode: NOT setting isTyping (will be controlled by agent-typing socket events)');
     }
-
-    socket?.emit("visitor-send-message", { ...messageData, replyTo: replyingTo?._id || null });
 
     // Set flag to maintain focus after state updates
     shouldMaintainFocusRef.current = true;
@@ -879,6 +904,7 @@ export default function EnhancedChatWidget({ params }: any) {
     socket.emit('close-conversation-visitor', {
       conversationId: conversationId ? conversationId : (conversation[0]?.conversation_id),
     });
+    markChatCompletedForReload();
     setConversationStatus('close');
   };
 
@@ -919,12 +945,15 @@ export default function EnhancedChatWidget({ params }: any) {
         }
       }
     );
-    setConversationId(null);
+    // setConversationId(null);
   };
 
   const handleStartNewChat = () => {
     // Clear localStorage
-    // localStorage.removeItem('visitorId');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('visitorId');
+      localStorage.removeItem(chatCompletedStorageKey);
+    }
 
     // Disconnect socket
     const socket = socketRef.current;
@@ -988,6 +1017,163 @@ export default function EnhancedChatWidget({ params }: any) {
   const chatPanelPositionClass = isBarLauncher
     ? `absolute bottom-[calc(100%+8px)] w-[400px] max-w-[calc(100vw-20px)] ${alignLeft ? 'left-0' : 'right-0'}`
     : `absolute bottom-20 w-[400px] ${alignLeft ? 'left-0' : 'right-0'}`;
+
+    // effect for interactive zones means the widget is visible and the user can interact with it and with the parent page
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let parentOrigin = '*';
+    try {
+      if (document.referrer) {
+        parentOrigin = new URL(document.referrer).origin;
+      }
+    } catch (e) {
+      parentOrigin = '*';
+    }
+
+    const getRectPayload = (el: Element | null) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+      };
+    };
+
+    const publishInteractiveZones = () => {
+      const zones = [
+        getRectPayload(launcherButtonRef.current),
+        showWidget ? getRectPayload(chatPanelRef.current) : null,
+      ].filter(Boolean);
+
+      window.parent.postMessage(
+        {
+          type: 'chataffy-widget-zones',
+          zones,
+        },
+        parentOrigin
+      );
+    };
+
+    const publishInteractiveZonesAfterLayout = () => {
+      publishInteractiveZones();
+      // Panel height animates on minimize/unminimize; publish again after transition settles.
+      window.setTimeout(publishInteractiveZones, 350);
+    };
+
+    const isInsideAnyZone = (x: number, y: number) => {
+      const launcherRect = launcherButtonRef.current?.getBoundingClientRect();
+      if (launcherRect && x >= launcherRect.left && x <= launcherRect.right && y >= launcherRect.top && y <= launcherRect.bottom) {
+        return true;
+      }
+      if (showWidget) {
+        const panelRect = chatPanelRef.current?.getBoundingClientRect();
+        if (panelRect && x >= panelRect.left && x <= panelRect.right && y >= panelRect.top && y <= panelRect.bottom) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    let rafId: number | null = null;
+    let pendingPoint: { x: number; y: number } | null = null;
+
+    const flushPointer = () => {
+      rafId = null;
+      if (!pendingPoint) return;
+      const x = pendingPoint.x;
+      const y = pendingPoint.y;
+      pendingPoint = null;
+      window.parent.postMessage(
+        {
+          type: 'chataffy-widget-pointer',
+          x,
+          y,
+          inside: isInsideAnyZone(x, y),
+        },
+        parentOrigin
+      );
+    };
+
+    const queuePointer = (x: number, y: number) => {
+      pendingPoint = { x, y };
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(flushPointer);
+    };
+
+    const onMouseMove = (event: MouseEvent) => {
+      queuePointer(event.clientX, event.clientY);
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!event.touches || !event.touches.length) return;
+      const touch = event.touches[0];
+      queuePointer(touch.clientX, touch.clientY);
+    };
+
+    const postPointerOutside = () => {
+      window.parent.postMessage(
+        {
+          type: 'chataffy-widget-pointer',
+          inside: false,
+        },
+        parentOrigin
+      );
+    };
+
+    const onMouseOut = (event: MouseEvent) => {
+      if (event && event.relatedTarget) {
+        return;
+      }
+      postPointerOutside();
+    };
+
+    const onWindowBlur = () => {
+      postPointerOutside();
+    };
+
+    publishInteractiveZonesAfterLayout();
+    window.addEventListener('resize', publishInteractiveZones);
+    window.addEventListener('scroll', publishInteractiveZones, true);
+    window.addEventListener('mousemove', onMouseMove, true);
+    window.addEventListener('touchmove', onTouchMove, true);
+    window.addEventListener('mouseout', onMouseOut);
+    window.addEventListener('blur', onWindowBlur);
+
+    const panelElement = chatPanelRef.current;
+    const onPanelTransitionEnd = (event: TransitionEvent) => {
+      if (event.propertyName === 'height' || event.propertyName === 'max-height') {
+        publishInteractiveZones();
+      }
+    };
+    panelElement?.addEventListener('transitionend', onPanelTransitionEnd);
+
+    return () => {
+      window.removeEventListener('resize', publishInteractiveZones);
+      window.removeEventListener('scroll', publishInteractiveZones, true);
+      window.removeEventListener('mousemove', onMouseMove, true);
+      window.removeEventListener('touchmove', onTouchMove, true);
+      window.removeEventListener('mouseout', onMouseOut);
+      window.removeEventListener('blur', onWindowBlur);
+      panelElement?.removeEventListener('transitionend', onPanelTransitionEnd);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      window.parent.postMessage(
+        {
+          type: 'chataffy-widget-zones',
+          zones: [],
+        },
+        parentOrigin
+      );
+      postPointerOutside();
+    };
+  }, [showWidget, isBarLauncher, alignLeft, botVisible, unreadCount, isMinimized]);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -1184,6 +1370,7 @@ export default function EnhancedChatWidget({ params }: any) {
           <div className={isBarLauncher ? 'relative w-[360px] max-w-[calc(100vw-20px)]' : 'relative'}>
             {isBarLauncher && !showWidget && (
               <button
+                ref={launcherButtonRef}
                 type="button"
                 onClick={toggleWidget}
                 className="relative flex w-full items-center justify-between gap-[12px] rounded-[10px] px-[16px] py-[16px] shadow-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
@@ -1214,6 +1401,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
             {!isBarLauncher && (
               <button
+                ref={launcherButtonRef}
                 type="button"
                 onClick={toggleWidget}
                 className="group relative h-16 w-16 transform rounded-full shadow-lg transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-0"
@@ -1241,7 +1429,9 @@ export default function EnhancedChatWidget({ params }: any) {
 
           {/* Chat Window */}
           {showWidget && (
-            <div className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-[76px]' : 'h-[calc(100vh-200px)]'
+            <div
+              ref={chatPanelRef}
+              className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-[76px]' : 'h-[calc(100vh-200px)]'
               }`}>
 
               {/* No Internet Banner */}
@@ -1762,7 +1952,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
                     {/* Input Area or End Conversation */}
                     {chatInputAvailable && !isConnectingToAgent && (
-                      <div className={`bg-white ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
+                      <div className={`bg-white overflow-y-auto ${conversationStatus === 'close' ? 'flex-1 min-h-0 flex flex-col' : 'flex-shrink-0'}`}>
                         {conversationStatus === 'close' ? (
                           <div className="flex-1 flex flex-col p-[20px]">
                             {feedbackSubmitted ? (
