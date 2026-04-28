@@ -42,12 +42,17 @@
   var base = scriptPath.replace(/\/widget-loader\.js$/, '');
 
   var widgetPageUrl = base + '/openai/widget/' + wid + '/' + token + '/' + agent;
+  var widgetOrigin = '';
+  try {
+    widgetOrigin = new URL(widgetPageUrl, window.location.href).origin;
+  } catch (e) {
+    widgetOrigin = '';
+  }
 
   // ── Create the iframe ─────────────────────────────────────────────────────
-  // The iframe is full-viewport so the widget can position itself at any
-  // corner.  pointer-events:none on the iframe lets the parent page stay
-  // fully interactive; the widget page sets pointer-events:auto on its own
-  // elements so clicks on the chat button / panel still work.
+  // Keep the iframe "transparent" to pointer events by default, then
+  // temporarily enable it only when the mouse/finger is over widget zones
+  // reported by the widget page via postMessage.
   var iframe = document.createElement('iframe');
   iframe.id  = 'chataffy-widget-frame';
   iframe.src = widgetPageUrl;
@@ -64,8 +69,103 @@
     'border:none',
     'background:transparent',
     'z-index:2147483647',
-    'overflow:hidden'
+    'overflow:hidden',
+    'pointer-events:none'
   ].join(';');
+
+  var interactiveZones = [];
+  var lastPointerEvents = 'none';
+  var lastPointerPosition = null;
+
+  function setIframePointerEvents(value) {
+    if (lastPointerEvents === value) return;
+    lastPointerEvents = value;
+    iframe.style.pointerEvents = value;
+  }
+
+  function isInsideZones(x, y) {
+    for (var i = 0; i < interactiveZones.length; i++) {
+      var z = interactiveZones[i];
+      if (x >= z.left && x <= z.right && y >= z.top && y <= z.bottom) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function handlePointerPosition(clientX, clientY) {
+    lastPointerPosition = { x: clientX, y: clientY };
+
+    if (!interactiveZones.length) {
+      setIframePointerEvents('none');
+      return;
+    }
+
+    if (isInsideZones(clientX, clientY)) {
+      setIframePointerEvents('auto');
+    } else {
+      setIframePointerEvents('none');
+    }
+  }
+
+  function onMouseMove(event) {
+    handlePointerPosition(event.clientX, event.clientY);
+  }
+
+  function onTouchStart(event) {
+    if (!event.touches || !event.touches.length) return;
+    var touch = event.touches[0];
+    handlePointerPosition(touch.clientX, touch.clientY);
+  }
+
+  function onTouchMove(event) {
+    if (!event.touches || !event.touches.length) return;
+    var touch = event.touches[0];
+    handlePointerPosition(touch.clientX, touch.clientY);
+  }
+
+  window.addEventListener('mousemove', onMouseMove, true);
+  window.addEventListener('touchstart', onTouchStart, true);
+  window.addEventListener('touchmove', onTouchMove, true);
+
+  window.addEventListener('message', function (event) {
+    if (!iframe.contentWindow || event.source !== iframe.contentWindow) return;
+    if (widgetOrigin && event.origin !== widgetOrigin) return;
+
+    var payload = event.data || {};
+    if (payload.type === 'chataffy-widget-pointer') {
+      if (payload.inside === false) {
+        setIframePointerEvents('none');
+        return;
+      }
+      if (typeof payload.x === 'number' && typeof payload.y === 'number') {
+        handlePointerPosition(payload.x, payload.y);
+      }
+      return;
+    }
+    if (payload.type !== 'chataffy-widget-zones') return;
+
+    if (!Array.isArray(payload.zones)) {
+      interactiveZones = [];
+      setIframePointerEvents('none');
+      return;
+    }
+
+    interactiveZones = payload.zones.filter(function (zone) {
+      return zone &&
+        typeof zone.left === 'number' &&
+        typeof zone.top === 'number' &&
+        typeof zone.right === 'number' &&
+        typeof zone.bottom === 'number';
+    });
+
+    // Re-evaluate immediately after zone refresh using latest pointer position.
+    if (lastPointerPosition) {
+      handlePointerPosition(lastPointerPosition.x, lastPointerPosition.y);
+    } else {
+      setIframePointerEvents('none');
+    }
+  });
 
   function inject() {
     if (document.getElementById('chataffy-widget-frame')) return;
