@@ -507,7 +507,7 @@ export default function Dashboard2Page() {
         <section className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)]">
           <div>
             <h2 className="text-[18px] font-bold leading-5 text-[#111827]">Live Traffic Map</h2>
-            <p className="mt-[6px] text-[13px] leading-5 text-[#64748B]">Geographic distribution of your visitors</p>
+            <p className="mt-[6px] text-[13px] leading-5 text-[#64748B]">Geographic distribution of your chats in this period</p>
           </div>
 
           <div className="mt-6">

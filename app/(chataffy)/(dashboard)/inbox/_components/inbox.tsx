@@ -239,9 +239,10 @@ export default function Inbox(Props: any) {
     return true;
   }, [agent, client]);
 
-  // Clear AI typing when conversation changes
+  // Clear conversation-scoped UI when switching chats (typing indicator, sources/resource panel)
   useEffect(() => {
     setIsAITyping(false);
+    setExpandedSources(null);
   }, [openConversationId]);
 
   // Listen for agent connection notifications (ref = always current id; string compare for Mongo/ObjectId)
@@ -1103,7 +1104,11 @@ export default function Inbox(Props: any) {
               : currentConversation?.agentId?._id) || ''
           }
           userId={
-            (typeof window !== 'undefined' ? localStorage.getItem('userId') : '') || ''
+            (currentConversation?.userId != null
+              ? String(currentConversation.userId)
+              : typeof window !== 'undefined'
+                ? localStorage.getItem('userId') || ''
+                : '') || ''
           }
           onClose={() => setReviseAnswerModal(null)}
           onSuccess={() => {/* answer stored, Qdrant updated */}}

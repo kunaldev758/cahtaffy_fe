@@ -1349,8 +1349,8 @@ export default function EnhancedChatWidget({ params }: any) {
                           </>
                         ) : (
                           <>
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                          <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Online</span>
+                          {/* <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Online</span> */}
                           </>
                         )}
                       </div>

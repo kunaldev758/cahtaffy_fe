@@ -21,13 +21,15 @@ export function VisitorTrafficMap({ data }: Props) {
   if (!hasData) {
     return (
       <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-[#E8E8E8] bg-[#F8FAFC] px-4 text-center text-[13px] text-[#64748B]">
-        No visitor location data for this period
+        No chat location data for this period
       </div>
     )
   }
 
   const counts = chartRows.slice(1).map((r) => Number(r[1]) || 0)
-  const max = Math.max(...counts, 1)
+  const totalChats = counts.reduce((sum, n) => sum + n, 0)
+  // Use total chats for the scale end (0 → total), not peak per-country, so the legend matches the sidebar sum
+  const colorAxisMax = Math.max(totalChats, 1)
 
   // Country rows sorted by chat count descending (for the flag list)
   const countryRows = chartRows
@@ -51,7 +53,7 @@ export function VisitorTrafficMap({ data }: Props) {
               colorAxis: {
                 colors: ['#93A8F4', '#4B56F2'],
                 minValue: 0,
-                maxValue: max,
+                maxValue: colorAxisMax,
               },
               backgroundColor: 'transparent',
               datalessRegionColor: '#F1F5F9',
