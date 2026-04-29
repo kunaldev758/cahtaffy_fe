@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { io, Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from "uuid";
-import { sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
+import { getVisitorLocation, sendEmailForOfflineChat } from "@/app/_api/dashboard/action";
 import defaultImageImport from '@/images/default-image.png';
 import { Plus_Jakarta_Sans } from 'next/font/google'
 
@@ -642,10 +642,10 @@ export default function EnhancedChatWidget({ params }: any) {
 
     const fetchVisitorDetails = async () => {
       try {
-        const response = await axios.get("https://ipinfo.io/?token=def346c1243a80");
-        setVisitorLocation(response.data.country);
-        setVisitorIp(response.data.ip);
-        socket?.emit('save-visitor-details', { location: response.data.country, ip: response.data.ip });
+        const response = await getVisitorLocation()
+        setVisitorLocation(response.country);
+        setVisitorIp(response.ip);
+        socket?.emit('save-visitor-details', { location: response.country, ip: response.ip });
       } catch (error) {
         console.error('Error fetching IP info:', (error as any).message);
       }

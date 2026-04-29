@@ -41,6 +41,7 @@ export default function Inbox(Props: any) {
   const [wordCount, setWordCount] = useState(0);
   const MAX_WORDS = 100;
   const [openVisitorId, setOpenVisitorId] = useState<any>(null);
+  const [openVisitorIp, setOpenVisitorIp] = useState<string | null>(null);
   const [openVisitorName, setOpenVisitorName] = useState<any>(null);
   const [openConversationId, setOpenConversationId] = useState<any>(currentConversationId ?? null);
   const [isNoteActive, setIsNoteActive] = useState<boolean>(false);
@@ -337,6 +338,7 @@ export default function Inbox(Props: any) {
       setConversationMessages({ data: [], loading: false, conversationId: null, visitorName: '' });
       setOpenConversationId(null);
       setOpenVisitorId(null);
+      setOpenVisitorIp(null);
       setOpenVisitorName(null);
       setNotesList([]);
       setOldConversationList({ data: [], loading: false });
@@ -383,6 +385,7 @@ export default function Inbox(Props: any) {
     handledBy,
     openConversationId,
     openVisitorId,
+    openVisitorIp,
     isAIChat,
   });
 
@@ -481,8 +484,10 @@ export default function Inbox(Props: any) {
   const openConversation = async (ConversationData: any, visitorName: string, index: any) => {
     try {
       const visitorId = ConversationData?.visitor?._id;
+      const visitorIp = ConversationData?.visitor?.ip || null;
       const conversationId = ConversationData?._id;
       setOpenVisitorId(visitorId);
+      setOpenVisitorIp(visitorIp);
       setOpenVisitorName(visitorName);
 
       const data = await getConversationMessages(conversationId);
@@ -559,20 +564,34 @@ export default function Inbox(Props: any) {
     try {
       const data = await getOldConversationMessages({ conversationId });
       if (data) {
+        const conversationFromList = conversationsList?.data?.find(
+          (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+        );
+        const oldConversationFromList = oldConversationList?.data?.find(
+          (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+        );
+        const selectedConversation = conversationFromList || oldConversationFromList;
+        const resolvedVisitorName =
+          selectedConversation?.visitor?.name ||
+          selectedConversation?.visitorName ||
+          visitorName ||
+          "Visitor";
+
         history.pushState(null, '', `?conversationId=${conversationId}`);
         setConversationMessages({
           data: data.chatMessages,
           loading: false,
           conversationId: conversationId,
-          visitorName,
+          // visitorName,
+          visitorName: resolvedVisitorName,
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(conversationId);
+        setOpenVisitorName(resolvedVisitorName);
+        setOpenVisitorId(selectedConversation?.visitor?._id || null);
+        setOpenVisitorIp(selectedConversation?.visitor?.ip || null);
 
         // Find and set the conversation data from the list
-        const conversationFromList = conversationsList?.data?.find(
-          (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
-        );
         let oldConv: any = null;
         if (conversationFromList) {
           // Update with feedback data if available
@@ -583,9 +602,7 @@ export default function Inbox(Props: any) {
           });
         } else {
           // If not in list, try to get from old conversations
-          oldConv = oldConversationList?.data?.find(
-            (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
-          );
+          oldConv = oldConversationFromList;
           if (oldConv) {
             // Update with feedback data if available
             setCurrentConversation({

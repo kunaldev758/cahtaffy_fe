@@ -17,6 +17,14 @@ interface DatePickerWithRangeProps {
     onDateChange?: (range: DateRange | undefined) => void
 }
 
+
+const normalizeToEndOfDay = (date?: Date) => {
+    if (!date) return undefined
+    const d = new Date(date)
+    d.setHours(23, 59, 59, 999)
+    return d
+}
+
 export function DatePickerWithRange({ value, onDateChange }: DatePickerWithRangeProps = {}) {
     const [date, setDate] = React.useState<DateRange | undefined>(
         value ?? {
@@ -26,8 +34,19 @@ export function DatePickerWithRange({ value, onDateChange }: DatePickerWithRange
     )
 
     const handleSelect = (range: DateRange | undefined) => {
-        setDate(range)
-        onDateChange?.(range)
+        if (!range) {
+            setDate(undefined)
+            onDateChange?.(undefined)
+            return
+        }
+    
+        const normalizedRange: DateRange = {
+            from: range.from ?? undefined,
+            to: normalizeToEndOfDay(range.to),
+        }
+    
+        setDate(normalizedRange)
+        onDateChange?.(normalizedRange)
     }
 
     return (
