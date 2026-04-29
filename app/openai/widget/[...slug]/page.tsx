@@ -1344,8 +1344,8 @@ export default function EnhancedChatWidget({ params }: any) {
                       <div className="flex items-center space-x-2 text-xs opacity-90 mt-0.5">
                         {isLimitExpired ? (
                           <>
-                          <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                          <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Offline</span>
+                          {/* <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Offline</span> */}
                           </>
                         ) : (
                           <>
