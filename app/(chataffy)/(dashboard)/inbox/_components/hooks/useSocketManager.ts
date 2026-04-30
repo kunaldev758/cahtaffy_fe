@@ -31,6 +31,7 @@ interface SocketManagerProps {
   handledBy: string;
   openConversationId: string | null;
   openVisitorId: string | null;
+  openVisitorIp?: string | null;
   isAIChat: boolean;
 }
 // const { socket } = useSocket();
@@ -52,6 +53,7 @@ export const useSocketManager = ({
   handledBy,
   openConversationId,
   openVisitorId,
+  openVisitorIp,
   isAIChat,
 }: SocketManagerProps) => {
   // const { socket } = useSocket();
@@ -795,14 +797,14 @@ export const useSocketManager = ({
     );
   }, [setNotesList]);
 
-  const emitGetVisitorOldConversations = useCallback((visitorId: string) => {
+  const emitGetVisitorOldConversations = useCallback((visitorId: string, ip?: string | null) => {
     const socket = socketRef.current;
     // const { socket } = useSocket();
     if (!socket) return;
 
     socket.emit(
       "get-visitor-old-conversations",
-      { visitorId },
+      { visitorId, ip },
       (response: any) => {
         if (response.success) {
           setOldConversationList({
@@ -927,9 +929,9 @@ export const useSocketManager = ({
     }
 
     if (openVisitorId) {
-      emitGetVisitorOldConversations(openVisitorId);
+      emitGetVisitorOldConversations(openVisitorId, openVisitorIp);
     }
-  }, [openConversationId, openVisitorId, emitGetAllNotes, emitGetConversationTags, emitGetVisitorOldConversations, setNotesList]);
+  }, [openConversationId, openVisitorId, openVisitorIp, emitGetAllNotes, emitGetConversationTags, emitGetVisitorOldConversations, setNotesList]);
 
   return {
     socketRef,

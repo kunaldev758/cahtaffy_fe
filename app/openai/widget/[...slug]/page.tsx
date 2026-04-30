@@ -19,6 +19,7 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from "uuid";
+import { getVisitorLocation } from "@/app/_api/dashboard/action";
 import { FormField, validateField } from "./_components/FormField";
 import LimitExpiredComponent from "./_components/LimitExpiredComponent";
 
@@ -515,10 +516,10 @@ export default function EnhancedChatWidget({ params }: any) {
 
     const fetchVisitorDetails = async () => {
       try {
-        const response = await axios.get("https://ipinfo.io/?token=def346c1243a80");
-        setVisitorLocation(response.data.country);
-        setVisitorIp(response.data.ip);
-        socket?.emit('save-visitor-details', { location: response.data.country, ip: response.data.ip });
+        const response = await getVisitorLocation()
+        setVisitorLocation(response.country);
+        setVisitorIp(response.ip);
+        socket?.emit('save-visitor-details', { location: response.country, ip: response.ip });
       } catch (error) {
         console.error('Error fetching IP info:', (error as any).message);
       }
