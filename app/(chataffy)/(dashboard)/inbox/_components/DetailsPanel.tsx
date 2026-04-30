@@ -157,6 +157,7 @@ export default function DetailsPanel({
               <div className="space-y-3 max-h-48 overflow-y-auto">
                 {oldConversationList.data.map((conversation: any) => {
                   const isActive = openConversationId === conversation._id || openConversationId === conversation._id?.toString();
+                  const conversationVisitorName = conversation?.visitor?.name || "Visitor";
                   // For the currently open conversation use live real-time values; for others use stored data
                   const isOpen = isActive ? openConversationStatus === "open" : conversation.conversationOpenStatus === "open";
                   const aiChatValue = isActive ? isAIChat : conversation.aiChat;
@@ -164,7 +165,7 @@ export default function DetailsPanel({
                     <div
                       key={conversation._id}
                       className="cursor-pointer transition-colors border-b border-[#E8E8E8] pb-[14px] last:border-b-0 last:pb-0"
-                      onClick={() => onOldConversationClick(conversation._id, openVisitorName)}
+                      onClick={() => onOldConversationClick(conversation._id, conversationVisitorName)}
                     >
                       {/* <div className="flex items-center justify-between mb-1">
                         <h6 className="text-xs font-medium text-gray-700">@{openVisitorName}</h6>
