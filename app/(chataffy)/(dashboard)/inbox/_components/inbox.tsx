@@ -244,6 +244,7 @@ export default function Inbox(Props: any) {
   useEffect(() => {
     setIsAITyping(false);
     setExpandedSources(null);
+    setReplyingTo(null);
   }, [openConversationId]);
 
   // Listen for agent connection notifications (ref = always current id; string compare for Mongo/ObjectId)
