@@ -589,8 +589,17 @@ export default function Inbox(Props: any) {
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(conversationId);
         setOpenVisitorName(resolvedVisitorName);
-        setOpenVisitorId(selectedConversation?.visitor?._id || null);
-        setOpenVisitorIp(selectedConversation?.visitor?.ip || null);
+        const resolvedVisitorId =
+          selectedConversation?.visitor?._id ||
+          selectedConversation?.visitor ||
+          openVisitorId ||
+          null;
+        const resolvedVisitorIp =
+          selectedConversation?.visitor?.ip ||
+          openVisitorIp ||
+          null;
+        setOpenVisitorId(resolvedVisitorId);
+        setOpenVisitorIp(resolvedVisitorIp);
 
         // Find and set the conversation data from the list
         let oldConv: any = null;
