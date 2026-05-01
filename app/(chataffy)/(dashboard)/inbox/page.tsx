@@ -11,11 +11,13 @@ export const metadata: Metadata = {
 }
 
 import Inbox from './_components/inbox'
+import { Suspense } from 'react'
 
 export default function Home() {
   const token = cookies().get('token')?.value ?? ''
   return (
-    <><Inbox
-      token={token}
-    /></>)
+    <Suspense fallback={null}>
+      <Inbox token={token} />
+    </Suspense>
+  );
 }

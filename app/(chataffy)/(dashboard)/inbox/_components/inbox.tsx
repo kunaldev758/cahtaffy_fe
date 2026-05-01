@@ -19,7 +19,10 @@ import InboxSkeleton from "./InboxSkeleton";
 export default function Inbox(Props: any) {
   const searchParams:any = useSearchParams();
   const currentConversationId = searchParams.get('conversationId');
-  
+  // Add this state near the top of Inbox component
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+
   // State variables
   const [expandedSources, setExpandedSources] = useState<null | number>(null);
   const [isConversationAvailable, setIsConversationAvailable] = useState(true);
@@ -390,6 +393,13 @@ export default function Inbox(Props: any) {
     openVisitorIp,
     isAIChat,
   });
+
+    //flips once, stays false
+  useEffect(() => {
+    if (socketConnected && !conversationsList.loading) {
+      setIsInitialLoad(false);
+    }
+  }, [socketConnected, conversationsList.loading]);
 
   // Unified listener for both regular agent and client-agent status updates.
   // Using named handlers so socket.off reliably removes them.
@@ -983,13 +993,15 @@ export default function Inbox(Props: any) {
     setReviseAnswerModal({ visitorMessage, agentResponse });
   };
 
-  console.log(openConversationStatus, "openConversationStatus status");
-  console.log(openConversationId, "openConversationId the id");
+  // console.log(openConversationStatus, "openConversationStatus status");
+  // console.log(openConversationId, "openConversationId the id");
+
+  const showSkeleton = isInitialLoad || (!!openConversationId && conversationMessages.loading);
 
   return (
     <>
-    {(!socketConnected || conversationsList.loading || (openConversationId && conversationMessages.loading)) && <InboxSkeleton />}
-    <div className={`rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)] ${(!socketConnected || conversationsList.loading || (openConversationId && conversationMessages.loading)) ? 'hidden' : ''}`}>
+    {showSkeleton && <InboxSkeleton />}
+    <div className={`rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)] ${showSkeleton ? 'hidden' : ''}`}>
       <ConversationsList
         conversationsList={conversationsList}
         searchConversationsList={searchConversationsList}
