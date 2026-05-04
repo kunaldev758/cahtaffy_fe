@@ -44,6 +44,8 @@ export function middleware(request: NextRequest) {
   });
 
   const publicRoutes = ["/login","/signup", "/agent-login", "/agent-accept-invite"];
+  /** Logged-in clients may visit any route except these auth pages */
+  const clientLoginSignupRoutes = ["/login", "/signup"];
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
   const visitorAllowedPrefix = "/openai/widget";
 
@@ -66,8 +68,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(hasBasePathPrefix ? basePathPrefix + '/agent-inbox' : '/agent-inbox', request.url));
   }
 
-  if(hasToken && currentUserRole === "client" && publicRoutes.includes(pathname) && pathname !== "/agent-accept-invite"){
-    return NextResponse.redirect(new URL(hasBasePathPrefix ? basePathPrefix + '/dashboard' : '/dashboard', request.url));
+  if (
+    hasToken &&
+    currentUserRole === "client" &&
+    clientLoginSignupRoutes.includes(pathname)
+  ) {
+    return NextResponse.redirect(
+      new URL(
+        hasBasePathPrefix ? basePathPrefix + "/dashboard" : "/dashboard",
+        request.url
+      )
+    );
   }
 
   // ✅ Logged in
