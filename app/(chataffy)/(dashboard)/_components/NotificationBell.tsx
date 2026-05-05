@@ -21,6 +21,7 @@ interface NotificationItem {
   visitorId?: {
     visitorDetails?: Array<{ field: string; value: string }>;
   };
+  agentId?: string;
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -244,17 +245,37 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     if (Date.now() - openedAtRef.current < 300) return;
 
     await markAsSeen(notif._id);
+    const nextAgentId = notif.agentId;
+    const currentAgentId = localStorage.getItem("currentAgentId");
+    const didSwitchAgent = !!(nextAgentId && nextAgentId !== currentAgentId);
+    if (didSwitchAgent) {
+      window.dispatchEvent(
+        new CustomEvent("agent-changed", { detail: { agentId: nextAgentId } })
+      );
+      localStorage.setItem("currentAgentId", nextAgentId);
+    }
     setIsOpen(false);
     const convId = getConversationId(notif);
     if (!convId) return;
     const inboxPath = getInboxPath(pathname || "");
-    router.push(`${inboxPath}?conversationId=${convId}`);
+
+    const targetUrl = `${inboxPath}?conversationId=${encodeURIComponent(convId)}`;
+    window.history.pushState(null, "", targetUrl);
+    router.replace(targetUrl)
     // Open chat immediately on the inbox page (URL sync can lag behind router.push)
-    window.dispatchEvent(
-      new CustomEvent("notification-navigate-to-conversation", {
-        detail: { conversationId: convId },
-      })
-    );
+    const emitConversationNavigate = () =>
+      window.dispatchEvent(
+        new CustomEvent("notification-navigate-to-conversation", {
+          detail: { conversationId: convId },
+        })
+      );
+    // When switching agent, inbox resets and socket reconnects.
+    // Delay opening the conversation slightly to avoid racing that reset.
+    if (didSwitchAgent) {
+      setTimeout(emitConversationNavigate, 250);
+    } else {
+      emitConversationNavigate();
+    }
   };
 
   return (
