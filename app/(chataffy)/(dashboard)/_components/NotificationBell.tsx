@@ -69,14 +69,30 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [humanAgentId, setHumanAgentId] = useState<string | null>(null);
+  const humanAgentIdRef = useRef<string | null>(null);
+  const fetchNotificationsRef = useRef<(() => Promise<void>) | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const seenDedup = useRef(new Set<string>());
   // Timestamp of when the dropdown was last opened – used to prevent click-through
   // where a click on the bell causes the first notification item to also receive the click.
   const openedAtRef = useRef<number>(0);
 
-  const unseen = notifications.filter((n) => !n.isSeen);
+  const unseen = notifications.filter((n) => n.isSeen !== true);
   const unseenCount = unseen.length;
+
+  useEffect(() => {
+    humanAgentIdRef.current = humanAgentId;
+  }, [humanAgentId]);
+
+  /** If the server sends targetHumanAgentIds, only those humans get an optimistic row (per-agent DB isSeen). */
+  const isAgentConnectionForCurrentHuman = useCallback((data: any): boolean => {
+    const targets = data?.targetHumanAgentIds;
+    const me = humanAgentIdRef.current;
+    if (!Array.isArray(targets) || targets.length === 0) return true;
+    if (!me) return false;
+    const meStr = String(me);
+    return targets.some((t: unknown) => String(t) === meStr);
+  }, []);
 
   // Resolve humanAgentId from localStorage
   useEffect(() => {
@@ -141,6 +157,10 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   }, [humanAgentId, apiBase]);
 
   useEffect(() => {
+    fetchNotificationsRef.current = fetchNotifications;
+  }, [fetchNotifications]);
+
+  useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
@@ -149,6 +169,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     if (!socket) return;
 
     const handleNew = (data: any) => {
+      if (!isAgentConnectionForCurrentHuman(data)) return;
       const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
       if (convId && seenDedup.current.has(convId)) return;
       if (convId) {
@@ -166,18 +187,20 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         visitorId: data?.visitor ? { visitorDetails: data.visitor?.visitorDetails } : undefined,
       };
       setNotifications((prev) => [optimistic, ...prev]);
+      window.setTimeout(() => fetchNotificationsRef.current?.(), 350);
     };
 
     socket.on("agent-connection-notification", handleNew);
     return () => {
       socket.off("agent-connection-notification", handleNew);
     };
-  }, [socket]);
+  }, [socket, isAgentConnectionForCurrentHuman]);
 
   // Also listen to the custom window event dispatched by useSocketManager
   useEffect(() => {
     const handleWindowEvent = (e: Event) => {
       const data = (e as CustomEvent).detail;
+      if (!isAgentConnectionForCurrentHuman(data)) return;
       const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
       if (convId && seenDedup.current.has(convId)) return;
       if (convId) {
@@ -194,11 +217,12 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         visitorId: data?.visitor ? { visitorDetails: data.visitor?.visitorDetails } : undefined,
       };
       setNotifications((prev) => [optimistic, ...prev]);
+      window.setTimeout(() => fetchNotificationsRef.current?.(), 350);
     };
 
     window.addEventListener("agent-connection-notification", handleWindowEvent);
     return () => window.removeEventListener("agent-connection-notification", handleWindowEvent);
-  }, []);
+  }, [isAgentConnectionForCurrentHuman]);
 
   // Close on outside click
   useEffect(() => {
@@ -331,7 +355,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
                     type="button"
                     onClick={() => handleNotificationClick(notif)}
                     className={`w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors ${
-                      !notif.isSeen ? "bg-[#FAFAFF]" : ""
+                      notif.isSeen !== true ? "bg-[#FAFAFF]" : ""
                     }`}
                   >
                     {/* Icon */}
@@ -356,7 +380,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
                     </div>
 
                     {/* Unseen dot */}
-                    {!notif.isSeen && (
+                    {notif.isSeen !== true && (
                       <div className="flex-shrink-0 w-2 h-2 mt-1.5 rounded-full bg-[#7C3AED]" />
                     )}
                   </button>
