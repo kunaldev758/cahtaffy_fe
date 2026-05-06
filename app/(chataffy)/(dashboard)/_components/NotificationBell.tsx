@@ -75,6 +75,12 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   // Timestamp of when the dropdown was last opened – used to prevent click-through
   // where a click on the bell causes the first notification item to also receive the click.
   const openedAtRef = useRef<number>(0);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const isFetchingRef = useRef(false);
+  const hasMore = useRef(true);
+  const page = useRef(1);
 
   const unseen = notifications.filter((n) => !n.isSeen);
   const unseenCount = unseen.length;
@@ -105,23 +111,35 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   // Fetch notifications from REST API and merge with any existing optimistic entries.
   // If the API returns an empty array we deliberately keep the current state so that
   // real-time optimistic entries (added via socket events) are never wiped out.
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (reset = false) => {
     if (!humanAgentId) return;
+    if (reset) {
+      page.current = 1;
+      hasMore.current = true;
+      isFetchingRef.current = false;
+    }
     try {
       const token = await getToken() || '';
+      const currentPage = page.current;
       const res = await fetch(
-        `${apiBase}notifications/agent/${humanAgentId}`,
+        `${apiBase}notifications/agent/${humanAgentId}?page=${currentPage}&limit=20`,
         { headers: { Authorization: token || "" } }
       );
       if (!res.ok) return;
       const data = await res.json();
-      if (!Array.isArray(data) || data.length === 0) return; // keep existing state
-
+      if (!Array.isArray(data?.data) || data?.data?.length === 0) {
+        hasMore.current = false;
+        return;
+      }
+      hasMore.current = data?.hasMore || false;
+      if(hasMore.current) {
+        page.current = currentPage + 1;
+      }
       setNotifications((prev) => {
         // Collect conversationIds already covered by the API response so we don't
         // duplicate optimistic entries that now have a real DB record.
         const apiConvIds = new Set(
-          data.map((n: any) => {
+          data?.data?.map((n: any) => {
             const cid = n.conversationId;
             return (typeof cid === "string" ? cid : cid?._id)?.toString() ?? "";
           })
@@ -136,7 +154,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
                 : "")?.toString() ?? ""
             )
         );
-        return [...data, ...orphaned];
+        return [...(data?.data || []), ...orphaned];
       });
     } catch {}
   }, [humanAgentId, apiBase]);
@@ -144,6 +162,61 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  const fetchMoreNotifications = useCallback(async () => {
+    if (!humanAgentId || isFetchingRef.current || !hasMore.current) return;
+    isFetchingRef.current = true;
+  
+    try {
+      const token = await getToken() || '';
+      const res = await fetch(
+        `${apiBase}notifications/agent/${humanAgentId}?page=${page.current}&limit=20`,
+        { headers: { Authorization: token || "" } }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!Array.isArray(data?.data) || data.data.length === 0) {
+        hasMore.current = false;
+        return;
+      }
+  
+      hasMore.current = data?.hasMore || false;
+      page.current += 1;
+  
+      setNotifications((prev) => {
+        const existingIds = new Set(prev.map((n) => n._id));
+        const newItems = data.data.filter(
+          (n: NotificationItem) => !existingIds.has(n._id)
+        );
+        return [...prev, ...newItems];
+      });
+    } catch (err) {
+      console.error("fetchMoreNotifications failed:", err);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [humanAgentId, apiBase]);
+
+  useEffect(() => {
+    if (!bottomRef.current || !listRef.current || !isOpen) return;
+
+    observer.current?.disconnect();
+    observer.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchMoreNotifications();
+        }
+      },
+      {
+        root: listRef.current,
+        rootMargin: "0px 0px 120px 0px",
+        threshold: 0.1,
+      }
+    );
+
+    observer.current.observe(bottomRef.current);
+    return () => observer.current?.disconnect();
+  }, [fetchMoreNotifications, isOpen, notifications.length]);
 
   // Listen for real-time agent connection notifications via socket
   useEffect(() => {
@@ -288,7 +361,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
           setIsOpen((prev) => !prev);
           if (opening) {
             openedAtRef.current = Date.now();
-            fetchNotifications();
+            fetchNotifications(true);
           }
         }}
         className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-[#fff] hover:bg-gray-100 transition-colors"
@@ -337,7 +410,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
           </div>
 
           {/* List */}
-          <div className="max-h-[360px] overflow-y-auto divide-y divide-gray-50">
+          <div ref={listRef} className="max-h-[360px] overflow-y-auto divide-y divide-gray-50">
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <Bell className="w-8 h-8 text-gray-300 mb-2" />
@@ -384,6 +457,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
                 );
               })
             )}
+
+            <div ref={bottomRef}/>
           </div>
 
           {/* Footer */}
