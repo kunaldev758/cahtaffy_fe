@@ -13,11 +13,11 @@ interface NotificationItem {
   isSeen: boolean;
   createdAt: string;
   conversationId:
-    | {
-        _id: string;
-        visitor?: any;
-      }
-    | string;
+  | {
+    _id: string;
+    visitor?: any;
+  }
+  | string;
   visitorId?: {
     visitorDetails?: Array<{ field: string; value: string }>;
   };
@@ -76,8 +76,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   // where a click on the bell causes the first notification item to also receive the click.
   const openedAtRef = useRef<number>(0);
 
-  const unseen = notifications.filter((n) => !n.isSeen);
-  const unseenCount = unseen.length;
+  let unseen = notifications.filter((n) => !n.isSeen);
+  let unseenCount = unseen.length;
 
   // Resolve humanAgentId from localStorage
   useEffect(() => {
@@ -90,14 +90,14 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         const id = parsed?.id || parsed?._id;
         if (id) { setHumanAgentId(id); return; }
       }
-    } catch {}
+    } catch { }
     try {
       const clientRaw = localStorage.getItem("clientAgent");
       if (clientRaw) {
         const parsed = JSON.parse(clientRaw);
         if (parsed?._id) { setHumanAgentId(parsed._id); return; }
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
@@ -138,7 +138,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         );
         return [...data, ...orphaned];
       });
-    } catch {}
+    } catch { }
   }, [humanAgentId, apiBase]);
 
   useEffect(() => {
@@ -158,7 +158,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
       }
       // Build an optimistic notification entry so it appears immediately
       const optimistic: NotificationItem = {
-        _id: `tmp-${Date.now()}`,
+        // _id: `tmp-${Date.now()}`,
+        _id: data?.notificationId ? data?.notificationId : `tmp-${Date.now()}`,
         message: data?.message || "Visitor requested to connect to an agent",
         type: "agent-connection-request",
         isSeen: false,
@@ -176,30 +177,30 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   }, [socket]);
 
   // Also listen to the custom window event dispatched by useSocketManager
-  useEffect(() => {
-    const handleWindowEvent = (e: Event) => {
-      const data = (e as CustomEvent).detail;
-      const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
-      if (convId && seenDedup.current.has(convId)) return;
-      if (convId) {
-        seenDedup.current.add(convId);
-        setTimeout(() => seenDedup.current.delete(convId), 3000);
-      }
-      const optimistic: NotificationItem = {
-        _id: `tmp-${Date.now()}`,
-        message: data?.message || "Visitor requested to connect to an agent",
-        type: "agent-connection-request",
-        isSeen: false,
-        createdAt: new Date().toISOString(),
-        conversationId: convId,
-        visitorId: data?.visitor ? { visitorDetails: data.visitor?.visitorDetails } : undefined,
-      };
-      setNotifications((prev) => [optimistic, ...prev]);
-    };
+  // useEffect(() => {
+  //   const handleWindowEvent = (e: Event) => {
+  //     const data = (e as CustomEvent).detail;
+  //     const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
+  //     if (convId && seenDedup.current.has(convId)) return;
+  //     if (convId) {
+  //       seenDedup.current.add(convId);
+  //       setTimeout(() => seenDedup.current.delete(convId), 3000);
+  //     }
+  //     const optimistic: NotificationItem = {
+  //       _id: `tmp-${Date.now()}`,
+  //       message: data?.message || "Visitor requested to connect to an agent",
+  //       type: "agent-connection-request",
+  //       isSeen: false,
+  //       createdAt: new Date().toISOString(),
+  //       conversationId: convId,
+  //       visitorId: data?.visitor ? { visitorDetails: data.visitor?.visitorDetails } : undefined,
+  //     };
+  //     setNotifications((prev) => [optimistic, ...prev]);
+  //   };
 
-    window.addEventListener("agent-connection-notification", handleWindowEvent);
-    return () => window.removeEventListener("agent-connection-notification", handleWindowEvent);
-  }, []);
+  //   window.addEventListener("agent-connection-notification", handleWindowEvent);
+  //   return () => window.removeEventListener("agent-connection-notification", handleWindowEvent);
+  // }, []);
 
   // Close on outside click
   useEffect(() => {
@@ -213,19 +214,40 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   }, []);
 
   const markAsSeen = async (id: string) => {
+
+    console.log("id in the mark as seen : ", id);
+    console.log("all notifications : ", notifications);
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, isSeen: true } : n))
     );
-    if (id.startsWith("tmp-")) return; // optimistic entries have no DB id yet
+    // if (id.startsWith("tmp-")) return; // optimistic entries have no DB id yet
     try {
       const token = await getToken() || '';
       await fetch(
         `${apiBase}notifications/${id}/seen`,
         { method: "PUT", headers: { Authorization: token || "" } }
       );
-    } catch {}
+    } catch { }
   };
 
+
+  // const markAsSeen = async (id: string) => {
+  //   // 1. Optimistic UI update
+  //   setNotifications((prev) =>
+  //     prev.map((n) =>
+  //       n._id === id ? { ...n, isSeen: true } : n
+  //     )
+  //   );
+
+  //   // 2. Backend update
+  //   try {
+  //     await fetch(`${apiBase}notifications/mark-seen/${id}`, {
+  //       method: "PATCH",
+  //     });
+  //   } catch (err) {
+  //     console.error(err);
+  //   }
+  // };
   const markAllSeen = async () => {
     if (!humanAgentId) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, isSeen: true })));
@@ -235,7 +257,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         `${apiBase}notifications/agent/${humanAgentId}/seen-all`,
         { method: "PUT", headers: { Authorization: token || "" } }
       );
-    } catch {}
+    } catch { }
   };
 
   const handleNotificationClick = async (notif: NotificationItem) => {
@@ -277,6 +299,17 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
       emitConversationNavigate();
     }
   };
+
+  useEffect(() => {
+
+
+    console.log("notifications in the use effect : ", notifications);
+    console.log("unseen in the use effect : ", unseen);
+    console.log("unseen count in the use effect : ", unseenCount);
+    unseen = notifications.filter((n) => !n.isSeen);
+    unseenCount = unseen.length;
+
+  }, [notifications])
 
   return (
     <div className="relative shrink-0" ref={dropdownRef}>
@@ -351,9 +384,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
                     key={notif._id}
                     type="button"
                     onClick={() => handleNotificationClick(notif)}
-                    className={`w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors ${
-                      !notif.isSeen ? "bg-[#FAFAFF]" : ""
-                    }`}
+                    className={`w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors ${!notif.isSeen ? "bg-[#FAFAFF]" : ""
+                      }`}
                   >
                     {/* Icon */}
                     <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-[#EDE9FE]">
