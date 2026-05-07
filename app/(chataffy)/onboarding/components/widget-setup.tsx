@@ -331,6 +331,8 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
   const [embedScript, setEmbedScript] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const embedScriptDisplay = `<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js"></script>`
+
   const checkboxUiClass = "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white [&_svg]:h-[14px] [&_svg]:w-[14px]"
 
   // ── Keep agentId in sync with localStorage + AgentSwitcherBar ────────────
@@ -397,18 +399,11 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
       })()
   }, [agentId])
 
-  // Default embed script only when no agent is selected (avoids wrong URL while loading after switch)
-  useEffect(() => {
-    if (!embedScript && !agentId) {
-      setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js"></script>`)
-    }
-  }, [embedScript, agentId])
-
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(embedScript)
+      await navigator.clipboard.writeText(embedScript|| embedScriptDisplay)
       setIsCopied(true)
       setTimeout(() => setIsCopied(false), 1500)
     } catch { setIsCopied(false) }
@@ -553,7 +548,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <input value={embedScript} readOnly
+                <input value={embedScriptDisplay} readOnly
                   className="h-[44px] flex-1 min-w-0 rounded-[8px] border border-[#E2E8F0] bg-[#F8FAFC] px-[14px] text-[13px] text-[#111827] outline-none" />
                 <button type="button" onClick={handleCopy}
                   className="inline-flex h-[44px] min-w-[120px] shrink-0 items-center justify-center gap-2 rounded-[12px] bg-[#111827] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#1f2937]">
