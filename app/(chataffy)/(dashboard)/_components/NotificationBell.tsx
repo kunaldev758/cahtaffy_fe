@@ -494,20 +494,10 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
           </div>
 
           {/* Footer */}
-          {notifications.length > 0 && (
+          {/* {notifications.length > 0 && (
             <div className="border-t border-gray-100 px-4 py-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  fetchNotifications();
-                }}
-                className="text-xs text-[#4B56F2] hover:underline font-medium"
-              >
-                Refresh
-              </button>
             </div>
-          )}
+          )} */}
         </div>
       )}
     </div>
