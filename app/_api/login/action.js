@@ -42,6 +42,22 @@ export async function loginApi(email, password) {
   return result
 }
 
+export async function directClientLoginApi(token) {
+  const response = await fetch(`${process.env.API_HOST}direct-client-login/${encodeURIComponent(token)}`, {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+
+  const result = await response.json()
+  if (result?.status_code === 200 && result?.token) {
+    cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS })
+    cookies().set({ name: 'role', value: 'client', httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS })
+  }
+  return result
+}
+
 export async function registrationApi(email, password, role = 'client') {
   const response = await fetch(`${process.env.API_HOST}createUser`, {
     method: 'POST',
