@@ -44,10 +44,8 @@ export async function loginApi(email, password) {
 
 export async function directClientLoginApi(token) {
   const response = await fetch(`${process.env.API_HOST}direct-client-login/${encodeURIComponent(token)}`, {
-    method: 'POST',
+    method: 'GET',
     cache: 'no-cache',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
   })
 
   const result = await response.json()
