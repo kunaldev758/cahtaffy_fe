@@ -50,7 +50,7 @@ export default function ClientProfileSettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const provider = localStorage.getItem("provider");
+  const provider = typeof window !== 'undefined' ? localStorage.getItem("provider") : null;
 
   const syncLocalClientAgent = useCallback(
     (partial: { name?: string; email?: string; avatar?: string | null }) => {
