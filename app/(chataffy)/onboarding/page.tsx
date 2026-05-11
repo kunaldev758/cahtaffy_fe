@@ -176,6 +176,7 @@ export default function OnboardingPage() {
         }, 800)
         try {
             const res = await getSitemapUrlsApi(normalizedUrl, agentId)
+            console.log("res sitmapUrls ---> ", res);
             clearInterval(stepInterval)
             if (res?.success && Array.isArray(res.urls)) {
                 setExtractedUrls(res.urls)

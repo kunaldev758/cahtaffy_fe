@@ -50,6 +50,7 @@ export default function ClientProfileSettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const provider = localStorage.getItem("provider");
 
   const syncLocalClientAgent = useCallback(
     (partial: { name?: string; email?: string; avatar?: string | null }) => {
@@ -339,7 +340,7 @@ export default function ClientProfileSettingsPage() {
           </div>
 
           {/* Security */}
-          <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
+          {provider !== "bigcommerce" && <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
             <div className="mb-6">
               <h2 className="text-[18px] font-bold text-[#111827]">Security</h2>
               <p className="text-[13px] leading-5 text-[#64748B]">Update your password and secure your account.</p>
@@ -438,7 +439,7 @@ export default function ClientProfileSettingsPage() {
                 {savingPassword ? 'Updating…' : 'Update Password'}
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

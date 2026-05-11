@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import {
-  respondWidgetEmbedResolve,
-  respondWidgetEmbedScript,
-} from "./app/_api/widget-embed/action.js";
+// import { cookies } from "next/headers";
+// import {
+//   respondWidgetEmbedResolve,
+//   respondWidgetEmbedScript,
+// } from "./app/_api/widget-embed/action.js";
 
 export async function middleware(request: NextRequest) {
   let { pathname } = request.nextUrl;
@@ -33,32 +33,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (
-    request.method === "GET" &&
-    (pathname === "/_api/widget-embed/resolve" ||
-      pathname === "/_api/widget-embed/resolve/")
-  ) {
-    return await respondWidgetEmbedResolve(request.url);
-  }
-
-  const widEqPath = pathname.match(/^\/wid=([a-f0-9]{24})\/?$/i)
-  if (request.method === "GET" && widEqPath) {
-    return respondWidgetEmbedScript(widEqPath[1])
-  }
-
-  const wShort = pathname.match(/^\/w\/([^/]+)\/?$/);
-  if (request.method === "GET" && wShort) {
-    return respondWidgetEmbedScript(wShort[1]);
-  }
-
-  const embedMatch = pathname.match(/^\/_api\/widget-embed\/([^/]+)\/?$/);
-  if (request.method === "GET" && embedMatch) {
-    return respondWidgetEmbedScript(embedMatch[1]);
-  }
-
-  const cookieStore = cookies();
-  const hasToken = cookieStore.has("token");
-  const currentUserRole = cookieStore.get("role")?.value;
+  const hasToken = request.cookies.has("token");
+  const currentUserRole = request.cookies.get("role")?.value;
 
   // Log ALL requests for debugging
   console.log("[Middleware] 📥 Request:", {
@@ -70,8 +46,8 @@ export async function middleware(request: NextRequest) {
     url: request.url
   });
 
-  const publicRoutes = ["/login","/signup", "/agent-login", "/agent-accept-invite"];
   const directClientLoginPrefix = "/direct-client-login";
+  const publicRoutes = ["/login","/signup", "/agent-login", "/agent-accept-invite", "/load"];
   /** Logged-in clients may visit any route except these auth pages */
   const clientLoginSignupRoutes = ["/login", "/signup"];
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
