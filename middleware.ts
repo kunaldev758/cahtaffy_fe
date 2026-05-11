@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import {
+  respondWidgetEmbedResolve,
+  respondWidgetEmbedScript,
+} from "./app/_api/widget-embed/action.js";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let { pathname } = request.nextUrl;
   const rawPathname = new URL(request.url).pathname;
   const appUrl: any = process.env.NEXT_PUBLIC_APP_URL;
@@ -27,6 +31,29 @@ export function middleware(request: NextRequest) {
     pathname === "/favicon.ico"
   ) {
     return NextResponse.next();
+  }
+
+  if (
+    request.method === "GET" &&
+    (pathname === "/_api/widget-embed/resolve" ||
+      pathname === "/_api/widget-embed/resolve/")
+  ) {
+    return await respondWidgetEmbedResolve(request.url);
+  }
+
+  const widEqPath = pathname.match(/^\/wid=([a-f0-9]{24})\/?$/i)
+  if (request.method === "GET" && widEqPath) {
+    return respondWidgetEmbedScript(widEqPath[1])
+  }
+
+  const wShort = pathname.match(/^\/w\/([^/]+)\/?$/);
+  if (request.method === "GET" && wShort) {
+    return respondWidgetEmbedScript(wShort[1]);
+  }
+
+  const embedMatch = pathname.match(/^\/_api\/widget-embed\/([^/]+)\/?$/);
+  if (request.method === "GET" && embedMatch) {
+    return respondWidgetEmbedScript(embedMatch[1]);
   }
 
   const cookieStore = cookies();

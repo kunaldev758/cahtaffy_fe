@@ -44,6 +44,15 @@ const nextConfig = {
           { key: 'Access-Control-Allow-Origin', value: '*' },
         ],
       },
+      {
+        source: '/_api/widget-embed/:wid',
+        headers: [
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+        ],
+      },
+    
     ];
   },
 }

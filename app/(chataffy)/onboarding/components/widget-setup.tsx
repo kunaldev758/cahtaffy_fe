@@ -329,9 +329,11 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
   const [isUploading, setIsUploading] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const [embedScript, setEmbedScript] = useState('')
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'
+  const [shortEmbedSnippet, setShortEmbedSnippet] = useState(
+    `<script src="${appBaseUrl}widget-loader.js"></script>`,
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const embedScriptDisplay = `<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js"></script>`
 
   const checkboxUiClass = "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white [&_svg]:h-[14px] [&_svg]:w-[14px]"
 
@@ -363,6 +365,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
         setFieldErrors({})
         setLogoErrors([])
         setEmbedScript('')
+        setShortEmbedSnippet(`<script src="${appBaseUrl}widget-loader.js"></script>`)
         try {
           const [widgetRes, agentRes] = await Promise.all([
             getThemeSettings(agentId),
@@ -375,7 +378,10 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
             if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
             const wid = d.widgetId || d._id
             if (wid) {
-              setEmbedScript(`<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'}widget-loader.js?wid=${wid}&token=${d.widgetToken}&agent=${agentId}"></script>`)
+              setShortEmbedSnippet(
+                `<script src="${appBaseUrl}wid=${wid}"></script>`,
+              )
+              setEmbedScript(`<script src="${appBaseUrl}widget-loader.js?wid=${wid}&token=${d.widgetToken}&agent=${agentId}"></script>`)
             }
           }
 
@@ -403,7 +409,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(embedScript|| embedScriptDisplay)
+      await navigator.clipboard.writeText(shortEmbedSnippet)
       setIsCopied(true)
       setTimeout(() => setIsCopied(false), 1500)
     } catch { setIsCopied(false) }
@@ -539,16 +545,16 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
             <div className="flex flex-col gap-[16px]">
               <div className="flex flex-col gap-1">
                 <h2 className="text-sm font-bold text-[#111827]">Widget Embed Code</h2>
-                <div className="text-[13px] text-[#64748B] leading-relaxed">
+                 <div className="text-[13px] text-[#64748B] leading-relaxed">
                   Add this script to your website's{' '}
                   <Badge className="ml-1 inline-flex rounded-[6px] bg-[#FAF5FF] text-[10px] font-semibold text-[#A855F7] shadow-none hover:bg-[#F1F5F9] h-[17px] border border-[#A855F7] px-[7px] align-middle">
                     &lt;Footer&gt;
                   </Badge>{' '}
-                  section to activate the chatbot.
+                  section to activate the chatbot. 
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <input value={embedScriptDisplay} readOnly
+                <input value={shortEmbedSnippet} readOnly
                   className="h-[44px] flex-1 min-w-0 rounded-[8px] border border-[#E2E8F0] bg-[#F8FAFC] px-[14px] text-[13px] text-[#111827] outline-none" />
                 <button type="button" onClick={handleCopy}
                   className="inline-flex h-[44px] min-w-[120px] shrink-0 items-center justify-center gap-2 rounded-[12px] bg-[#111827] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#1f2937]">
@@ -556,7 +562,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                   <span>{isCopied ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
-            </div>
+           </div>
           </div>
 
           {/* Basic Setup card */}
