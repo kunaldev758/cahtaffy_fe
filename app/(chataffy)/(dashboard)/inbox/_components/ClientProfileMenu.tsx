@@ -87,7 +87,7 @@ export default function ClientProfileMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { socket } = useSocket();
-  const provider = localStorage.getItem("provider");
+  const provider = typeof window !== 'undefined' ? localStorage.getItem("provider") : null;
 
   useEffect(() => {
     if (clientAvatar !== undefined) {
