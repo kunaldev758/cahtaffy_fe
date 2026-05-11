@@ -71,6 +71,7 @@ export async function middleware(request: NextRequest) {
   });
 
   const publicRoutes = ["/login","/signup", "/agent-login", "/agent-accept-invite"];
+  const directClientLoginPrefix = "/direct-client-login";
   /** Logged-in clients may visit any route except these auth pages */
   const clientLoginSignupRoutes = ["/login", "/signup"];
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
@@ -85,6 +86,8 @@ export async function middleware(request: NextRequest) {
     // allow only login/agent-login/accept-invite/widget
     if (
       publicRoutes.includes(pathname) ||
+      pathname === directClientLoginPrefix ||
+      pathname.startsWith(`${directClientLoginPrefix}/`) ||
       pathname.startsWith(visitorAllowedPrefix)
     ) {
       return NextResponse.next();
