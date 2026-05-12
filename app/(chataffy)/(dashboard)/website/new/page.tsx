@@ -287,7 +287,12 @@ export default function NewAgentOnboardingPage() {
     if (uploadedFile) formData.append('file', uploadedFile)
     if (isSnippetsEnabled) {
       if (!snippetTitle.trim()) { toast.error('Enter a title for the snippet'); return }
-      if (!snippetContent.trim()) { toast.error('Enter content for the snippet'); return }
+      const trimmedSnippetContent = snippetContent.trim()
+      if (!trimmedSnippetContent) { toast.error('Enter content for the snippet'); return }
+      if (trimmedSnippetContent.length < 10) {
+        toast.error('Content must be at least 10 characters')
+        return
+      }
       formData.append('title', snippetTitle)
       formData.append('content', snippetContent)
     }
@@ -518,8 +523,9 @@ export default function NewAgentOnboardingPage() {
                       {isSnippetsEnabled && (
                         <div className="flex flex-col gap-3 px-3 py-3">
                           <div>
-                            <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Title</label>
+                            <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Title <span className="text-red-500">*</span></label>
                             <input
+
                               type="text"
                               placeholder="Enter a title"
                               value={snippetTitle}
@@ -528,7 +534,7 @@ export default function NewAgentOnboardingPage() {
                             />
                           </div>
                           <div>
-                            <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Content</label>
+                            <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Content <span className="text-red-500">*</span></label>
                             <textarea
                               rows={6}
                               placeholder="Start writing your content"
