@@ -392,6 +392,9 @@ export default function EnhancedTrainingPage() {
     const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress }: any) => {
       if (progress) {
         setScrapingProgress(progress)
+        if (progress.stoppedReason === 'storage_limit_exceeded' && message) {
+          toast.error(message, { toastId: 'training-storage-limit' })
+        }
         if (!progress.isProcessing && progress.percentage === 100 && !progress.error && !progress.stoppedReason) {
           setTimeout(() => setScrapingProgress(null), 5000)
         }
@@ -415,8 +418,14 @@ export default function EnhancedTrainingPage() {
           prevStatus !== 0 &&
           prevStatus != null
         ) {
-          setScrapingProgress(null)
-          if (message) { toast.error(message) } else { toast.success('Training completed successfully!') }
+          if (!progress?.stoppedReason) {
+            setScrapingProgress(null)
+          }
+          if (message && progress?.stoppedReason !== 'storage_limit_exceeded') {
+            toast.error(message)
+          } else if (!message && !progress?.stoppedReason) {
+            toast.success('Training completed successfully!')
+          }
         }
         setAgentData(agent)
         agentDataRef.current = agent
@@ -457,6 +466,12 @@ export default function EnhancedTrainingPage() {
   }, [agentData])
 
   useEffect(() => {
+    if (scrapingProgress?.stoppedReason !== 'storage_limit_exceeded') return
+    const t = setTimeout(() => setScrapingProgress(null), 20000)
+    return () => clearTimeout(t)
+  }, [scrapingProgress?.stoppedReason])
+
+  useEffect(() => {
     if (!socket) return
 
     if (prevDebouncedSearchRef.current !== debouncedSearch) {
@@ -488,7 +503,12 @@ export default function EnhancedTrainingPage() {
   const headerCheckboxUiClass =
     `${checkboxUiClass} data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]`
 
-  const isTrainingActive = agentData?.dataTrainingStatus === 1 || (scrapingProgress?.isProcessing ?? false)
+  const showStorageStoppedCard =
+    scrapingProgress?.stoppedReason === 'storage_limit_exceeded'
+  const isTrainingActive =
+    agentData?.dataTrainingStatus === 1 ||
+    (scrapingProgress?.isProcessing ?? false) ||
+    showStorageStoppedCard
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -503,12 +523,12 @@ export default function EnhancedTrainingPage() {
       <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6 h-[calc(100%-89px)]">
 
         {/* ── Alerts ── */}
-        {/* {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+        {clientData?.upgradePlanStatus?.storageLimitExceeded && (
           <Alert className="border-orange-200 bg-orange-50 mb-4">
             <Zap className="h-4 w-4" />
             <AlertDescription>Storage limit exceeded. Upgrade your plan to continue training.</AlertDescription>
           </Alert>
-        )} */}
+        )}
 
         {/* {showContinueScrapping && (
           <Alert className="border-orange-200 bg-orange-50 mb-4">
@@ -925,13 +945,26 @@ export default function EnhancedTrainingPage() {
                       Estimated time: {scrapingProgress.estimatedTimeRemaining}
                     </p>
                   )}
+                  {showStorageStoppedCard && (
+                    <p className="text-[12px] text-[#C2410C] font-medium mt-0.5">
+                      Storage limit reached — scraping stopped. Upgrade your plan to continue.
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="text-[12px] text-[#64748B]">Preparing training job...</p>
               )}
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#16A34A] mt-0.5">
-                <span className="w-1.5 h-1.5 bg-[#16A34A] rounded-full animate-pulse" />
-                Running
+              <span
+                className={`inline-flex items-center gap-1.5 text-[11px] font-medium mt-0.5 ${
+                  showStorageStoppedCard ? 'text-[#C2410C]' : 'text-[#16A34A]'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    showStorageStoppedCard ? 'bg-[#C2410C]' : 'bg-[#16A34A] animate-pulse'
+                  }`}
+                />
+                {showStorageStoppedCard ? 'Stopped (storage)' : 'Running'}
               </span>
             </div>
           </div>
