@@ -25,6 +25,7 @@ interface ContentData {
 }
 
 interface ContentDetailsModalProps {
+  clientData: any
   show: boolean
   onHide: () => void
   itemId: string
@@ -32,7 +33,7 @@ interface ContentDetailsModalProps {
   onRetrainQueued?: () => void
 }
 
-export default function ContentDetailsModal({ show, onHide, itemId, agentId, onRetrainQueued }: ContentDetailsModalProps) {
+export default function ContentDetailsModal({ show, onHide, itemId, agentId, onRetrainQueued, clientData }: ContentDetailsModalProps) {
   const [contentData, setContentData] = useState<ContentData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -150,6 +151,13 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
   const canRetrainWebPage = contentData?.type === 0
 
   const handleRetrain = async () => {
+
+    // here check if the client has exceeded the storage limit
+    if (clientData?.upgradePlanStatus?.storageLimitExceeded) {
+      toast.error('Storage limit exceeded. Upgrade your plan to continue.')
+      return
+    }
+
     if (!agentId) {
       toast.error('Agent ID not found')
       return

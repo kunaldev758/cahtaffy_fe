@@ -668,14 +668,41 @@ export default function EnhancedTrainingPage() {
 
             <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
               {/* Add Content */}
-              <button
+              {/* <button
                 onClick={() => setShowModal(true)}
                 disabled={isTrainingActive || clientData?.upgradePlanStatus?.storageLimitExceeded}
                 className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Content
-              </button>
+              </button> */}
+
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <button
+                        onClick={() => setShowModal(true)}
+                        disabled={
+                          isTrainingActive ||
+                          clientData?.upgradePlanStatus?.storageLimitExceeded
+                        }
+                        className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Content
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+
+                  {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+                    <TooltipContent>
+                      <p>Storage limit exceeded. Upgrade your plan to add more content.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Source filter */}
               <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
@@ -831,7 +858,15 @@ export default function EnhancedTrainingPage() {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <button
-                                    onClick={() => handleRetrain([item._id])}
+                                    onClick={() => {
+
+                                      if (clientData?.upgradePlanStatus?.storageLimitExceeded) {
+                                        toast.error('Storage limit exceeded. Upgrade your plan to continue.')
+                                        return
+                                      }
+
+                                      handleRetrain([item._id])
+                                    }}
                                     disabled={isRetraining}
                                     className="w-8 h-8 flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#111827] hover:bg-[#F1F5F9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                   >
@@ -955,14 +990,12 @@ export default function EnhancedTrainingPage() {
                 <p className="text-[12px] text-[#64748B]">Preparing training job...</p>
               )}
               <span
-                className={`inline-flex items-center gap-1.5 text-[11px] font-medium mt-0.5 ${
-                  showStorageStoppedCard ? 'text-[#C2410C]' : 'text-[#16A34A]'
-                }`}
+                className={`inline-flex items-center gap-1.5 text-[11px] font-medium mt-0.5 ${showStorageStoppedCard ? 'text-[#C2410C]' : 'text-[#16A34A]'
+                  }`}
               >
                 <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    showStorageStoppedCard ? 'bg-[#C2410C]' : 'bg-[#16A34A] animate-pulse'
-                  }`}
+                  className={`w-1.5 h-1.5 rounded-full ${showStorageStoppedCard ? 'bg-[#C2410C]' : 'bg-[#16A34A] animate-pulse'
+                    }`}
                 />
                 {showStorageStoppedCard ? 'Stopped (storage)' : 'Running'}
               </span>
@@ -1005,6 +1038,7 @@ export default function EnhancedTrainingPage() {
 
         {selectedItemId && (
           <ContentDetailsModal
+            clientData={clientData ?? null}
             show={showContentModal}
             onHide={() => { setShowContentModal(false); setSelectedItemId(null) }}
             itemId={selectedItemId}
