@@ -249,6 +249,27 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     };
   }, [socket]);
 
+  // When the agent opens a chat, the backend marks every notification for that
+  // conversation as seen and broadcasts this event to all of the agent's tabs.
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConversationSeen = (data: { conversationId?: string }) => {
+      const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
+      if (!convId) return;
+      setNotifications((prev) =>
+        prev.map((n) =>
+          getConversationId(n) === convId && !n.isSeen ? { ...n, isSeen: true } : n
+        )
+      );
+    };
+
+    socket.on("conversation-notifications-seen", handleConversationSeen);
+    return () => {
+      socket.off("conversation-notifications-seen", handleConversationSeen);
+    };
+  }, [socket]);
+
   // Also listen to the custom window event dispatched by useSocketManager
   // useEffect(() => {
   //   const handleWindowEvent = (e: Event) => {
