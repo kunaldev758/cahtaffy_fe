@@ -340,7 +340,7 @@ export default function ClientProfileSettingsPage() {
           </div>
 
           {/* Security */}
-          {provider !== "bigcommerce" && <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
+          {(provider !== "bigcommerce" && provider !== "shopify") && <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
             <div className="mb-6">
               <h2 className="text-[18px] font-bold text-[#111827]">Security</h2>
               <p className="text-[13px] leading-5 text-[#64748B]">Update your password and secure your account.</p>

@@ -430,7 +430,7 @@ export default function ClientProfileMenu({
           </div>
 
           {/* Logout */}
-         {provider !== "bigcommerce" && <div className="border-t border-gray-100">
+         {(provider !== "bigcommerce" && provider !== "shopify") && <div className="border-t border-gray-100">
             <button
               onClick={handleLogout}
               className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150 justify-center"
