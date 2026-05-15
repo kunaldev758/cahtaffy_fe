@@ -42,7 +42,9 @@ function LoadPageContent() {
       });
       return;
     }
-    window.location.href = url;
+    // window.location.href = url;
+     // 👇 New tab — do NOT redirect to Shopify
+    return false;
   }
 
   useEffect(() => {
@@ -69,6 +71,8 @@ function LoadPageContent() {
             localStorage.setItem("provider", "bigcommerce");
             localStorage.setItem("bcStoreHash", bigcommerceStoreHash || "");
             localStorage.setItem("signedPayloadJwt", signedPayload || "");
+            localStorage.removeItem("id_token");
+            localStorage.removeItem("shopifyShop");
             dispatchAuthStorageSync();
             handleSocketEvent(result.userId);
             router.replace(isOnboarded ? "/dashboard" : "/onboarding");
@@ -80,7 +84,7 @@ function LoadPageContent() {
         if (shop) {
           try {
             // Get session token from new App Bridge via window.shopify
-            let id_token: string | null = null;
+            let id_token: string | null = searchParams?.get("id_token") ?? null;
 
             if (typeof window !== "undefined" && window.shopify?.idToken) {
               try {
@@ -112,6 +116,7 @@ function LoadPageContent() {
               localStorage.setItem("currentAgentId", agents[0]?._id ?? "");
               localStorage.setItem("provider", "shopify");
               localStorage.setItem("shopifyShop", shopifyShop || shop || "");
+              localStorage.setItem("id_token", id_token || "");
               localStorage.removeItem("signedPayloadJwt");
               localStorage.removeItem("bcStoreHash");
               dispatchAuthStorageSync();

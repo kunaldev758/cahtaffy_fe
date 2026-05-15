@@ -29,7 +29,6 @@ export default function RootLayout({
             content={process.env.NEXT_PUBLIC_SHOPIFY_API_KEY}
           />
         ) : null}
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
           rel="stylesheet"
