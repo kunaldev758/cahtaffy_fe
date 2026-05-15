@@ -73,6 +73,41 @@ interface AgentData {
   faqsAdded: number
 }
 
+/** Aggregated web-page row counts from training storage (matches training table). */
+interface WebPagesTrainingStats {
+  total: number
+  synced: number
+  failed: number
+  pending: number
+}
+
+function mergeAgentDataWithWebPageStats(
+  data: AgentData | null,
+  stats: WebPagesTrainingStats | null | undefined
+): AgentData | null {
+  if (!data) return null
+  if (!stats || typeof stats.total !== 'number') return data
+  // While a scrape/train job is running, training rows may not exist yet — keep Agent counters.
+  if (data.dataTrainingStatus === 1) return data
+  const pa = data.pagesAdded ?? { success: 0, failed: 0, total: 0 }
+  const dbSum = stats.synced + stats.failed + stats.pending
+  const agentAccounted = (pa.success ?? 0) + (pa.failed ?? 0)
+  // Do not wipe real Agent counters when DB counts look empty or incomplete (e.g. aggregation casting bugs).
+  if (stats.total === 0 && (pa.total ?? 0) > 0) return data
+  if (dbSum > 0 && agentAccounted > 0 && dbSum < agentAccounted) return data
+
+  const displayTotal = Math.max(pa.total ?? 0, dbSum)
+  return {
+    ...data,
+    pagesAdded: {
+      ...pa,
+      total: displayTotal,
+      success: stats.synced,
+      failed: stats.failed,
+    },
+  }
+}
+
 interface ScrapingProgress {
   percentage: number
   processed: number
@@ -361,9 +396,16 @@ export default function EnhancedTrainingPage() {
       })
     }
 
-    const onGetAgentDataResponse = ({ agentData: data }: any) => {
-      setAgentData(data)
-      agentDataRef.current = data ?? null
+    const onGetAgentDataResponse = ({
+      agentData: data,
+      webPagesTrainingStats,
+    }: {
+      agentData?: AgentData | null
+      webPagesTrainingStats?: WebPagesTrainingStats | null
+    }) => {
+      const merged = mergeAgentDataWithWebPageStats(data ?? null, webPagesTrainingStats)
+      setAgentData(merged)
+      agentDataRef.current = merged
     }
 
     const onGetClientDataResponse = ({ clientData: data }: any) => setClientData(data)
@@ -433,7 +475,11 @@ export default function EnhancedTrainingPage() {
 
       if (client) { setClientData(client) }
 
-      socket.emit('get-training-list-count')
+      // Refresh agent + aggregated web-page stats whenever training is idle (avoids stale badges vs table).
+      if (agent && (!progress || progress.isProcessing === false)) {
+        socket.emit('get-agent-data')
+      }
+
       const q = listQueryRef.current
       socket.emit('get-training-list', {
         skip: (q.currentPage - 1) * q.pageSize,
