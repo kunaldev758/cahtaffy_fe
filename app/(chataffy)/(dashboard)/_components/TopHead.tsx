@@ -45,6 +45,7 @@ export default function TopHead({
       const shop = localStorage.getItem('shopifyShop')
       const signedPayloadJwt = localStorage.getItem('signedPayloadJwt') 
       const id_token = localStorage.getItem('id_token')
+      const userId = localStorage.getItem('clientAgent') ? JSON.parse(localStorage.getItem('clientAgent') || '{}').userId : null
       const params = new URLSearchParams()
     
       if (provider === 'shopify') {
@@ -56,8 +57,9 @@ export default function TopHead({
       if (provider === 'bigcommerce') {
         if (signedPayloadJwt) params.set('signed_payload_jwt', signedPayloadJwt)
       }
+      params.set('userId', userId || '')
     
-      const url = `${process.env.NEXT_PUBLIC_APP_URL}/load?${params.toString()}`
+      const url = `${process.env.NEXT_PUBLIC_APP_URL}/platform-login?${params.toString()}`
       window.open(url, '_blank', 'noopener,noreferrer')
     }
 
