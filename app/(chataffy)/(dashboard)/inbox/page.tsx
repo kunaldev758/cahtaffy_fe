@@ -1,6 +1,7 @@
 
 import {Metadata} from 'next'
 import { cookies } from 'next/headers'
+import { readTokenFromCookieStore } from '@/lib/clientCookie'
 
 
 
@@ -14,7 +15,7 @@ import Inbox from './_components/inbox'
 import { Suspense } from 'react'
 
 export default function Home() {
-  const token = cookies().get('token')?.value ?? ''
+  const token = readTokenFromCookieStore(cookies()) ?? ''
   return (
     <Suspense fallback={null}>
       <Inbox token={token} />

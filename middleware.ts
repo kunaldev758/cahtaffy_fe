@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { hasAuthTokenCookie } from "./lib/clientCookie";
 import {
   respondWidgetEmbedResolve,
   respondWidgetEmbedScript,
@@ -11,6 +12,7 @@ export async function middleware(request: NextRequest) {
   const appUrl: any = process.env.NEXT_PUBLIC_APP_URL;
 
   const baseUrl = appUrl.endsWith("/") ? appUrl : appUrl + "/";
+
 
   // Normalize pathname by removing base path prefix if present (for production)
   // This handles paths like /chataffy/cahtaffy_fe/agent-inbox -> /agent-inbox
@@ -59,7 +61,7 @@ export async function middleware(request: NextRequest) {
   // const cookieStore = cookies();
   // const hasToken = cookieStore.has("token");
   // const currentUserRole = cookieStore.get("role")?.value;
-  const hasToken = request.cookies.has("token");
+  const hasToken = hasAuthTokenCookie(request);
   const currentUserRole = request.cookies.get("role")?.value;
 
   // Log ALL requests for debugging
@@ -74,14 +76,14 @@ export async function middleware(request: NextRequest) {
 
 
   const directClientLoginPrefix = "/direct-client-login";
-  const publicRoutes = ["/login","/signup", "/agent-login", "/agent-accept-invite", "/load"];
+  const publicRoutes = ["/login", "/signup", "/agent-login", "/agent-accept-invite", "/load"];
   /** Logged-in clients may visit any route except these auth pages */
   const clientLoginSignupRoutes = ["/login", "/signup"];
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
   const visitorAllowedPrefix = "/openai/widget";
 
   // 🚫 Not logged in
-  if(pathname == "/"){
+  if (pathname == "/") {
     return NextResponse.next();
   }
 
@@ -97,7 +99,7 @@ export async function middleware(request: NextRequest) {
     }
     return NextResponse.redirect(baseUrl);
   }
-  if(hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname) && pathname !== "/agent-accept-invite"){
+  if (hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname) && pathname !== "/agent-accept-invite") {
     return NextResponse.redirect(new URL(hasBasePathPrefix ? basePathPrefix + '/agent-inbox' : '/agent-inbox', request.url));
   }
 
@@ -120,7 +122,7 @@ export async function middleware(request: NextRequest) {
     // Remove query string and trailing slash for comparison
     const pathnameWithoutQuery = pathname.split("?")[0].replace(/\/$/, '');
     const normalizedAgentRoutes = agentRoutes.map(route => route.replace(/\/$/, ''));
-    
+
     // Debug logging (check server console, not browser console)
     console.log("[Middleware] 🔍 Agent route check - BEFORE decision:", {
       originalPathname: request.nextUrl.pathname,
@@ -132,12 +134,12 @@ export async function middleware(request: NextRequest) {
       currentUserRole,
       fullUrl: request.url
     });
-    
+
     if (normalizedAgentRoutes.includes(pathnameWithoutQuery)) {
       console.log("[Middleware] ✅ Allowing agent access to:", pathnameWithoutQuery);
       return NextResponse.next();
     }
-    
+
     // If we get here, the route doesn't match - redirect to agent-login
     console.log("[Middleware] ❌ Route NOT allowed for agent:", {
       pathnameWithoutQuery,

@@ -106,7 +106,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     } catch { }
   }, []);
 
-  const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
+  const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}api/`;
 
   // Fetch notifications from REST API and merge with any existing optimistic entries.
   // If the API returns an empty array we deliberately keep the current state so that

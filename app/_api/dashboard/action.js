@@ -1,34 +1,50 @@
 'use server'
 import { cookies } from 'next/headers';
+import {
+  getTokenCookieName,
+  isAuthTokenCookieName,
+  LEGACY_TOKEN_COOKIE,
+  readTokenFromCookieStore,
+} from '@/lib/clientCookie';
 
 export const getToken = async () => {
-  const token = cookies().get('token')?.value
-  if (!token) return null
-  return token
+  return readTokenFromCookieStore(cookies());
 }
 
 const ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
 
 function getAuthorizationHeader() {
-  return cookies().get('token')?.value || '';
+  return readTokenFromCookieStore(cookies()) || '';
 }
 
 function syncTokenFromSetCookieHeader(setCookieHeader) {
   if (!setCookieHeader) return;
 
-  const token = setCookieHeader.match(/(?:^|,\s*)token=([^;]+)/)?.[1];
-  console.log("token from setCookieHeader ----> ",token)
-  if (!token) return;
+  const cookieStore = cookies();
+  const segments = setCookieHeader.split(/,(?=\s*[\w-]+=)/);
 
-  cookies().set({
-    name: 'token',
-    value: token,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
-    maxAge: ONE_WEEK_IN_SECONDS,
-    path: '/',
-  });
+  for (const segment of segments) {
+    const match = segment.match(/^\s*([^=]+)=([^;]+)/);
+    if (!match) continue;
+
+    const name = match[1].trim();
+    const value = decodeURIComponent(match[2].trim());
+    if (!value) continue;
+
+    const isAuthCookie =
+      name === LEGACY_TOKEN_COOKIE || isAuthTokenCookieName(name);
+    if (!isAuthCookie) continue;
+
+    cookieStore.set({
+      name,
+      value,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+      maxAge: ONE_WEEK_IN_SECONDS,
+      path: '/',
+    });
+  }
 }
 
 async function fetchData(endpoint, requestData = {}) {
@@ -275,8 +291,12 @@ export async function updateOnboardingStepApi(agentId, step, websiteUrl, extract
 
 
 export async function logoutApi() {
-  cookies().delete('token')
-  cookies().delete('role')
+  const cookieStore = cookies();
+  for (const cookie of cookieStore.getAll()) {
+    if (cookie.name === 'role' || isAuthTokenCookieName(cookie.name) || cookie.name === LEGACY_TOKEN_COOKIE) {
+      cookieStore.delete(cookie.name);
+    }
+  }
   return await fetchData('logout');
 }
 

@@ -32,22 +32,43 @@ export function LoginForm({ response }: { response?: Response }) {
   const [googleLoading, setGoogleLoading] = useState(false)
 
   useEffect(() => {
-   if(response){
-    console.log(response, "response verify email");
-    const hasShown = sessionStorage.getItem("hasShownToast");
+    if (response) {
+      console.log(response, "response verify email");
+      const hasShown = sessionStorage.getItem("hasShownToast");
       if (!hasShown) {
-        if (response?.status === true ) {
+        if (response?.status === true) {
           toast.success(response?.message)
         } else {
           toast.error(response?.message)
         }
         sessionStorage.setItem("hasShownToast", "true");
       }
-    
-   }
+
+    }
   }, [response])
 
-  const handleOnSubmit = async (event:any) => {
+  async function loginApi(email: any, password: any) {
+
+    let baseUrl = 'http://localhost:9000/api/';
+    const response = await fetch(`${baseUrl}login`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        password: password,
+      }),
+    })
+
+    const result = await response.json()
+    // if (result.status_code==200) {
+    //   cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    //   cookies().set({name:"role",value:"client",httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    // }
+    return result
+  }
+
+  const handleOnSubmit = async (event: any) => {
     event.preventDefault()
     if (email !== '' && password !== '') {
       setButtonStatus({ loading: true, disabled: true })
@@ -73,7 +94,7 @@ export function LoginForm({ response }: { response?: Response }) {
     }
   }
 
-  const handleSocketEvent = (userId:any) => {
+  const handleSocketEvent = (userId: any) => {
     if (socket) {
       socket.on('user-logged-in', () => {
         socket.emit('join', userId);
@@ -81,17 +102,17 @@ export function LoginForm({ response }: { response?: Response }) {
     }
   }
 
-  const handleEmailOnChange = (event:any) => {
+  const handleEmailOnChange = (event: any) => {
     setEmail(event.target.value.trim())
     blankValidation(event.target.value.trim(), password)
   }
 
-  const handlePasswordOnChange = (event:any) => {
+  const handlePasswordOnChange = (event: any) => {
     setPassword(event.target.value.trim())
     blankValidation(email, event.target.value.trim())
   }
 
-  const blankValidation = (email:any, password:any) => {
+  const blankValidation = (email: any, password: any) => {
     if (email === '' || password === '') {
       setButtonStatus({ ...buttonStatus, disabled: true })
     } else {
@@ -255,7 +276,7 @@ export function LoginForm({ response }: { response?: Response }) {
 
             {/* Additional Links */}
             <div className="flex items-center justify-center">
-            
+
               <div className="text-sm">
                 <span className="text-gray-600">Don't have an account? </span>
                 <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
