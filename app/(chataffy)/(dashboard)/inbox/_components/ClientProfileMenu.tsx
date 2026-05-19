@@ -302,11 +302,20 @@ export default function ClientProfileMenu({
 
   const handleLogout = async () => {
     try {
-      await logoutApi();
+      // await logoutApi();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const result = await response.json();
+      if (result.status === true) {
+        localStorage.clear();
+        dispatchAuthStorageSync();
+        router.replace('/login');
+      }
     } catch { }
-    localStorage.clear();
-    dispatchAuthStorageSync();
-    router.replace('/login');
   };
 
   const displayEmail =

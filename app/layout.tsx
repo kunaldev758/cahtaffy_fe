@@ -23,12 +23,6 @@ export default function RootLayout({
   return (
     <html lang="en" >
       <head>
-        {process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ? (
-          <meta
-            name="shopify-api-key"
-            content={process.env.NEXT_PUBLIC_SHOPIFY_API_KEY}
-          />
-        ) : null}
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
           rel="stylesheet"
