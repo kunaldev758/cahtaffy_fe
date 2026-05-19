@@ -36,15 +36,22 @@ export function PlatformLogin() {
       }
 
       try {
-        // const result = await platformLoginApi(clientId);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/platform-redirection-login/${userId}`,{
-            method: 'GET',
-            credentials: 'include',
+        if (typeof window !== "undefined") {
+          localStorage.setItem("logoutPlatform", "web");
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_HOST}/api/platform-redirection-login/${userId}`,
+          {
+            method: "GET",
+            credentials: "include",
             headers: {
-                'Content-Type': 'application/json',
+              "Content-Type": "application/json",
+              "x-chataffy-platform": "web",
             },
-        })
-          const result = await response.json()
+          },
+        );
+        const result = await response.json();
         console.log(result, "<---result platform login");
         if (result?.status_code !== 200 || !result?.userId) {
           router.replace(`${appUrl}login`);

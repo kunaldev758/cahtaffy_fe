@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { hasAuthTokenCookie } from "./lib/clientCookie";
+import { hasAuthTokenCookie, hasWebAuthTokenCookie } from "./lib/clientCookie";
 import {
   respondWidgetEmbedResolve,
   respondWidgetEmbedScript,
@@ -108,6 +108,11 @@ export async function middleware(request: NextRequest) {
     currentUserRole === "client" &&
     clientLoginSignupRoutes.includes(pathname)
   ) {
+    // Web redirect logout clears only TOKEN_*; allow /login when no web session remains
+    if (pathname === "/login" && !hasWebAuthTokenCookie(request)) {
+      return NextResponse.next();
+    }
+
     return NextResponse.redirect(
       new URL(
         hasBasePathPrefix ? basePathPrefix + "/dashboard" : "/dashboard",

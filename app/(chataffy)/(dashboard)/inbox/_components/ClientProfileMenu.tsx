@@ -3,6 +3,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { User, LogOut, ChevronDown, CreditCard } from "lucide-react";
 import { getToken, logoutApi } from '@/app/_api/dashboard/action';
+import {
+  clearRedirectWebAuthLocalStorage,
+  getClientId,
+  getLogoutPlatform,
+} from '@/lib/clientCookie';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
@@ -302,15 +307,34 @@ export default function ClientProfileMenu({
 
   const handleLogout = async () => {
     try {
-      // await logoutApi();
+      const logoutPlatform = getLogoutPlatform();
+      const isRedirectWebLogout =
+        logoutPlatform === 'web' &&
+        (provider === 'shopify' || provider === 'bigcommerce');
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-chataffy-platform': logoutPlatform,
+          'x-chataffy-client-id': getClientId(logoutPlatform),
+        },
+        body: JSON.stringify({ platform: logoutPlatform }),
       });
 
       const result = await response.json();
       if (result.status === true) {
+        if (isRedirectWebLogout) {
+          clearRedirectWebAuthLocalStorage();
+          dispatchAuthStorageSync();
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
+          window.location.assign(
+            appUrl.endsWith('/') ? `${appUrl}login` : `${appUrl}/login`,
+          );
+          return;
+        }
+
         localStorage.clear();
         dispatchAuthStorageSync();
         router.replace('/login');

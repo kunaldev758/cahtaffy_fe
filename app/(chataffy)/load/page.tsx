@@ -71,6 +71,7 @@ function LoadPageContent() {
             localStorage.setItem("provider", "bigcommerce");
             localStorage.setItem("bcStoreHash", bigcommerceStoreHash || "");
             localStorage.setItem("signedPayloadJwt", signedPayload || "");
+            localStorage.removeItem("logoutPlatform");
             localStorage.removeItem("id_token");
             localStorage.removeItem("shopifyShop");
             dispatchAuthStorageSync();
@@ -117,6 +118,7 @@ function LoadPageContent() {
               localStorage.setItem("provider", "shopify");
               localStorage.setItem("shopifyShop", shopifyShop || shop || "");
               localStorage.setItem("id_token", id_token || "");
+              localStorage.removeItem("logoutPlatform");
               localStorage.removeItem("signedPayloadJwt");
               localStorage.removeItem("bcStoreHash");
               dispatchAuthStorageSync();

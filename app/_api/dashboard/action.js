@@ -5,6 +5,7 @@ import {
   isAuthTokenCookieName,
   LEGACY_TOKEN_COOKIE,
   readTokenFromCookieStore,
+  TOKEN_KEYS,
 } from '@/lib/clientCookie';
 
 export const getToken = async () => {
@@ -48,13 +49,18 @@ function syncTokenFromSetCookieHeader(setCookieHeader) {
 }
 
 async function fetchData(endpoint, requestData = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: getAuthorizationHeader(),
+  };
+  if (requestData.platform) {
+    headers['x-chataffy-platform'] = requestData.platform;
+  }
+
   const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
     method: 'POST',
     cache: 'no-cache',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: getAuthorizationHeader()
-    },
+    headers,
     body: JSON.stringify(requestData)
   });
   const data = await response.json();
@@ -290,14 +296,32 @@ export async function updateOnboardingStepApi(agentId, step, websiteUrl, extract
 }
 
 
-export async function logoutApi() {
+export async function logoutApi(platform) {
   const cookieStore = cookies();
+  const cookiePrefix = platform ? (TOKEN_KEYS[platform] || TOKEN_KEYS.web) : null;
+
   for (const cookie of cookieStore.getAll()) {
-    if (cookie.name === 'role' || isAuthTokenCookieName(cookie.name) || cookie.name === LEGACY_TOKEN_COOKIE) {
+    const isAuth =
+      isAuthTokenCookieName(cookie.name) || cookie.name === LEGACY_TOKEN_COOKIE;
+
+    if (!isAuth && cookie.name !== 'role') continue;
+
+    if (cookiePrefix) {
+      if (
+        cookie.name.startsWith(`${cookiePrefix}_`) ||
+        (platform === 'web' && cookie.name === LEGACY_TOKEN_COOKIE)
+      ) {
+        cookieStore.delete(cookie.name);
+      }
+      continue;
+    }
+
+    if (isAuth || cookie.name === 'role') {
       cookieStore.delete(cookie.name);
     }
   }
-  return await fetchData('logout');
+
+  return await fetchData('logout', platform ? { platform } : {});
 }
 
 // Human Agent API functions
