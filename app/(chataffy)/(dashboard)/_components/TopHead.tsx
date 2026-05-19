@@ -44,13 +44,16 @@ export default function TopHead({
     const handleOpenWebsite = async () => {
       const shop = localStorage.getItem('shopifyShop')
       const signedPayloadJwt = localStorage.getItem('signedPayloadJwt') 
-      const id_token = localStorage.getItem('id_token')
+      const sf_params = localStorage.getItem('sf_params')
       const params = new URLSearchParams()
     
       if (provider === 'shopify') {
         if (shop) params.set('shop', shop)
     
-        if (id_token) params.set('id_token', id_token)
+          if (sf_params) {
+            const savedParams = new URLSearchParams(sf_params);
+            savedParams.forEach((value, key) => params.set(key, value));
+          }
       }
     
       if (provider === 'bigcommerce') {

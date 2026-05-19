@@ -42,9 +42,9 @@ function LoadPageContent() {
       });
       return;
     }
-    // window.location.href = url;
+    window.location.href = url;
      // 👇 New tab — do NOT redirect to Shopify
-    return false;
+    // return false;
   }
 
   useEffect(() => {
@@ -71,7 +71,7 @@ function LoadPageContent() {
             localStorage.setItem("provider", "bigcommerce");
             localStorage.setItem("bcStoreHash", bigcommerceStoreHash || "");
             localStorage.setItem("signedPayloadJwt", signedPayload || "");
-            localStorage.removeItem("id_token");
+            localStorage.removeItem("sf_params");
             localStorage.removeItem("shopifyShop");
             dispatchAuthStorageSync();
             handleSocketEvent(result.userId);
@@ -99,9 +99,10 @@ function LoadPageContent() {
 
             // Build params — prefer id_token, fallback to install_token etc.
             const allParams = Object.fromEntries(searchParams?.entries() ?? []);
-            const params = id_token
-              ? { shop, host, id_token } // App Bridge flow (normal load)
-              : allParams; // Post-install flow (install_token)
+            // const params = id_token
+            //   ? { shop, host, id_token } // App Bridge flow (normal load)
+            //   : allParams; // Post-install flow (install_token)
+            const params = allParams;
 
             const res = await axios.get(`${apiBase}/api/shopify/auth/load`, {
               params,
@@ -116,7 +117,7 @@ function LoadPageContent() {
               localStorage.setItem("currentAgentId", agents[0]?._id ?? "");
               localStorage.setItem("provider", "shopify");
               localStorage.setItem("shopifyShop", shopifyShop || shop || "");
-              localStorage.setItem("id_token", id_token || "");
+              localStorage.setItem("sf_params", searchParams?.toString() || "");
               localStorage.removeItem("signedPayloadJwt");
               localStorage.removeItem("bcStoreHash");
               dispatchAuthStorageSync();
