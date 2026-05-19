@@ -111,6 +111,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   // Fetch notifications from REST API and merge with any existing optimistic entries.
   // If the API returns an empty array we deliberately keep the current state so that
   // real-time optimistic entries (added via socket events) are never wiped out.
+
+  // notifications to check 
   const fetchNotifications = useCallback(async (reset = false) => {
     if (!humanAgentId) return;
     if (reset) {
