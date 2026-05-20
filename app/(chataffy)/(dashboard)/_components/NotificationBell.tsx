@@ -127,6 +127,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         `${apiBase}notifications/agent/${humanAgentId}?page=${currentPage}&limit=20`,
         { headers: { Authorization: token || "" } }
       );
+
+      console.log("fetching notifications for agentId:", humanAgentId, "page:", currentPage);
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data?.data) || data?.data?.length === 0) {

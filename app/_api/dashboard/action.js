@@ -308,6 +308,7 @@ export async function logoutApi(platform) {
 
     if (cookiePrefix) {
       if (
+        cookie.name === cookiePrefix ||
         cookie.name.startsWith(`${cookiePrefix}_`) ||
         (platform === 'web' && cookie.name === LEGACY_TOKEN_COOKIE)
       ) {
