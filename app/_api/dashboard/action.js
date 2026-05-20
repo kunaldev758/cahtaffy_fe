@@ -4,6 +4,7 @@ import {
   getTokenCookieName,
   isAuthTokenCookieName,
   LEGACY_TOKEN_COOKIE,
+  readAllTokensFromCookieStore,
   readTokenFromCookieStore,
   TOKEN_KEYS,
 } from '@/lib/clientCookie';
@@ -15,7 +16,9 @@ export const getToken = async () => {
 const ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
 
 function getAuthorizationHeader() {
-  return readTokenFromCookieStore(cookies()) || '';
+  const tokens = readAllTokensFromCookieStore(cookies());
+  if (!tokens.length) return '';
+  return `Bearer ${tokens.join(',')}`;
 }
 
 function syncTokenFromSetCookieHeader(setCookieHeader) {
