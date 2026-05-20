@@ -49,6 +49,7 @@ export function LoginForm({ response }: { response?: Response }) {
 
   async function loginApi(email: any, password: any) {
 
+    // TODO: Remove this after testing
     let baseUrl = 'http://localhost:9000/api/';
     const response = await fetch(`${baseUrl}login`, {
       method: 'POST',
