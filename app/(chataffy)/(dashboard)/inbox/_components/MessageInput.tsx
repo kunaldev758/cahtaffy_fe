@@ -1,5 +1,6 @@
 "use client";
 import { getToken } from "@/app/_api/dashboard/action";
+import { getPlatform } from "@/lib/clientCookie";
 import { Send, Mic, MessageCircle, StickyNote, X, Mic2, Square, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Socket } from 'socket.io-client';
@@ -312,7 +313,7 @@ export default function MessageInput({
     setSpeechError(null);
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:9001';
-      const token = await getToken() || '';
+      const token = (await getToken(getPlatform())) || '';
       const ext = voiceBlob.type.includes('mp4') ? 'mp4' : 'webm';
       const formData = new FormData();
       formData.append('audio', voiceBlob, `voice-note.${ext}`);

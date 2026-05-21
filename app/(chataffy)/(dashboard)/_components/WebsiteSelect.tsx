@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronDown, Globe, Loader2, Plus } from 'lucide-react'
 import { getAIAgents } from '@/app/_api/dashboard/action'
+import { getPlatform } from '@/lib/clientCookie'
 import { createAIAgentApi } from '@/app/_api/login/action'
 import { toast } from 'react-toastify'
 import { usePlanContext } from '@/app/planContext'
@@ -46,7 +47,7 @@ export default function WebsiteSelect() {
     ;(async () => {
       setIsAgentLoading(true)
       try {
-        const data = await getAIAgents()
+        const data = await getAIAgents(getPlatform())
         setAgents(Array.isArray(data) ? data : [])
         if(data.length > 0) {
           window.localStorage.setItem('agents', JSON.stringify(data))

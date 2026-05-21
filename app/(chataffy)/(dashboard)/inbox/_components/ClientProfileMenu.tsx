@@ -7,6 +7,7 @@ import {
   clearRedirectWebAuthLocalStorage,
   getClientId,
   getLogoutPlatform,
+  getPlatform,
 } from '@/lib/clientCookie';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { useRouter } from 'next/navigation';
@@ -278,7 +279,7 @@ export default function ClientProfileMenu({
     const newStatus = !isOnline;
 
     try {
-      const response = await updateClientStatus(newStatus);
+      const response = await updateClientStatus(newStatus, getPlatform());
       if (response === 'error' || (response && response.status_code !== 200)) {
         throw new Error(response?.message || 'Failed to update client status');
       }

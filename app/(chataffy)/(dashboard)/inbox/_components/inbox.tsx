@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { getConversationMessages, getOldConversationMessages, getClientData } from "@/app/_api/dashboard/action";
+import { getPlatform } from "@/lib/clientCookie";
 import { useSocketManager } from "./hooks/useSocketManager";
 import ReviseAnswerModal from "./ReviseAnswerModal";
 
@@ -134,7 +135,7 @@ export default function Inbox(Props: any) {
       // Always fetch client data from API to ensure we have the latest status
       const fetchClientData = async () => {
         try {
-          const data = await getClientData();
+          const data = await getClientData(getPlatform());
           console.log('Fetched client data from API:', data);
           // Use clientAgent if available, otherwise fallback to client
           if (data && data.clientAgent) {

@@ -5,6 +5,7 @@ import { Bell, Bot } from "lucide-react";
 import { useSocket } from "@/app/socketContext";
 import { useRouter, usePathname } from "next/navigation";
 import { getToken } from "@/app/_api/dashboard/action";
+import { getPlatform } from "@/lib/clientCookie";
 
 interface NotificationItem {
   _id: string;
@@ -106,7 +107,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     } catch { }
   }, []);
 
-  const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}api/`;
+  const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
 
   // Fetch notifications from REST API and merge with any existing optimistic entries.
   // If the API returns an empty array we deliberately keep the current state so that
@@ -121,7 +122,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
       isFetchingRef.current = false;
     }
     try {
-      const token = await getToken() || '';
+      const token = (await getToken(getPlatform())) || '';
       const currentPage = page.current;
       const res = await fetch(
         `${apiBase}notifications/agent/${humanAgentId}?page=${currentPage}&limit=20`,
@@ -172,7 +173,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     isFetchingRef.current = true;
   
     try {
-      const token = await getToken() || '';
+      const token = (await getToken(getPlatform())) || '';
       const res = await fetch(
         `${apiBase}notifications/agent/${humanAgentId}?page=${page.current}&limit=20`,
         { headers: { Authorization: token || "" } }
@@ -299,7 +300,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     );
     // if (id.startsWith("tmp-")) return; // optimistic entries have no DB id yet
     try {
-      const token = await getToken() || '';
+      const token = (await getToken(getPlatform())) || '';
       await fetch(
         `${apiBase}notifications/${id}/seen`,
         { method: "PUT", headers: { Authorization: token || "" } }
@@ -329,7 +330,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     if (!humanAgentId) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, isSeen: true })));
     try {
-      const token = await getToken() || '';
+      const token = (await getToken(getPlatform())) || '';
       await fetch(
         `${apiBase}notifications/agent/${humanAgentId}/seen-all`,
         { method: "PUT", headers: { Authorization: token || "" } }

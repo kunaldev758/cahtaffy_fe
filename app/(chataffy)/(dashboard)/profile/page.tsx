@@ -21,6 +21,7 @@ import {
   updateClientPassword,
   uploadAgentAvatar,
 } from '@/app/_api/dashboard/action'
+import { getPlatform } from '@/lib/clientCookie'
 
 function avatarSrc(path: string | null | undefined) {
   if (!path || path === 'null' || !String(path).trim()) return null
@@ -71,7 +72,7 @@ export default function ClientProfileSettingsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getClientProfile()
+      const data = await getClientProfile(getPlatform())
       if (data === 'error' || data?.status_code === 401) {
         toast.error('Session expired. Please sign in again.')
         return
@@ -128,6 +129,7 @@ export default function ClientProfileSettingsPage() {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
+        platform: getPlatform(),
       })
       if (res === 'error' || res?.status_code === 401) {
         toast.error('Session expired')
@@ -151,7 +153,7 @@ export default function ClientProfileSettingsPage() {
       if (avatarFile && clientAgentId) {
         const fd = new FormData()
         fd.append('avatar', avatarFile)
-        const up = await uploadAgentAvatar(fd, clientAgentId)
+        const up = await uploadAgentAvatar(fd, clientAgentId, getPlatform())
         if (up === 'error') {
           toast.error('Profile saved but photo upload failed')
         } else if (up?.status_code === 200 && up?.agent?.avatar) {
