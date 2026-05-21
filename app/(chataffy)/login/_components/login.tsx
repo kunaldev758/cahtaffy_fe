@@ -2,7 +2,7 @@
 // Login Component
 'use client'
 import { useEffect, useState } from 'react'
-import { loginApi, googleOAuthExchange } from '../../../_api/login/action'
+import { googleOAuthExchange } from '../../../_api/login/action'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
@@ -46,6 +46,24 @@ export function LoginForm({ response }: { response?: Response }) {
     
    }
   }, [response])
+
+  const loginApi = async (email:string, password:string) => {
+   try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ email:email.trim(), password:password.trim() }),
+    })
+    const result = await response.json()
+    return result
+   } catch (error: any) {
+    console.error(error)
+    return { status_code: 500, status: false, message: error.message || 'Login failed' }
+   }
+  }
 
   const handleOnSubmit = async (event:any) => {
     event.preventDefault()

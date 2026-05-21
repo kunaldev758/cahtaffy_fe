@@ -6,6 +6,7 @@ import '@/app/globals.css'
 import { SocketProvider } from '../socketContext';
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import PlanProvider from '../planContext';
+import PlatformSessionSync from './_components/PlatformSessionSync';
 import { useEffect, useState } from 'react';
 
 // import { Inter } from 'next/font/google'
@@ -41,6 +42,7 @@ export default function DashboardLayout({
             <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
           </>
         )}
+    <PlatformSessionSync />
     <SocketProvider>
       <PlanProvider>
       {googleClientId ? (

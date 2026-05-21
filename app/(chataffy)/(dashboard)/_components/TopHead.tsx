@@ -45,8 +45,12 @@ export default function TopHead({
       const shop = localStorage.getItem('shopifyShop')
       const signedPayloadJwt = localStorage.getItem('signedPayloadJwt') 
       const sf_params = localStorage.getItem('sf_params')
+      const userId = localStorage.getItem('userId')
       const params = new URLSearchParams()
-    
+      
+      if (userId) {
+        params.set('userId', userId)
+      }
       if (provider === 'shopify') {
         if (shop) params.set('shop', shop)
     
@@ -60,7 +64,7 @@ export default function TopHead({
         if (signedPayloadJwt) params.set('signed_payload_jwt', signedPayloadJwt)
       }
     
-      const url = `${process.env.NEXT_PUBLIC_APP_URL}/load?${params.toString()}`
+      const url = `${process.env.NEXT_PUBLIC_APP_URL}/platform-redirection-login?${params.toString()}`
       window.open(url, '_blank', 'noopener,noreferrer')
     }
 

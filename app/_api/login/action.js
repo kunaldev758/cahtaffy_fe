@@ -3,6 +3,15 @@
 import { cookies } from 'next/headers'
 
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
+
+/** Returns the token cookie value for the current platform. */
+function getSessionToken() {
+  const platform = cookies().get('platform')?.value || 'local';
+  if (platform === 'shopify')     return cookies().get('sf_token')?.value || null;
+  if (platform === 'bigcommerce') return cookies().get('bc_token')?.value || null;
+  return cookies().get('token')?.value || null;
+}
+
 export async function loginAgentApi(email, password) {
   const response = await fetch(`${process.env.API_HOST}agents/login`, {
     method: 'POST',

@@ -15,7 +15,19 @@ export default function AgentLogin() {
     setError("");
     try {
       console.log(email,password,"email pass")
-      const res = await loginAgentApi(email.trim(), password.trim())
+      // const res = await loginAgentApi(email.trim(), password.trim())
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/agents/login`, {
+        method: 'POST',
+        cache:'no-cache',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+        })
+      })
+
+      const res = await response.json()
 
       if (res.message != "Login successful") {
         setError(res.message || "Login failed");

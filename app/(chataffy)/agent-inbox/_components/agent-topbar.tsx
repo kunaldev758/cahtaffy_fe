@@ -220,11 +220,19 @@ export default function AgentTopBar() {
 
   const handleProfileLogout = async () => {
     try {
-      await logoutApi()
+      // await logoutApi()
+      await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
+        credentials: 'include',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
     } catch { /* ignore */ }
     localStorage.clear()
     dispatchAuthStorageSync()
-    router.replace('/login')
+    router.replace('/agent-login')
   }
 
   const toggleHumanStatus = async () => {

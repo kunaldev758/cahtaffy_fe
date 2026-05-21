@@ -59,8 +59,16 @@ export async function middleware(request: NextRequest) {
   // const cookieStore = cookies();
   // const hasToken = cookieStore.has("token");
   // const currentUserRole = cookieStore.get("role")?.value;
-  const hasToken = request.cookies.has("token");
+  // const hasToken = request.cookies.has("token");
   const currentUserRole = request.cookies.get("role")?.value;
+  const platform = request.cookies.get("platform")?.value;
+  const hasToken = request.cookies.get(
+    platform === "shopify"
+      ? "sf_token"
+      : platform === "bigcommerce"
+        ? "bc_token"
+        : "token",
+  )?.value;
 
   // Log ALL requests for debugging
   console.log("[Middleware] 📥 Request:", {

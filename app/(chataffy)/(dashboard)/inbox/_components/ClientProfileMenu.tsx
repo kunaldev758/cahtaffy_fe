@@ -4,6 +4,7 @@ import Image from "next/image";
 import { User, LogOut, ChevronDown, CreditCard } from "lucide-react";
 import { getToken, logoutApi } from '@/app/_api/dashboard/action';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
+import { clearWebAuthStorage } from '@/app/(chataffy)/_lib/embeddedSession';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
 import { useSocket } from '@/app/socketContext';
@@ -302,9 +303,17 @@ export default function ClientProfileMenu({
 
   const handleLogout = async () => {
     try {
-      await logoutApi();
+      // await logoutApi();
+      await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
+        credentials: 'include',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
     } catch { }
-    localStorage.clear();
+    clearWebAuthStorage();
     dispatchAuthStorageSync();
     router.replace('/login');
   };

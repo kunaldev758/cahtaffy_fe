@@ -1,27 +1,40 @@
 'use server'
 import { cookies } from 'next/headers';
 
-export const getToken = async () => {
-  const token = cookies().get('token')?.value
-  if (!token) return null
-  return token
-}
-
 const ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
 
+/**
+ * Returns the cookie name that holds the session token for the current platform.
+ * platform cookie: 'shopify' → sf_token, 'bigcommerce' → bc_token, else → token
+ */
+function getPlatformCookieName() {
+  const platform = cookies().get('platform')?.value || 'local';
+  if (platform === 'shopify')     return 'sf_token';
+  if (platform === 'bigcommerce') return 'bc_token';
+  return 'token';
+}
+
+/** Returns the active session token for the current platform, or null if none. */
+export const getToken = async () => {
+  const cookieName = getPlatformCookieName();
+  return cookies().get(cookieName)?.value || null;
+}
+
 function getAuthorizationHeader() {
-  return cookies().get('token')?.value || '';
+  const cookieName = getPlatformCookieName();
+  return cookies().get(cookieName)?.value || '';
 }
 
 function syncTokenFromSetCookieHeader(setCookieHeader) {
   if (!setCookieHeader) return;
 
-  const token = setCookieHeader.match(/(?:^|,\s*)token=([^;]+)/)?.[1];
-  console.log("token from setCookieHeader ----> ",token)
+  const cookieName = getPlatformCookieName();
+  const token = setCookieHeader.match(new RegExp(`(?:^|,\\s*)${cookieName}=([^;]+)`))?.[1];
+  console.log("token from setCookieHeader ----> ", token)
   if (!token) return;
 
   cookies().set({
-    name: 'token',
+    name: cookieName,
     value: token,
     httpOnly: true,
     sameSite: 'lax',
