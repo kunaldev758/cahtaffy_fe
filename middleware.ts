@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { hasAuthTokenCookie, hasWebAuthTokenCookie } from "./lib/clientCookie";
+import { hasAuthTokenCookie, hasWebAuthTokenCookie, getPlatformFromHostname } from "./lib/clientCookie";
 import {
   respondWidgetEmbedResolve,
   respondWidgetEmbedScript,
@@ -58,10 +58,13 @@ export async function middleware(request: NextRequest) {
     return respondWidgetEmbedScript(embedMatch[1]);
   }
 
+  // Detect platform from hostname (server-side)
+  const detectedPlatform = getPlatformFromHostname(request.nextUrl.hostname);
+
   // const cookieStore = cookies();
   // const hasToken = cookieStore.has("token");
   // const currentUserRole = cookieStore.get("role")?.value;
-  const hasToken = hasAuthTokenCookie(request);
+  const hasToken = hasAuthTokenCookie(request, detectedPlatform);
   const currentUserRole = request.cookies.get("role")?.value;
 
   // Log ALL requests for debugging
@@ -69,6 +72,8 @@ export async function middleware(request: NextRequest) {
     method: request.method,
     originalPathname: request.nextUrl.pathname,
     normalizedPathname: pathname,
+    hostname: request.nextUrl.hostname,
+    detectedPlatform,
     hasToken,
     currentUserRole,
     url: request.url
