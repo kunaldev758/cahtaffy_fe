@@ -312,7 +312,7 @@ export default function ClientProfileMenu({
         logoutPlatform === 'web' &&
         (provider === 'shopify' || provider === 'bigcommerce');
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}api/logout`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {

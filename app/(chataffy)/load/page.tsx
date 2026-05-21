@@ -5,6 +5,8 @@ import { Suspense, useEffect, useState } from "react";
 import { dispatchAuthStorageSync, useSocket } from "../../socketContext";
 import axios from "axios";
 
+import { getPlatform } from "@/lib/clientCookie";
+
 // Extend window type for App Bridge
 declare global {
   interface Window {
@@ -47,7 +49,11 @@ function LoadPageContent() {
     return false;
   }
 
+  console.log("Platform check on load page -->", getPlatform());
+
   useEffect(() => {
+
+    console.log("platform name check--> ",window.location.href);
     const verifyAndRedirect = async () => {
       try {
         const signedPayload = searchParams?.get("signed_payload_jwt");
@@ -103,6 +109,9 @@ function LoadPageContent() {
             const params = id_token
               ? { shop, host, id_token } // App Bridge flow (normal load)
               : allParams; // Post-install flow (install_token)
+
+
+            
 
             const res = await axios.get(`${apiBase}/api/shopify/auth/load`, {
               params,

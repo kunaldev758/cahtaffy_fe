@@ -50,8 +50,8 @@ export function LoginForm({ response }: { response?: Response }) {
   async function loginApi(email: any, password: any) {
 
     // TODO: Remove this after testing
-    let baseUrl = 'http://localhost:9000/api/';
-    const response = await fetch(`${baseUrl}login`, {
+    let baseUrl = `${process.env.NEXT_PUBLIC_API_HOST }/api`;
+    const response = await fetch(`${baseUrl}/login`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
