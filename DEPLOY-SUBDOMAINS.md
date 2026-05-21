@@ -10,7 +10,14 @@
 
 Old paths under `/chataffy/cahtaffy_fe/*` return **301** to the correct host (production only).
 
-## Frontend env (see `.env.portal.example`)
+## Env templates (committed)
+
+| File | Use |
+|------|-----|
+| `new-backend/env.production.example` | Copy to EC2 `chataffy/chataffy/.env` for production |
+| `new-frontend/cahtaffy_fe/env.production.example` | Copy to EC2 `cahtaffy_fe/.env` before `npm run build` |
+
+## Frontend env (see `env.production.example`)
 
 ```env
 APP_ENV=production
@@ -21,16 +28,19 @@ NEXT_PUBLIC_AGENT_URL=https://agent.chataffy.com/
 NEXT_PUBLIC_APP_URL=https://dashboard.chataffy.com/
 ```
 
-## Backend env
+## Backend env (see `env.production.example`)
 
 ```env
-AUTH_COOKIE_DOMAIN=.chataffy.com
-CORS_ORIGINS=https://chataffy.com,https://www.chataffy.com,https://dashboard.chataffy.com,https://agent.chataffy.com
+BASE_URL=https://chataffy.com/
 CLIENT_URL=https://dashboard.chataffy.com/
 AGENT_URL=https://agent.chataffy.com/
 SHOPIFY_APP_LOAD_URL=https://dashboard.chataffy.com/
-BASE_URL=https://chataffy.com/
+AUTH_COOKIE_DOMAIN=.chataffy.com
+CORS_ORIGINS=https://chataffy.com,https://www.chataffy.com,https://dashboard.chataffy.com,https://agent.chataffy.com
+ENVIRONMENT=production
 ```
+
+Frontend API calls use `https://chataffy.com/api/` (nginx `/api/` → port 9000), not `/chataffy/chataffy/`.
 
 ## Nginx
 
