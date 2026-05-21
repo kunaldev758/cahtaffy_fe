@@ -16,7 +16,7 @@ import '../../globals.css'
 type SetupTab = 'web' | 'docs' | 'faqs'
 type SetupStep = 'source' | 'train' | 'widget'
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL
 
 export default function OnboardingPage() {
     const router = useRouter()

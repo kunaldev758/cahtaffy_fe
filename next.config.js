@@ -1,12 +1,19 @@
 /** @type {import('next').NextConfig} */
 const isProduction = process.env.APP_ENV === 'production';
 
-const basePath = isProduction?'/chataffy/cahtaffy_fe':'';
 const nextConfig = {
   reactStrictMode: false,
-  basePath,
+  basePath: '',
   env: {
-    NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_BASE_PATH: '',
+    NEXT_PUBLIC_MARKETING_URL:
+      process.env.NEXT_PUBLIC_MARKETING_URL || 'https://chataffy.com/',
+    NEXT_PUBLIC_DASHBOARD_URL:
+      process.env.NEXT_PUBLIC_DASHBOARD_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'https://dashboard.chataffy.com/',
+    NEXT_PUBLIC_AGENT_URL:
+      process.env.NEXT_PUBLIC_AGENT_URL || 'https://agent.chataffy.com/',
   },
   experimental: {
     serverActions: {
@@ -16,18 +23,27 @@ const nextConfig = {
           "127.0.0.1:9001",
           "34.213.132.47",
           "chataffy.com",
-          "www.chataffy.com"
+          "www.chataffy.com",
+          "dashboard.chataffy.com",
+          "agent.chataffy.com",
         ],
         bodySizeLimit: '20mb',
     },
   },
   images: {
-    domains: ['localhost','34.213.132.47','chataffy.com','www.chataffy.com','flagcdn.com'],
+    domains: [
+      'localhost',
+      '34.213.132.47',
+      'chataffy.com',
+      'www.chataffy.com',
+      'dashboard.chataffy.com',
+      'agent.chataffy.com',
+      'flagcdn.com',
+    ],
   },
   async headers() {
     return [
       {
-        // Allow the widget page to be embedded as an iframe on any external site
         source: '/openai/widget/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'ALLOWALL' },
@@ -35,8 +51,6 @@ const nextConfig = {
         ],
       },
       {
-        // Serve the loader script with explicit JS content-type (browsers expect
-        // application/javascript for <script src>, not text/html)
         source: '/widget-loader.js',
         headers: [
           { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
@@ -52,7 +66,6 @@ const nextConfig = {
           { key: 'Access-Control-Allow-Origin', value: '*' },
         ],
       },
-    
     ];
   },
 }

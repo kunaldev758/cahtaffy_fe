@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { directClientLoginApi } from "../../../_api/login/action";
 import { dispatchAuthStorageSync } from "../../../socketContext";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
 
 export function PlatformRedirectionLoginClient() {
   const router = useRouter();

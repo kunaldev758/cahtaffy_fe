@@ -9,7 +9,7 @@ import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useGoogleLogin } from '@react-oauth/google'
-const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
 
 interface Response {
   status_code: number;

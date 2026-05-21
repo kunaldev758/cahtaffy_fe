@@ -415,7 +415,8 @@ const PaymentFlow = () => {
 
   const handleContinueToDashboard = () => {
     // Redirect to dashboard or wherever you want
-    window.location.href = process.env.NEXT_PUBLIC_APP_URL+'dashboard';
+    const base = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/'
+    window.location.href = base + (base.endsWith('/') ? '' : '/') + 'dashboard';
   };
 
   // Updated Pricing Page with checkout integration

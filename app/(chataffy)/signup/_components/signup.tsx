@@ -10,7 +10,7 @@ import { CheckCircleIcon, EyeIcon, EyeOffIcon, ScanEyeIcon, XCircleIcon } from '
 import { useGoogleLogin } from '@react-oauth/google'
 import { useRouter } from 'next/navigation'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
-const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
 
 export function RegistrationForm() {
   const { socket } = useSocket();

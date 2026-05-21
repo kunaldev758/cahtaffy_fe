@@ -185,19 +185,19 @@ const ChataffyWebsite = () => {
               <button onClick={() => scrollToSection('about')} className="text-gray-700 hover:text-gray-900">About</button>
               <button onClick={() => scrollToSection('contact')} className="text-gray-700 hover:text-gray-900">Contact</button>
               <button 
-                onClick={() => window.location.href = process.env.NEXT_PUBLIC_APP_URL+'signup'} 
+                onClick={() => window.location.href = (process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.chataffy.com/') + 'signup'} 
                 className={`${theme.primary} ${theme.primaryHover} text-white px-4 py-2 rounded-lg transition-colors`}
               >
                 Get Started
               </button>
               <button 
-                onClick={() => window.location.href = process.env.NEXT_PUBLIC_APP_URL+'login'} 
+                onClick={() => window.location.href = (process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.chataffy.com/') + 'login'} 
                 className={`${theme.primary} ${theme.primaryHover} text-white px-4 py-2 rounded-lg transition-colors`}
               >
                 SignIn as User
               </button>
               <button 
-                onClick={() => window.location.href = process.env.NEXT_PUBLIC_APP_URL+'agent-login'} 
+                onClick={() => window.location.href = (process.env.NEXT_PUBLIC_AGENT_URL || 'https://agent.chataffy.com/') + 'agent-login'} 
                 className={`${theme.primary} ${theme.primaryHover} text-white px-4 py-2 rounded-lg transition-colors`}
               >
                 SignIn as Agent

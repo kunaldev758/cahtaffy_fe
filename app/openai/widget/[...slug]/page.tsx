@@ -317,7 +317,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
       try {
         // Construct audio path with basePath support for production
-        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/chataffy/cahtaffy_fe';
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
         const audioPath = `${basePath}/audio/notification.mp3`;
         const audio = new Audio(audioPath);
         data.chatMessage.sender_type != 'visitor' && audio.play().catch((err) => {
@@ -1333,7 +1333,7 @@ export default function EnhancedChatWidget({ params }: any) {
                         {(themeSettings as any)?.logo ? (
                           <img src={clientLogo} alt="Logo" className="w-11 h-11 min-w-11 min-h-11 rounded-full object-cover" />
                         ) : (
-                          <img src={`${process.env.NEXT_PUBLIC_APP_URL}${selectedLogo}`} alt="Logo" className="w-9 h-9 rounded-full" />
+                          <img src={`${process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || ''}${selectedLogo}`} alt="Logo" className="w-9 h-9 rounded-full" />
                         )}
                       </div>
                     )}

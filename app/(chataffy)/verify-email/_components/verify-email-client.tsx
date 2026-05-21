@@ -7,7 +7,7 @@ import { verifyEmailApi, setClientSessionCookies } from '../../../_api/login/act
 import { useSocket, dispatchAuthStorageSync } from '../../../socketContext'
 import { LoginForm } from '../../login/_components/login'
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL
+const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/'
 const TOAST_ID = 'verify-email-result'
 
 export function VerifyEmailClient() {

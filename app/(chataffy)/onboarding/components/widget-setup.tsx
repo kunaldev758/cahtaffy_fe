@@ -329,7 +329,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
   const [isUploading, setIsUploading] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const [embedScript, setEmbedScript] = useState('')
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://chataffy.com/'
+  const appBaseUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://dashboard.chataffy.com/'
   const [shortEmbedSnippet, setShortEmbedSnippet] = useState(
     `<script src="${appBaseUrl}widget-loader.js"></script>`,
   )

@@ -64,7 +64,8 @@ export default function TopHead({
         if (signedPayloadJwt) params.set('signed_payload_jwt', signedPayloadJwt)
       }
     
-      const url = `${process.env.NEXT_PUBLIC_APP_URL}/platform-redirection-login?${params.toString()}`
+      const base = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || ''
+      const url = `${base.replace(/\/$/, '')}/platform-redirection-login?${params.toString()}`
       window.open(url, '_blank', 'noopener,noreferrer')
     }
 

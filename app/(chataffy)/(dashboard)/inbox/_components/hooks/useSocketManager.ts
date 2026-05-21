@@ -382,7 +382,7 @@ export const useSocketManager = ({
         console.log("Agent connection notification received:", data);
         // Play notification sound (first delivery only)
         try {
-          const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/chataffy/cahtaffy_fe';
+          const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
           const audioPath = `${basePath}/audio/notification.mp3`;
           const audio = new Audio(audioPath);
           audio.play().catch((err) => {
@@ -398,14 +398,11 @@ export const useSocketManager = ({
         const userRole = localStorage.getItem("role");
         const baseUrl = window.location.origin;
         const currentPath = window.location.pathname;
-        const basePathPrefix = "/chataffy/cahtaffy_fe";
-
-        const normalizedCurrentPath = currentPath.replace(basePathPrefix, "");
 
         let inboxPath = "/inbox";
-        if (normalizedCurrentPath.startsWith("/agent-inbox")) {
+        if (currentPath.startsWith("/agent-inbox")) {
           inboxPath = "/agent-inbox";
-        } else if (normalizedCurrentPath.startsWith("/inbox")) {
+        } else if (currentPath.startsWith("/inbox")) {
           inboxPath = "/inbox";
         } else {
           const agentData = localStorage.getItem("agent");
@@ -413,11 +410,7 @@ export const useSocketManager = ({
           inboxPath = isAgent ? "/agent-inbox" : "/inbox";
         }
 
-        const isProduction = currentPath.startsWith(basePathPrefix);
-
-        const chatUrl = isProduction
-          ? `${baseUrl}${basePathPrefix}${inboxPath}?conversationId=${data.conversationId}`
-          : `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
+        const chatUrl = `${baseUrl}${inboxPath}?conversationId=${data.conversationId}`;
 
         console.log("Agent connection notification - URL:", chatUrl, "Role:", userRole, "CurrentPath:", currentPath, "InboxPath:", inboxPath, "ConversationId:", data.conversationId);
 
@@ -440,7 +433,7 @@ export const useSocketManager = ({
             }
 
             const pathNow = window.location.pathname;
-            const normalizePath = (path: string) => path.replace(/\/chataffy\/cahtaffy_fe/, "").replace(/\/$/, "");
+            const normalizePath = (path: string) => path.replace(/\/$/, "");
             const normalizedCurrent = normalizePath(pathNow);
             const normalizedInbox = normalizePath(inboxPath);
             const isOnInboxPage = normalizedCurrent === normalizedInbox;

@@ -1,29 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   respondWidgetEmbedResolve,
   respondWidgetEmbedScript,
 } from "./app/_api/widget-embed/action.js";
+import {
+  absolutePortalUrl,
+  getDashboardUrl,
+  getMarketingUrl,
+  getPortalFromHost,
+  isAgentPath,
+  isMarketingOnlyPath,
+  isProductionPortalRouting,
+  LEGACY_BASE_PATH,
+  stripLegacyBasePath,
+  type Portal,
+} from "./lib/portalUrls";
+
+function portalForPath(pathname: string): Portal {
+  if (isAgentPath(pathname)) return "agent";
+  if (isMarketingOnlyPath(pathname)) return "marketing";
+  return "dashboard";
+}
 
 export async function middleware(request: NextRequest) {
-  let { pathname } = request.nextUrl;
+  const host = request.headers.get("host") || "";
+  const portal = getPortalFromHost(host);
   const rawPathname = new URL(request.url).pathname;
-  const appUrl: any = process.env.NEXT_PUBLIC_APP_URL;
+  let pathname = request.nextUrl.pathname;
 
-  const baseUrl = appUrl.endsWith("/") ? appUrl : appUrl + "/";
-
-  // Normalize pathname by removing base path prefix if present (for production)
-  // This handles paths like /chataffy/cahtaffy_fe/agent-inbox -> /agent-inbox
-  const basePathPrefix = "/chataffy/cahtaffy_fe";
-  const hasBasePathPrefix =
-    rawPathname.startsWith(basePathPrefix) ||
-    request.nextUrl.basePath === basePathPrefix;
-  if (pathname.startsWith(basePathPrefix)) {
-    pathname = pathname.slice(basePathPrefix.length) || "/";
+  // Legacy path prefix → strip and optionally 301 to correct subdomain
+  if (rawPathname.startsWith(LEGACY_BASE_PATH)) {
+    const stripped = stripLegacyBasePath(rawPathname);
+    const search = request.nextUrl.search;
+    if (isProductionPortalRouting()) {
+      const targetPortal = portalForPath(stripped);
+      const dest = absolutePortalUrl(targetPortal, stripped, search);
+      return NextResponse.redirect(dest, 301);
+    }
+    pathname = stripped;
   }
 
-  // With basePath, URLs look like /chataffy/cahtaffy_fe/_next/... — the matcher still
-  // runs middleware here, so we must not redirect static assets or the session probe.
+  // Static / embed assets — no auth redirects
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/images") ||
@@ -41,9 +58,9 @@ export async function middleware(request: NextRequest) {
     return await respondWidgetEmbedResolve(request.url);
   }
 
-  const widEqPath = pathname.match(/^\/wid=([a-f0-9]{24})\/?$/i)
+  const widEqPath = pathname.match(/^\/wid=([a-f0-9]{24})\/?$/i);
   if (request.method === "GET" && widEqPath) {
-    return respondWidgetEmbedScript(widEqPath[1])
+    return respondWidgetEmbedScript(widEqPath[1]);
   }
 
   const wShort = pathname.match(/^\/w\/([^/]+)\/?$/);
@@ -56,10 +73,47 @@ export async function middleware(request: NextRequest) {
     return respondWidgetEmbedScript(embedMatch[1]);
   }
 
-  // const cookieStore = cookies();
-  // const hasToken = cookieStore.has("token");
-  // const currentUserRole = cookieStore.get("role")?.value;
-  // const hasToken = request.cookies.has("token");
+  // Host-based routing (production subdomains only)
+  if (portal !== "all") {
+    const pathPortal = portalForPath(pathname);
+    const visitorAllowedPrefix = "/openai/widget";
+    const widgetAssetPaths =
+      pathname.startsWith(visitorAllowedPrefix) ||
+      pathname.startsWith("/_api/widget-embed") ||
+      pathname.startsWith("/w/") ||
+      pathname.match(/^\/wid=/);
+
+    if (portal === "marketing") {
+      if (!isMarketingOnlyPath(pathname) && !widgetAssetPaths) {
+        const target: Portal = pathPortal;
+        return NextResponse.redirect(
+          absolutePortalUrl(target, pathname, request.nextUrl.search),
+        );
+      }
+    } else if (portal === "dashboard") {
+      if (isAgentPath(pathname)) {
+        return NextResponse.redirect(
+          absolutePortalUrl("agent", pathname, request.nextUrl.search),
+        );
+      }
+      if (isMarketingOnlyPath(pathname)) {
+        return NextResponse.redirect(getDashboardUrl());
+      }
+    } else if (portal === "agent") {
+      if (!isAgentPath(pathname) && !widgetAssetPaths) {
+        const dest = isAgentPath(pathname)
+          ? pathname
+          : "/agent-login";
+        return NextResponse.redirect(
+          absolutePortalUrl("agent", dest, request.nextUrl.search),
+        );
+      }
+    }
+  }
+
+  const marketingUrl = getMarketingUrl();
+  const dashboardUrl = getDashboardUrl();
+
   const currentUserRole = request.cookies.get("role")?.value;
   const platform = request.cookies.get("platform")?.value;
   const hasToken = request.cookies.get(
@@ -70,31 +124,23 @@ export async function middleware(request: NextRequest) {
         : "token",
   )?.value;
 
-  // Log ALL requests for debugging
-  console.log("[Middleware] 📥 Request:", {
-    method: request.method,
-    originalPathname: request.nextUrl.pathname,
-    normalizedPathname: pathname,
-    hasToken,
-    currentUserRole,
-    url: request.url
-  });
-
-
   const directClientLoginPrefix = "/direct-client-login";
-  const publicRoutes = ["/login","/signup", "/agent-login", "/agent-accept-invite", "/load"];
-  /** Logged-in clients may visit any route except these auth pages */
+  const publicRoutes = [
+    "/login",
+    "/signup",
+    "/agent-login",
+    "/agent-accept-invite",
+    "/load",
+  ];
   const clientLoginSignupRoutes = ["/login", "/signup"];
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];
   const visitorAllowedPrefix = "/openai/widget";
 
-  // 🚫 Not logged in
-  if(pathname == "/"){
+  if (pathname === "/") {
     return NextResponse.next();
   }
 
   if (!hasToken) {
-    // allow only login/agent-login/accept-invite/widget
     if (
       publicRoutes.includes(pathname) ||
       pathname === directClientLoginPrefix ||
@@ -103,10 +149,26 @@ export async function middleware(request: NextRequest) {
     ) {
       return NextResponse.next();
     }
-    return NextResponse.redirect(baseUrl);
+    const fallback =
+      portal === "agent"
+        ? absolutePortalUrl("agent", "/agent-login")
+        : portal === "dashboard"
+          ? absolutePortalUrl("dashboard", "/login")
+          : marketingUrl;
+    return NextResponse.redirect(fallback);
   }
-  if(hasToken && currentUserRole === "agent" && publicRoutes.includes(pathname) && pathname !== "/agent-accept-invite"){
-    return NextResponse.redirect(new URL(hasBasePathPrefix ? basePathPrefix + '/agent-inbox' : '/agent-inbox', request.url));
+
+  if (
+    hasToken &&
+    currentUserRole === "agent" &&
+    publicRoutes.includes(pathname) &&
+    pathname !== "/agent-accept-invite"
+  ) {
+    const inboxUrl =
+      portal === "agent"
+        ? new URL("/agent-inbox", request.url)
+        : absolutePortalUrl("agent", "/agent-inbox");
+    return NextResponse.redirect(inboxUrl);
   }
 
   if (
@@ -114,67 +176,52 @@ export async function middleware(request: NextRequest) {
     currentUserRole === "client" &&
     clientLoginSignupRoutes.includes(pathname)
   ) {
-    return NextResponse.redirect(
-      new URL(
-        hasBasePathPrefix ? basePathPrefix + "/dashboard" : "/dashboard",
-        request.url
-      )
-    );
+    const dash =
+      portal === "dashboard"
+        ? new URL("/dashboard", request.url)
+        : absolutePortalUrl("dashboard", "/dashboard");
+    return NextResponse.redirect(dash);
   }
 
-  // ✅ Logged in
   if (currentUserRole === "agent") {
-    // Check if pathname matches any agent route (with or without query params)
-    // Remove query string and trailing slash for comparison
-    const pathnameWithoutQuery = pathname.split("?")[0].replace(/\/$/, '');
-    const normalizedAgentRoutes = agentRoutes.map(route => route.replace(/\/$/, ''));
-    
-    // Debug logging (check server console, not browser console)
-    console.log("[Middleware] 🔍 Agent route check - BEFORE decision:", {
-      originalPathname: request.nextUrl.pathname,
-      normalizedPathname: pathname,
-      pathnameWithoutQuery,
-      normalizedAgentRoutes,
-      matches: normalizedAgentRoutes.includes(pathnameWithoutQuery),
-      hasToken,
-      currentUserRole,
-      fullUrl: request.url
-    });
-    
+    const pathnameWithoutQuery = pathname.split("?")[0].replace(/\/$/, "");
+    const normalizedAgentRoutes = agentRoutes.map((route) =>
+      route.replace(/\/$/, ""),
+    );
+
     if (normalizedAgentRoutes.includes(pathnameWithoutQuery)) {
-      console.log("[Middleware] ✅ Allowing agent access to:", pathnameWithoutQuery);
       return NextResponse.next();
     }
-    
-    // If we get here, the route doesn't match - redirect to agent-login
-    console.log("[Middleware] ❌ Route NOT allowed for agent:", {
-      pathnameWithoutQuery,
-      allowedRoutes: normalizedAgentRoutes,
-      redirectingTo: "/agent-login"
-    });
-    const originalPathname = request.nextUrl.pathname;
-    const isProduction = originalPathname.startsWith(basePathPrefix);
-    const redirectPath = isProduction ? `${basePathPrefix}/agent-login` : "/agent-login";
-    const redirectUrl = new URL(redirectPath, request.nextUrl.origin);
-    console.log("[Middleware] 🔄 Redirecting agent to:", redirectUrl.toString());
-    return NextResponse.redirect(redirectUrl);
+
+    const loginUrl =
+      portal === "agent"
+        ? new URL("/agent-login", request.url)
+        : absolutePortalUrl("agent", "/agent-login");
+    return NextResponse.redirect(loginUrl);
   }
 
   if (currentUserRole === "client") {
-    // client can access everything
+    if (portal === "agent" && !pathname.startsWith(visitorAllowedPrefix)) {
+      return NextResponse.redirect(dashboardUrl);
+    }
     return NextResponse.next();
   }
 
-  // If role is missing/invalid but token exists → treat as visitor
   if (pathname.startsWith(visitorAllowedPrefix)) {
     return NextResponse.next();
   }
 
-  return NextResponse.redirect(baseUrl);
+  return NextResponse.redirect(
+    portal === "agent"
+      ? absolutePortalUrl("agent", "/agent-login")
+      : portal === "dashboard"
+        ? dashboardUrl
+        : marketingUrl,
+  );
 }
 
 export const config = {
   matcher: [
-    "/((?!api|favicon.ico|verify-email|widget|openai/widget|tensorflow/widget|_next|images|audio|\.well-known).*)",
+    "/((?!api|favicon.ico|verify-email|widget|openai/widget|tensorflow/widget|_next|images|audio|\\.well-known).*)",
   ],
 };
