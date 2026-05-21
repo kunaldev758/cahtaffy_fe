@@ -21,6 +21,7 @@ import {
   updateClientPassword,
   uploadAgentAvatar,
 } from '@/app/_api/dashboard/action'
+import { getPlatform } from '@/lib/clientCookie'
 
 function avatarSrc(path: string | null | undefined) {
   if (!path || path === 'null' || !String(path).trim()) return null
@@ -50,6 +51,7 @@ export default function ClientProfileSettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const provider = typeof window !== 'undefined' ? localStorage.getItem("provider") : null;
 
   const syncLocalClientAgent = useCallback(
     (partial: { name?: string; email?: string; avatar?: string | null }) => {
@@ -70,7 +72,7 @@ export default function ClientProfileSettingsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getClientProfile()
+      const data = await getClientProfile(getPlatform())
       if (data === 'error' || data?.status_code === 401) {
         toast.error('Session expired. Please sign in again.')
         return
@@ -127,6 +129,7 @@ export default function ClientProfileSettingsPage() {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
+        platform: getPlatform(),
       })
       if (res === 'error' || res?.status_code === 401) {
         toast.error('Session expired')
@@ -150,7 +153,7 @@ export default function ClientProfileSettingsPage() {
       if (avatarFile && clientAgentId) {
         const fd = new FormData()
         fd.append('avatar', avatarFile)
-        const up = await uploadAgentAvatar(fd, clientAgentId)
+        const up = await uploadAgentAvatar(fd, clientAgentId, getPlatform())
         if (up === 'error') {
           toast.error('Profile saved but photo upload failed')
         } else if (up?.status_code === 200 && up?.agent?.avatar) {
@@ -339,7 +342,7 @@ export default function ClientProfileSettingsPage() {
           </div>
 
           {/* Security */}
-          <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
+          {(provider !== "bigcommerce" && provider !== "shopify") && <div className="rounded-[20px] bg-white p-[20px] shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] flex flex-col">
             <div className="mb-6">
               <h2 className="text-[18px] font-bold text-[#111827]">Security</h2>
               <p className="text-[13px] leading-5 text-[#64748B]">Update your password and secure your account.</p>
@@ -438,7 +441,7 @@ export default function ClientProfileSettingsPage() {
                 {savingPassword ? 'Updating…' : 'Update Password'}
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

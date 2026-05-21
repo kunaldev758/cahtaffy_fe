@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { ExternalLink } from 'lucide-react'
 import { DatePickerWithRange } from '@/components/datepicker'
 import { type DateRange } from 'react-day-picker'
 import NotificationBell from './NotificationBell'
@@ -30,6 +32,37 @@ export default function TopHead({
   showNotificationBell = true,
   rightContent,
 }: TopHeadProps) {
+  const [provider, setProvider] = useState<string | null>(null)
+
+  useEffect(() => {
+    setProvider(localStorage.getItem('provider'))
+  }, [])
+
+  const showOfficialWebsiteButton =
+    (provider === 'shopify' || provider === 'bigcommerce') && window.self !== window.top
+
+    const handleOpenWebsite = async () => {
+      const shop = localStorage.getItem('shopifyShop')
+      const signedPayloadJwt = localStorage.getItem('signedPayloadJwt') 
+      const id_token = localStorage.getItem('id_token')
+      const userId = localStorage.getItem('clientAgent') ? JSON.parse(localStorage.getItem('clientAgent') || '{}').userId : null
+      const params = new URLSearchParams()
+    
+      if (provider === 'shopify') {
+        if (shop) params.set('shop', shop)
+    
+        if (id_token) params.set('id_token', id_token)
+      }
+    
+      if (provider === 'bigcommerce') {
+        if (signedPayloadJwt) params.set('signed_payload_jwt', signedPayloadJwt)
+      }
+      params.set('userId', userId || '')
+    
+      const url = `${process.env.NEXT_PUBLIC_APP_URL}/platform-login?${params.toString()}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+
   return (
     <header className="flex flex-col gap-5 bg-[#F9F9F9] pr-[20px] py-[20px] lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-2">
@@ -54,6 +87,16 @@ export default function TopHead({
       </div>
 
       <div className="flex items-center gap-[16px] lg:justify-end">
+        {showOfficialWebsiteButton && (
+          <button
+            type="button"
+            onClick={() => { handleOpenWebsite() }}
+            title="Open website"
+            className="inline-flex h-[40px] items-center gap-2 rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] font-medium text-[#111827] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <ExternalLink className="h-4 w-4 shrink-0 text-[#64748B]" aria-hidden="true" />
+          </button>
+        )}
         {rightContent}
         {showWebsiteSelect && <WebsiteSelect />}
         {showDatePicker && dateRange && onDateChange && (

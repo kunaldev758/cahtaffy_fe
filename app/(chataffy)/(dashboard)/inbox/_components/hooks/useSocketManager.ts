@@ -1,5 +1,6 @@
 // hooks/useSocketManager.ts
 import { getToken } from "@/app/_api/dashboard/action";
+import { getPlatform } from "@/lib/clientCookie";
 import { useRef, useEffect, useCallback, useState } from "react";
 import { io, Socket } from 'socket.io-client';
 
@@ -88,7 +89,7 @@ export const useSocketManager = ({
       isInitializingRef.current = true;
   
       try {
-        const token = (await getToken()) || '';
+        const token = (await getToken(getPlatform())) || '';
         let humanAgentId: string | undefined;
         let agentId: string | undefined;
 

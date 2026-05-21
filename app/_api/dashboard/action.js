@@ -1,44 +1,106 @@
 'use server'
 import { cookies } from 'next/headers';
+import {
+  getTokenCookieName,
+  isAuthTokenCookieName,
+  LEGACY_TOKEN_COOKIE,
+  readTokenFromCookieStore,
+  TOKEN_KEYS,
+} from '@/lib/clientCookie';
 
-export const getToken = async () => {
-  const token = cookies().get('token')?.value
-  if (!token) return null
-  return token
+/** @param {'web'|'bigcommerce'|'shopify'|string|null|undefined} platform */
+function normalizePlatform(platform) {
+  if (!platform || typeof platform !== 'string') return null;
+  const p = platform.trim().toLowerCase();
+  if (p === 'web' || p === 'bigcommerce' || p === 'shopify') return p;
+  if (p.includes('bigcommerce')) return 'bigcommerce';
+  if (p.includes('myshopify') || p.includes('shopify')) return 'shopify';
+  return null;
 }
+
+function getClientIdFromAuthCookies(cookieStore, platform) {
+  const baseKey = TOKEN_KEYS[platform];
+  if (!baseKey) return 'default';
+  const all = cookieStore.getAll?.() || [];
+  for (const cookie of all) {
+    if (cookie?.name?.startsWith(`${baseKey}_`)) {
+      return cookie.name.slice(baseKey.length + 1);
+    }
+  }
+  return 'default';
+}
+
+/**
+ * When platform is passed, uses only that platform's token (fixes BC vs WEB collision).
+ * @param {'web'|'bigcommerce'|'shopify'|string|null|undefined} platform
+ */
+function buildAuthHeaders(platform) {
+  const resolved = normalizePlatform(platform);
+  const cookieStore = cookies();
+  const token = resolved
+    ? readTokenFromCookieStore(cookieStore, resolved)
+    : readTokenFromCookieStore(cookieStore);
+
+  if (!token) return {};
+
+  const headers = { Authorization: `Bearer ${token}` };
+  if (resolved) {
+    headers['x-chataffy-platform'] = resolved;
+    headers['x-chataffy-client-id'] = getClientIdFromAuthCookies(cookieStore, resolved);
+  }
+  return headers;
+}
+
+export const getToken = async (platform) => {
+  const cookieStore = cookies();
+  const resolved = normalizePlatform(platform);
+  return readTokenFromCookieStore(cookieStore, resolved || undefined);
+};
 
 const ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
-
-function getAuthorizationHeader() {
-  return cookies().get('token')?.value || '';
-}
 
 function syncTokenFromSetCookieHeader(setCookieHeader) {
   if (!setCookieHeader) return;
 
-  const token = setCookieHeader.match(/(?:^|,\s*)token=([^;]+)/)?.[1];
-  console.log("token from setCookieHeader ----> ",token)
-  if (!token) return;
+  const cookieStore = cookies();
+  const segments = setCookieHeader.split(/,(?=\s*[\w-]+=)/);
 
-  cookies().set({
-    name: 'token',
-    value: token,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
-    maxAge: ONE_WEEK_IN_SECONDS,
-    path: '/',
-  });
+  for (const segment of segments) {
+    const match = segment.match(/^\s*([^=]+)=([^;]+)/);
+    if (!match) continue;
+
+    const name = match[1].trim();
+    const value = decodeURIComponent(match[2].trim());
+    if (!value) continue;
+
+    const isAuthCookie =
+      name === LEGACY_TOKEN_COOKIE || isAuthTokenCookieName(name);
+    if (!isAuthCookie) continue;
+
+    cookieStore.set({
+      name,
+      value,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+      maxAge: ONE_WEEK_IN_SECONDS,
+      path: '/',
+    });
+  }
 }
 
 async function fetchData(endpoint, requestData = {}) {
+
+  console.log("request data in fetchData ->", requestData)
+  const headers = {
+    'Content-Type': 'application/json',
+    ...buildAuthHeaders(requestData.platform),
+  };
+
   const response = await fetch(`${process.env.API_HOST}${endpoint}`, {
     method: 'POST',
     cache: 'no-cache',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: getAuthorizationHeader()
-    },
+    headers,
     body: JSON.stringify(requestData)
   });
   const data = await response.json();
@@ -70,13 +132,11 @@ async function fetchDatawithoutToken(endpoint, requestData = {}) {
 }
 
 
-async function uploadData(endpoint,formData,userId ) {
+async function uploadData(endpoint, formData, userId, platform = null) {
   const response = await fetch(`${process.env.API_HOST}${endpoint}/${userId}`, {
     method: 'POST',
     body: formData,
-    headers: {
-      Authorization: getAuthorizationHeader()
-    },
+    headers: buildAuthHeaders(platform),
   });
   const data = await response.json();
   console.log(response,"status code")
@@ -89,28 +149,28 @@ async function uploadData(endpoint,formData,userId ) {
   return data
 }
 
-async function getFetchData(endpoint,params=null) {
-  let response =null; 
-  if(params){
-    console.log(params,"params")
-  response = await fetch(`${process.env.API_HOST}${endpoint}/${params}`, {
-    method: 'GET',
-    cache: 'no-cache',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: getAuthorizationHeader()
-    },
-  });
-}else{
-  response = await fetch(`${process.env.API_HOST}${endpoint}`, {
-    method: 'GET',
-    cache: 'no-cache',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: getAuthorizationHeader()
-    },
-  });
-}
+async function getFetchData(endpoint, params = null, platform = null) {
+  let response = null;
+  const authHeaders = buildAuthHeaders(platform);
+  const headers = {
+    'Content-Type': 'application/json',
+    ...authHeaders,
+  };
+
+  if (params) {
+    console.log(params, 'params');
+    response = await fetch(`${process.env.API_HOST}${endpoint}/${params}`, {
+      method: 'GET',
+      cache: 'no-cache',
+      headers,
+    });
+  } else {
+    response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+      method: 'GET',
+      cache: 'no-cache',
+      headers,
+    });
+  }
   const data = await response.json();
   if(data?.status_code==401){
     // cookies().delete('token')
@@ -151,16 +211,14 @@ export async function openaiWebPageScrapeApi(sitemap, isNotSitemap, agentId) {
   }
 }
 
-export async function openaiCreateSnippet(formData, agentId) {
+export async function openaiCreateSnippet(formData, agentId, platform = null) {
   if (agentId) {
     formData.append('agentId', agentId);
   }
   const response = await fetch(`${process.env.API_HOST}openaiCreateSnippet`, {
     method: 'POST',
     cache: 'no-cache',
-    headers: {
-      Authorization: getAuthorizationHeader()
-    },
+    headers: buildAuthHeaders(platform),
     body: formData
   });
   const data = await response.json();
@@ -274,10 +332,33 @@ export async function updateOnboardingStepApi(agentId, step, websiteUrl, extract
 }
 
 
-export async function logoutApi() {
-  cookies().delete('token')
-  cookies().delete('role')
-  return await fetchData('logout');
+export async function logoutApi(platform) {
+  const cookieStore = cookies();
+  const cookiePrefix = platform ? (TOKEN_KEYS[platform] || TOKEN_KEYS.web) : null;
+
+  for (const cookie of cookieStore.getAll()) {
+    const isAuth =
+      isAuthTokenCookieName(cookie.name) || cookie.name === LEGACY_TOKEN_COOKIE;
+
+    if (!isAuth && cookie.name !== 'role') continue;
+
+    if (cookiePrefix) {
+      if (
+        cookie.name === cookiePrefix ||
+        cookie.name.startsWith(`${cookiePrefix}_`) ||
+        (platform === 'web' && cookie.name === LEGACY_TOKEN_COOKIE)
+      ) {
+        cookieStore.delete(cookie.name);
+      }
+      continue;
+    }
+
+    if (isAuth || cookie.name === 'role') {
+      cookieStore.delete(cookie.name);
+    }
+  }
+
+  return await fetchData('logout', platform ? { platform } : {});
 }
 
 // Human Agent API functions
@@ -288,8 +369,8 @@ export async function getAllHumanAgents() {
 }
 
 // AI Agents (websites) - for assignedAgents dropdown
-export async function getAIAgents() {
-  const data = await getFetchData('ai-agents');
+export async function getAIAgents(platform) {
+  const data = await getFetchData('ai-agents', null, platform);
   if (data === 'error') return [];
   return Array.isArray(data?.agents) ? data.agents : (Array.isArray(data) ? data : []);
 }
@@ -337,17 +418,15 @@ export async function updateAgentStatus(id, isActive) {
   return await fetchData(`agents/${id}/status`, { isActive });
 }
 
-export async function updateClientStatus(isActive) {
-  return await fetchData(`clients/status`, { isActive });
+export async function updateClientStatus(isActive, platform) {
+  return await fetchData(`clients/status`, { isActive, platform });
 }
 
-export async function uploadAgentAvatar(formData, agentId) {
+export async function uploadAgentAvatar(formData, agentId, platform = null) {
   const response = await fetch(`${process.env.API_HOST}agents/${agentId}/avatar`, {
     method: 'POST',
     body: formData,
-    headers: {
-      Authorization: getAuthorizationHeader()
-    },
+    headers: buildAuthHeaders(platform),
   });
   const data = await response.json();
   if(data.status_code==401){
@@ -371,13 +450,12 @@ export async function getPlans() {
   return await getFetchData(`/available`);
 }
 
-export async function getClientData() {
-  const data = await fetchData('client');
-  return data;
+export async function getClientData(platform) {
+  return await fetchData('client', { platform });
 }
 
-export async function getClientProfile() {
-  return await fetchData('client/profile');
+export async function getClientProfile(platform) {
+  return await fetchData('client/profile', platform ? { platform } : {});
 }
 
 export async function updateClientProfileGeneral(payload) {

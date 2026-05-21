@@ -1,11 +1,13 @@
-import { LoginForm } from './_components/login'
-import {Metadata} from 'next'
+"use client"
 
-export const metadata: Metadata = {
-  title: 'Chataffy | login',
-  description: 'Chataffy | login',
+import { LoginForm } from './_components/login'
+// import {Metadata} from 'next'
+
+// export const metadata: Metadata = {
+//   title: 'Chataffy | login',
+//   description: 'Chataffy | login',
   
-}
+// }
 
 
 export default function Home() {
@@ -15,4 +17,4 @@ export default function Home() {
       <LoginForm />
     </>
   )
-}
+} 

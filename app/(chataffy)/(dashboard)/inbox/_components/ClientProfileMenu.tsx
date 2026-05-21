@@ -2,7 +2,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { User, LogOut, ChevronDown, CreditCard } from "lucide-react";
-import { logoutApi } from '@/app/_api/dashboard/action';
+import { getToken, logoutApi } from '@/app/_api/dashboard/action';
+import {
+  clearRedirectWebAuthLocalStorage,
+  getClientId,
+  getLogoutPlatform,
+  getPlatform,
+} from '@/lib/clientCookie';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
@@ -87,6 +93,7 @@ export default function ClientProfileMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { socket } = useSocket();
+  const provider = typeof window !== 'undefined' ? localStorage.getItem("provider") : null;
 
   useEffect(() => {
     if (clientAvatar !== undefined) {
@@ -272,7 +279,7 @@ export default function ClientProfileMenu({
     const newStatus = !isOnline;
 
     try {
-      const response = await updateClientStatus(newStatus);
+      const response = await updateClientStatus(newStatus, getPlatform());
       if (response === 'error' || (response && response.status_code !== 200)) {
         throw new Error(response?.message || 'Failed to update client status');
       }
@@ -301,11 +308,39 @@ export default function ClientProfileMenu({
 
   const handleLogout = async () => {
     try {
-      await logoutApi();
+      const logoutPlatform = getLogoutPlatform();
+      const isRedirectWebLogout =
+        logoutPlatform === 'web' &&
+        (provider === 'shopify' || provider === 'bigcommerce');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-chataffy-platform': logoutPlatform,
+          'x-chataffy-client-id': getClientId(logoutPlatform),
+        },
+        body: JSON.stringify({ platform: logoutPlatform }),
+      });
+
+      const result = await response.json();
+      if (result.status === true) {
+        if (isRedirectWebLogout) {
+          clearRedirectWebAuthLocalStorage();
+          dispatchAuthStorageSync();
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
+          window.location.assign(
+            appUrl.endsWith('/') ? `${appUrl}login` : `${appUrl}/login`,
+          );
+          return;
+        }
+
+        localStorage.clear();
+        dispatchAuthStorageSync();
+        router.replace('/login');
+      }
     } catch { }
-    localStorage.clear();
-    dispatchAuthStorageSync();
-    router.replace('/login');
   };
 
   const displayEmail =
@@ -429,7 +464,7 @@ export default function ClientProfileMenu({
           </div>
 
           {/* Logout */}
-          <div className="border-t border-gray-100">
+         {((provider !== "bigcommerce" && provider !== "shopify") || window.self === window.top) && <div className="border-t border-gray-100">
             <button
               onClick={handleLogout}
               className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150 justify-center"
@@ -439,7 +474,7 @@ export default function ClientProfileMenu({
               </span>
               Logout
             </button>
-          </div>
+          </div>}
         </div>
       )}
     </div>

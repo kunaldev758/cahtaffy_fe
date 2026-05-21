@@ -10,6 +10,7 @@ import { toast } from 'react-toastify'
 import logoPic from '@/images/logo.png'
 import ClientProfileMenu from '../inbox/_components/ClientProfileMenu'
 import { getClientData } from '@/app/_api/dashboard/action'
+import { getPlatform } from '@/lib/clientCookie'
 import { createAIAgentApi } from '@/app/_api/login/action'
 import { dispatchAuthStorageSync } from '@/app/socketContext'
 import { usePlanContext } from "@/app/planContext"
@@ -19,11 +20,12 @@ export default function IntegratedSidebar() {
   const router = useRouter()
   const [clientData, setClientData] = useState<any>(null)
   const [isCreatingAgent, setIsCreatingAgent] = useState(false)
-  const { effectiveLimits } = usePlanContext()
+  const { effectiveLimits } = usePlanContext();
 
   useEffect(() => {
     const fetchClient = async () => {
       if (typeof window !== 'undefined') {
+        const platform = getPlatform()
         const storedClientAgent = localStorage.getItem('clientAgent')
         const storedAgent = localStorage.getItem('agent')
 
@@ -31,22 +33,22 @@ export default function IntegratedSidebar() {
           try {
             const parsed = JSON.parse(storedClientAgent)
             if (parsed.isClient) setClientData(parsed)
-          } catch {}
+          } catch { }
         } else if (storedAgent) {
           try {
             const parsed = JSON.parse(storedAgent)
             if (parsed.isClient) setClientData(parsed)
-          } catch {}
+          } catch { }
         }
 
         try {
-          const data = await getClientData()
+          const data = await getClientData(platform)
           if (data && data.clientAgent) {
             setClientData(data.clientAgent)
             localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
             dispatchAuthStorageSync()
           }
-        } catch {}
+        } catch { }
       }
     }
 
@@ -112,14 +114,16 @@ export default function IntegratedSidebar() {
   const isParentActive = (path: string) => !!pathname?.startsWith(path)
 
   const navItemClass = (active: boolean) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-      active
-        ? 'bg-[#111827] text-white'
-        : 'text-[#64748B] hover:bg-gray-100 hover:text-[#111827]'
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${active
+      ? 'bg-[#111827] text-white'
+      : 'text-[#64748B] hover:bg-gray-100 hover:text-[#111827]'
     }`
 
   const iconClass = (active: boolean) =>
     `w-5 h-5 flex-shrink-0 ${active ? 'text-white' : 'text-[#64748B]'}`
+
+
+  console.log('Client Data in Navigation:', window.location.hostname)
 
   return (
     <div className="bg-[#F9F9F9] w-[256px] min-h-screen flex flex-col fixed top-0 left-0 z-10">

@@ -1,6 +1,12 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import {
+  getTokenCookieName,
+  isAuthTokenCookieName,
+  LEGACY_TOKEN_COOKIE,
+  readTokenFromCookieStore,
+} from '@/lib/clientCookie'
 
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
 export async function loginAgentApi(email, password) {
@@ -16,8 +22,10 @@ export async function loginAgentApi(email, password) {
 
   const result = await response.json()
   if (result.message === "Login successful") {
-    cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
-    cookies().set({ name: 'role', value: 'agent', httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    const cookieStore = cookies();
+    cookieStore.set({ name: LEGACY_TOKEN_COOKIE, value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    cookieStore.set({ name: getTokenCookieName({ platform: 'web', clientId: 'default' }), value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    cookieStore.set({ name: 'role', value: 'agent', httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
   }
   return result
 }
@@ -35,9 +43,25 @@ export async function loginApi(email, password) {
   })
 
   const result = await response.json()
-  if (result.status_code==200) {
-    cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
-    cookies().set({name:"role",value:"client",httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+  // if (result.status_code==200) {
+  //   cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+  //   cookies().set({name:"role",value:"client",httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+  // }
+  return result
+}
+
+export async function directClientLoginApi(token) {
+  const response = await fetch(`${process.env.API_HOST}direct-client-login/${encodeURIComponent(token)}`, {
+    method: 'GET',
+    cache: 'no-cache',
+  })
+
+  const result = await response.json()
+  if (result?.status_code === 200 && result?.token) {
+    const cookieStore = cookies();
+    cookieStore.set({ name: LEGACY_TOKEN_COOKIE, value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS })
+    cookieStore.set({ name: getTokenCookieName({ platform: 'web', clientId: 'default' }), value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS })
+    cookieStore.set({ name: 'role', value: 'client', httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS })
   }
   return result
 }
@@ -69,8 +93,10 @@ export async function googleOAuthExchange(googleToken) {
 
   const result = await response.json()
   if (result?.status_code === 200 && result?.token) {
-    cookies().set({ name: 'token', value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
-    cookies().set({ name: 'role', value: "client", httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    const cookieStore = cookies();
+    cookieStore.set({ name: LEGACY_TOKEN_COOKIE, value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    cookieStore.set({ name: getTokenCookieName({ platform: 'web', clientId: 'default' }), value: result.token, httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
+    cookieStore.set({ name: 'role', value: "client", httpOnly: true, maxAge: SEVEN_DAYS_IN_SECONDS})
   }
   return result
 }
@@ -92,13 +118,15 @@ export async function verifyEmailApi(token) {
 }
 
 /** Call from client only (e.g. after verify-email). Cookies cannot be set when other server actions run during RSC render. */
-export async function setClientSessionCookies(token) {
-  cookies().set({ name: 'token', value: token, httpOnly: true })
-  cookies().set({ name: 'role', value: 'client', httpOnly: true })
+export async function setClientSessionCookies(token, clientId = 'default') {
+  const cookieStore = cookies();
+  cookieStore.set({ name: LEGACY_TOKEN_COOKIE, value: token, httpOnly: true })
+  cookieStore.set({ name: getTokenCookieName({ platform: 'web', clientId }), value: token, httpOnly: true })
+  cookieStore.set({ name: 'role', value: 'client', httpOnly: true })
 }
 
 export async function getAgentsApi() {
-  const token = cookies().get('token')?.value
+  const token = readTokenFromCookieStore(cookies())
   if (!token) return { status: false, agents: [] }
 
   const response = await fetch(`${process.env.API_HOST}ai-agents`, {
@@ -114,7 +142,7 @@ export async function getAgentsApi() {
 }
 
 export async function createAIAgentApi() {
-  const token = cookies().get('token')?.value
+  const token = readTokenFromCookieStore(cookies())
   if (!token) return { status: false, message: 'Not authenticated' }
 
   const response = await fetch(`${process.env.API_HOST}ai-agents`, {
@@ -131,7 +159,7 @@ export async function createAIAgentApi() {
 }
 
 export async function deleteAIAgentApi(agentId) {
-  const token = cookies().get('token')?.value
+  const token = readTokenFromCookieStore(cookies())
   if (!token) return { status: false, message: 'Not authenticated' }
 
   const response = await fetch(`${process.env.API_HOST}ai-agents/delete/${agentId}`, {
@@ -148,7 +176,7 @@ export async function deleteAIAgentApi(agentId) {
 }
 
 export async function completeOnboardingApi() {
-  const token = cookies().get('token')?.value
+  const token = readTokenFromCookieStore(cookies())
   if (!token) return { status: false }
 
   const response = await fetch(`${process.env.API_HOST}complete-onboarding`, {

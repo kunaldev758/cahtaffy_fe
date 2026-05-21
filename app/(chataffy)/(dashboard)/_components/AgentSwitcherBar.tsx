@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { ChevronDown, Globe, Check, Loader2, Plus } from 'lucide-react'
 import { getAIAgents } from '@/app/_api/dashboard/action'
+import { getPlatform } from '@/lib/clientCookie'
 import { createAIAgentApi } from '@/app/_api/login/action'
 import { toast } from 'react-toastify'
 import NotificationBell from './NotificationBell'
@@ -102,7 +103,7 @@ export default function AgentSwitcherBar() {
     const fetchAgents = async () => {
       setIsLoading(true)
       try {
-        const data = await getAIAgents()
+        const data = await getAIAgents(getPlatform())
         const list: Agent[] = Array.isArray(data) ? data : []
         setAgents(list)
       } catch {
