@@ -52,6 +52,8 @@ function syncTokenFromSetCookieHeader(setCookieHeader) {
 }
 
 async function fetchData(endpoint, requestData = {}) {
+
+  console.log("request data in fetchData ->", requestData)
   const headers = {
     'Content-Type': 'application/json',
     Authorization: getAuthorizationHeader(),
