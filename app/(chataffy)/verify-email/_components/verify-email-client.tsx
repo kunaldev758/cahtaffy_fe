@@ -1,17 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { verifyEmailApi, setClientSessionCookies } from '../../../_api/login/action'
 import { useSocket, dispatchAuthStorageSync } from '../../../socketContext'
 import { LoginForm } from '../../login/_components/login'
+import { redirectAfterClientLogin } from '@/lib/postLoginRedirect'
 
-const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/'
 const TOAST_ID = 'verify-email-result'
 
 export function VerifyEmailClient() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const { socket } = useSocket()
   const [ui, setUi] = useState<'verifying' | 'login' | 'redirecting'>('verifying')
@@ -61,11 +60,7 @@ export function VerifyEmailClient() {
               socket.emit('join', response.userId)
             })
           }
-          if (!response.isOnboarded) {
-            router.replace(`${appUrl}onboarding`)
-          } else {
-            router.replace(`${appUrl}dashboard`)
-          }
+          redirectAfterClientLogin(!!response.isOnboarded)
           return
         }
 
@@ -83,7 +78,7 @@ export function VerifyEmailClient() {
     return () => {
       cancelled = true
     }
-  }, [searchParams, router, socket])
+  }, [searchParams, socket])
 
   if (ui === 'verifying' || ui === 'redirecting') {
     return (

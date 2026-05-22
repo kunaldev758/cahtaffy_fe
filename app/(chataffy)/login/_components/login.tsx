@@ -2,15 +2,13 @@
 // Login Component
 'use client'
 import { useEffect, useState } from 'react'
-import { googleOAuthExchange } from '../../../_api/login/action'
-import { useRouter } from 'next/navigation'
+import { googleOAuthExchange, loginApi as loginUserApi } from '../../../_api/login/action'
+import { redirectAfterClientLogin } from '@/lib/postLoginRedirect'
 import { toast } from 'react-toastify'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useGoogleLogin } from '@react-oauth/google'
-const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
-
 interface Response {
   status_code: number;
   status: boolean;
@@ -27,7 +25,6 @@ export function LoginForm({ response }: { response?: Response }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
-  const router = useRouter()
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -47,32 +44,13 @@ export function LoginForm({ response }: { response?: Response }) {
    }
   }, [response])
 
-  const loginApi = async (email:string, password:string) => {
-   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ email:email.trim(), password:password.trim() }),
-    })
-    const result = await response.json()
-    return result
-   } catch (error: any) {
-    console.error(error)
-    return { status_code: 500, status: false, message: error.message || 'Login failed' }
-   }
-  }
-
   const handleOnSubmit = async (event:any) => {
     event.preventDefault()
     if (email !== '' && password !== '') {
       setButtonStatus({ loading: true, disabled: true })
-      const response = await loginApi(email.trim(), password.trim())
+      const response = await loginUserApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
       if (response?.status_code == 200) {
-        // localStorage.setItem('token', response.token);
         localStorage.setItem('userId', response.userId);
         if (response.agents) {
           localStorage.setItem('agents', JSON.stringify(response.agents));
@@ -80,11 +58,8 @@ export function LoginForm({ response }: { response?: Response }) {
         }
         dispatchAuthStorageSync()
         handleSocketEvent(response.userId)
-        if (!response.isOnboarded) {
-          router.replace(appUrl + 'onboarding')
-        } else {
-          router.replace(appUrl + 'dashboard')
-        }
+        redirectAfterClientLogin(!!response.isOnboarded)
+        return
       } else {
         toast.error(response.message)
       }
@@ -138,11 +113,8 @@ export function LoginForm({ response }: { response?: Response }) {
           }
           dispatchAuthStorageSync()
           handleSocketEvent(response.userId)
-          if (!response.isOnboarded) {
-            router.replace(appUrl + 'onboarding')
-          } else {
-            router.replace(appUrl + 'dashboard')
-          }
+          redirectAfterClientLogin(!!response.isOnboarded)
+          return
         } else {
           toast.error(response?.message || 'Google login failed')
         }

@@ -1,9 +1,10 @@
 'use server'
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import {
   AGENT_TOKEN,
   CLIENT_TOKEN,
   LEGACY_TOKEN,
+  portalFromHostname,
   serverAuthCookieOpts,
 } from '@/lib/authCookies';
 
@@ -42,9 +43,47 @@ export const getAgentToken = async () => {
 /** Client dashboard session (backward-compatible name). */
 export const getToken = async () => getClientToken();
 
+/** Pick client vs agent session for server-side API calls (by host / referer). */
+function resolveAuthPortal() {
+  const host = (headers().get('host') || '').split(':')[0];
+  const fromHost = portalFromHostname(host);
+  if (fromHost === 'agent') return 'agent';
+  if (fromHost === 'client') return 'client';
+
+  const referer = headers().get('referer') || '';
+  if (
+    referer.includes('/agent-inbox') ||
+    referer.includes('/agent-login') ||
+    referer.includes('/agent-accept-invite')
+  ) {
+    return 'agent';
+  }
+  return 'client';
+}
+
 function getAuthorizationHeader() {
-  const cookieName = getPlatformCookieName();
-  return cookies().get(cookieName)?.value || '';
+  const portal = resolveAuthPortal();
+
+  if (portal === 'agent') {
+    return (
+      cookies().get(AGENT_TOKEN)?.value ||
+      cookies().get(LEGACY_TOKEN)?.value ||
+      ''
+    );
+  }
+
+  const platform = cookies().get('platform')?.value || 'local';
+  if (platform === 'shopify') {
+    return cookies().get('sf_token')?.value || '';
+  }
+  if (platform === 'bigcommerce') {
+    return cookies().get('bc_token')?.value || '';
+  }
+  return (
+    cookies().get(CLIENT_TOKEN)?.value ||
+    cookies().get(LEGACY_TOKEN)?.value ||
+    ''
+  );
 }
 
 function syncTokenFromSetCookieHeader(setCookieHeader) {
@@ -73,10 +112,8 @@ async function fetchData(endpoint, requestData = {}) {
     body: JSON.stringify(requestData)
   });
   const data = await response.json();
-  console.log(response,"status code")
-  if(data.status_code==401){
-    // cookies().delete('token')
-    return 'error'
+  if (data.status_code == 401) {
+    return 'error';
   }
   const setCookie = response.headers.get('set-cookie');
   syncTokenFromSetCookieHeader(setCookie);
@@ -92,10 +129,8 @@ async function fetchDatawithoutToken(endpoint, requestData = {}) {
     body: JSON.stringify(requestData)
   });
   const data = await response.json();
-  console.log(response,"status code")
-  if(data.status_code==401){
-    // cookies().delete('token')
-    return 'error'
+  if (data.status_code == 401) {
+    return 'error';
   }
   return data
 }
@@ -110,10 +145,8 @@ async function uploadData(endpoint,formData,userId ) {
     },
   });
   const data = await response.json();
-  console.log(response,"status code")
-  if(data.status_code==401){
-    // cookies().delete('token')
-    return 'error'
+  if (data.status_code == 401) {
+    return 'error';
   }
   const setCookie = response.headers.get('set-cookie');
   syncTokenFromSetCookieHeader(setCookie);
@@ -123,7 +156,6 @@ async function uploadData(endpoint,formData,userId ) {
 async function getFetchData(endpoint,params=null) {
   let response =null; 
   if(params){
-    console.log(params,"params")
   response = await fetch(`${process.env.API_HOST}${endpoint}/${params}`, {
     method: 'GET',
     cache: 'no-cache',
@@ -329,9 +361,7 @@ export async function logoutAgentApi() {
 
 // Human Agent API functions
 export async function getAllHumanAgents() {
-  const data = await getFetchData('agents');
-  console.log('getAllHumanAgents response:', data);
-  return data;
+  return await getFetchData('agents');
 }
 
 // AI Agents (websites) - for assignedAgents dropdown

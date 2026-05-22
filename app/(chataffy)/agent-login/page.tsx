@@ -1,35 +1,23 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { loginAgentApi } from "../../_api/login/action";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
+import { redirectAfterAgentLogin } from "@/lib/postLoginRedirect";
 
 export default function AgentLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
     try {
-      console.log(email,password,"email pass")
-      // const res = await loginAgentApi(email.trim(), password.trim())
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/agents/login`, {
-        method: 'POST',
-        cache:'no-cache',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password.trim(),
-        })
-      })
+      const res = await loginAgentApi(email.trim(), password.trim());
 
-      const res = await response.json()
-
-      if (res.message != "Login successful") {
+      if (res.message !== "Login successful") {
         setError(res.message || "Login failed");
         return;
       }
@@ -40,17 +28,21 @@ export default function AgentLogin() {
       }
       const humanAgentId = humanAgent.id?.toString?.() || humanAgent.id;
       const userId = humanAgent.userId?.toString?.() || humanAgent.userId;
-      const currentAgentId = humanAgent.assignedAgents?.[0]?.toString?.() || humanAgent.assignedAgents?.[0] || "";
+      const currentAgentId =
+        humanAgent.assignedAgents?.[0]?.toString?.() ||
+        humanAgent.assignedAgents?.[0] ||
+        "";
 
-      localStorage.setItem("token", res.token);
       localStorage.setItem("agent", JSON.stringify({ ...humanAgent, _id: humanAgentId }));
       localStorage.setItem("userId", userId);
       localStorage.setItem("humanAgentId", humanAgentId);
       localStorage.setItem("currentAgentId", currentAgentId);
       dispatchAuthStorageSync();
-      router.push("/agent-inbox");
-    } catch (err) {
+      redirectAfterAgentLogin();
+    } catch {
       setError("Login failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,6 +63,7 @@ export default function AgentLogin() {
             onChange={e => setEmail(e.target.value)}
             required
             autoFocus
+            disabled={loading}
           />
         </div>
         <div className="mb-6">
@@ -81,13 +74,15 @@ export default function AgentLogin() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
         <button
           type="submit"
-          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition"
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition disabled:opacity-60"
         >
-          Login
+          {loading ? "Signing in…" : "Login"}
         </button>
       </form>
     </div>

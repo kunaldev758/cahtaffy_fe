@@ -8,9 +8,8 @@ import Link from 'next/link'
 
 import { CheckCircleIcon, EyeIcon, EyeOffIcon, ScanEyeIcon, XCircleIcon } from 'lucide-react'
 import { useGoogleLogin } from '@react-oauth/google'
-import { useRouter } from 'next/navigation'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
-const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
+import { redirectAfterClientLogin } from '@/lib/postLoginRedirect';
 
 export function RegistrationForm() {
   const { socket } = useSocket();
@@ -22,7 +21,6 @@ export function RegistrationForm() {
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
   const [passwordMatch, setPasswordMatch] = useState(true)
 
-  const router = useRouter()
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -55,11 +53,8 @@ export function RegistrationForm() {
           }
           dispatchAuthStorageSync()
           handleSocketEvent(response.userId)
-          if (!response.isOnboarded) {
-            router.replace(appUrl + 'onboarding')
-          } else {
-            router.replace(appUrl + 'dashboard')
-          }
+          redirectAfterClientLogin(!!response.isOnboarded)
+          return
         } else {
           toast.error(response?.message || 'Google signup failed')
         }

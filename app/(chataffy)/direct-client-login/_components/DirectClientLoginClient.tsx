@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { directClientLoginApi } from "../../../_api/login/action";
 import { dispatchAuthStorageSync } from "../../../socketContext";
+import { redirectAfterClientLogin } from "@/lib/postLoginRedirect";
 
 const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
 
@@ -46,12 +47,7 @@ export function DirectClientLoginClient() {
         }
 
         dispatchAuthStorageSync();
-
-        if (result.isOnboarded === false) {
-          router.replace(`${appUrl}onboarding`);
-        } else {
-          router.replace(`${appUrl}dashboard`);
-        }
+        redirectAfterClientLogin(result.isOnboarded !== false);
       } catch (error) {
         console.error("Direct client login failed:", error);
         router.replace(`${appUrl}login`);
