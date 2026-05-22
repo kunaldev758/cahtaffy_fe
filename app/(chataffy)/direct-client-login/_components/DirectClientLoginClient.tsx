@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { directClientLoginApi } from "../../../_api/login/action";
 import { dispatchAuthStorageSync } from "../../../socketContext";
 import { redirectAfterClientLogin } from "@/lib/postLoginRedirect";
+import { setSocketToken } from "@/lib/socketSession";
 
 const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
 
@@ -34,7 +35,7 @@ export function DirectClientLoginClient() {
           return;
         }
 
-        localStorage.setItem("token", result.token);
+        setSocketToken("client", result.token);
         if (result.userId != null) {
           localStorage.setItem("userId", String(result.userId));
         }

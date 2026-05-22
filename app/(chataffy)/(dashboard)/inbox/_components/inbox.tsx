@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams } from "next/navigation";
 import { getConversationMessages, getOldConversationMessages, getClientData } from "@/app/_api/dashboard/action";
 import { useSocketManager } from "./hooks/useSocketManager";
+import { dispatchAuthStorageSync } from "@/app/socketContext";
 import ReviseAnswerModal from "./ReviseAnswerModal";
 
 // Component imports
@@ -150,6 +151,7 @@ export default function Inbox(Props: any) {
             console.log('Setting client agent state:', clientAgentInfo);
             setClient(clientAgentInfo);
             localStorage.setItem('clientAgent', JSON.stringify(clientAgentInfo));
+            dispatchAuthStorageSync();
           } else if (data && data.client) {
             // Fallback: if no clientAgent, try to get from agent localStorage
             const agentData = localStorage.getItem('agent');

@@ -13,6 +13,7 @@ import {
 import { toggleActiveStatus, logoutAgentApi } from "@/app/_api/dashboard/action";
 import AgentEditProfileModal, { type AgentEditProfileAgent } from "./AgentEditProfileModal";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
+import { clearSocketToken } from "@/lib/socketSession";
 import { useSocket } from "@/app/socketContext";
 import Image from "next/image";
 import defaultImageImport from '@/images/default-image.png';
@@ -67,7 +68,8 @@ export default function AgentSidebar() {
       localStorage.removeItem('clientAgent');
       localStorage.removeItem('client');
       localStorage.removeItem('user');
-      
+      clearSocketToken("agent");
+
       // Delete cookies via server action
       try {
         await logoutAgentApi();

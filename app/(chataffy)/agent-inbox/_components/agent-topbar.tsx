@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronDown, Globe, Check, Loader2 } from 'lucide-react'
 import { getAIAgents, logoutAgentApi, toggleActiveStatus } from '@/app/_api/dashboard/action'
+import { clearSocketToken } from '@/lib/socketSession'
 import { dispatchAuthStorageSync } from '@/app/socketContext'
 import NotificationBell from '@/app/(chataffy)/(dashboard)/_components/NotificationBell'
 import AgentEditProfileModal, { type AgentEditProfileAgent } from './AgentEditProfileModal'
@@ -233,6 +234,7 @@ export default function AgentTopBar() {
     try {
       await logoutAgentApi()
     } catch { /* ignore */ }
+    clearSocketToken('agent')
     localStorage.clear()
     dispatchAuthStorageSync()
     router.replace('/agent-login')

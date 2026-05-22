@@ -3,6 +3,7 @@ import { useState } from "react";
 import { loginAgentApi } from "../../_api/login/action";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
 import { redirectAfterAgentLogin } from "@/lib/postLoginRedirect";
+import { setSocketToken } from "@/lib/socketSession";
 
 export default function AgentLogin() {
   const [email, setEmail] = useState("");
@@ -15,6 +16,18 @@ export default function AgentLogin() {
     setError("");
     setLoading(true);
     try {
+      const apiBase = process.env.NEXT_PUBLIC_API_HOST || "";
+      await fetch(`${apiBase}/api/agents/login`, {
+        method: "POST",
+        cache: "no-cache",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+        }),
+      });
+
       const res = await loginAgentApi(email.trim(), password.trim());
 
       if (res.message !== "Login successful") {
@@ -22,7 +35,7 @@ export default function AgentLogin() {
         return;
       }
       const humanAgent = res.humanAgent;
-      if (!humanAgent) {
+      if (!humanAgent || !res.token) {
         setError("Invalid login response");
         return;
       }
@@ -33,6 +46,7 @@ export default function AgentLogin() {
         humanAgent.assignedAgents?.[0] ||
         "";
 
+      setSocketToken("agent", res.token);
       localStorage.setItem("agent", JSON.stringify({ ...humanAgent, _id: humanAgentId }));
       localStorage.setItem("userId", userId);
       localStorage.setItem("humanAgentId", humanAgentId);

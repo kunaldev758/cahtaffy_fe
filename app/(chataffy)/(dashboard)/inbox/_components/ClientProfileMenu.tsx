@@ -4,6 +4,7 @@ import Image from "next/image";
 import { User, LogOut, ChevronDown, CreditCard } from "lucide-react";
 import { getToken, logoutApi } from '@/app/_api/dashboard/action';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
+import { clearSocketToken } from '@/lib/socketSession';
 import { clearWebAuthStorage } from '@/app/(chataffy)/_lib/embeddedSession';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
@@ -314,6 +315,7 @@ export default function ClientProfileMenu({
       });
     } catch { }
     clearWebAuthStorage();
+    clearSocketToken('client');
     dispatchAuthStorageSync();
     router.replace('/login');
   };

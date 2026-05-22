@@ -4,23 +4,29 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import initializeSocket from "./socket";
 import { Socket } from "socket.io-client";
 import { getClientToken, getAgentToken } from "./_api/dashboard/action";
-import { portalFromHostname } from "@/lib/authCookies";
+import { portalFromHostname, type AuthPortal } from "@/lib/authCookies";
+import {
+  getSocketTokenFromSession,
+  resolveHumanAgentIdForSocket,
+} from "@/lib/socketSession";
 
 interface SocketContextProps {
   socket: Socket | null;
 }
 
-const SocketContext = createContext<SocketContextProps>({
-  socket: null,
-});
-
-/** Fired after login/logout (or any auth localStorage change) so the provider re-reads storage and connects the socket. */
 export const AUTH_STORAGE_SYNC_EVENT = "chataffy-auth-storage-sync";
 
 export function dispatchAuthStorageSync() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(AUTH_STORAGE_SYNC_EVENT));
   }
+}
+
+async function resolveSocketToken(portal: AuthPortal): Promise<string> {
+  const fromCookie =
+    portal === "agent" ? await getAgentToken() : await getClientToken();
+  if (fromCookie) return fromCookie;
+  return getSocketTokenFromSession(portal);
 }
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -32,43 +38,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const lastHumanAgentProfileSocketKey = useRef<string>("");
 
   const readAndSetIdentifiers = async () => {
-    const portal =
+    const portal: AuthPortal =
       typeof window !== "undefined"
-        ? portalFromHostname(window.location.hostname)
+        ? portalFromHostname(window.location.hostname) === "agent"
+          ? "agent"
+          : "client"
         : "client";
-    const storedToken =
-      portal === "agent"
-        ? (await getAgentToken()) || ""
-        : (await getClientToken()) || "";
+
+    const storedToken = (await resolveSocketToken(portal)) || "";
     const storedUserId = localStorage.getItem("userId");
     const storedAgentId = localStorage.getItem("currentAgentId");
-    const storedHumanAgentId = localStorage.getItem("humanAgentId");
-    const clientAgent = localStorage.getItem("clientAgent");
-    const agent = localStorage.getItem("agent");
-
-    if (storedHumanAgentId) {
-      setHumanAgentId(storedHumanAgentId);
-    } else if (agent) {
-      try {
-        const parsedAgent = JSON.parse(agent);
-        if (parsedAgent?.id || parsedAgent?._id) {
-          setHumanAgentId(parsedAgent.id || parsedAgent._id);
-        }
-      } catch {}
-    } else if (clientAgent) {
-      const parsedClientAgent = JSON.parse(clientAgent);
-      setHumanAgentId(parsedClientAgent._id);
-    } else {
-      const agents = localStorage.getItem("agents");
-      if (agents) {
-        const parsedAgents = JSON.parse(agents);
-        setHumanAgentId(parsedAgents[0]?._id);
-      }
-    }
+    const resolvedHumanAgentId = resolveHumanAgentIdForSocket(portal);
 
     setToken(storedToken);
     setUserId(storedUserId);
     setAgentId(storedAgentId);
+    setHumanAgentId(resolvedHumanAgentId ?? null);
   };
 
   useEffect(() => {
@@ -110,7 +95,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [token, userId, agentId, humanAgentId]);
 
-  // Keep human agent session storage in sync when an admin updates name / websites / status (socket payload must use plain string ids).
   useEffect(() => {
     if (!socket) return;
 

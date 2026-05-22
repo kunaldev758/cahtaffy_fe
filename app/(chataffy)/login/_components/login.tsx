@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import { googleOAuthExchange, loginApi as loginUserApi } from '../../../_api/login/action'
 import { redirectAfterClientLogin } from '@/lib/postLoginRedirect'
+import { setSocketToken } from '@/lib/socketSession'
 import { toast } from 'react-toastify'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
@@ -51,6 +52,7 @@ export function LoginForm({ response }: { response?: Response }) {
       const response = await loginUserApi(email.trim(), password.trim())
       setButtonStatus({ loading: false, disabled: false })
       if (response?.status_code == 200) {
+        if (response.token) setSocketToken('client', response.token);
         localStorage.setItem('userId', response.userId);
         if (response.agents) {
           localStorage.setItem('agents', JSON.stringify(response.agents));
@@ -101,9 +103,7 @@ export function LoginForm({ response }: { response?: Response }) {
         setGoogleLoading(false);
         if (response?.status_code === 200) {
           toast.success('Signed in with Google')
-          // if (response.token) {
-          //   localStorage.setItem('token', response.token)
-          // }
+          if (response.token) setSocketToken('client', response.token);
           if (response.userId) {
             localStorage.setItem('userId', response.userId)
           }

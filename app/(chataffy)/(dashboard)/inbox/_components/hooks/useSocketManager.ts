@@ -1,5 +1,9 @@
 // hooks/useSocketManager.ts
-import { getToken } from "@/app/_api/dashboard/action";
+import { getClientToken } from "@/app/_api/dashboard/action";
+import {
+  getSocketTokenFromSession,
+  resolveHumanAgentIdForSocket,
+} from "@/lib/socketSession";
 import { useRef, useEffect, useCallback, useState } from "react";
 import { io, Socket } from 'socket.io-client';
 
@@ -88,37 +92,14 @@ export const useSocketManager = ({
       isInitializingRef.current = true;
   
       try {
-        const token = (await getToken()) || '';
-        let humanAgentId: string | undefined;
+        const token =
+          (await getClientToken()) || getSocketTokenFromSession("client") || "";
+        let humanAgentId = resolveHumanAgentIdForSocket("client");
         let agentId: string | undefined;
 
-        // Human agent login: humanAgentId and agentId from agent/humanAgentId/currentAgentId
-        const storedHumanAgentId = localStorage.getItem('humanAgentId');
         const agentData = localStorage.getItem('agent');
         const currentAgentId = localStorage.getItem('currentAgentId');
 
-        if (storedHumanAgentId) {
-          humanAgentId = storedHumanAgentId;
-        } else if (agentData) {
-          try {
-            const parsedAgent = JSON.parse(agentData);
-            humanAgentId = parsedAgent?.id || parsedAgent?._id;
-          } catch {}
-        }
-
-        if (!humanAgentId && localStorage.getItem('clientAgent')) {
-          const clientAgent = JSON.parse(localStorage.getItem('clientAgent') || '{}');
-          humanAgentId = clientAgent._id;
-        }
-        if (!humanAgentId) {
-          const agents = localStorage.getItem('agents');
-          if (agents) {
-            const parsedAgents = JSON.parse(agents);
-            humanAgentId = parsedAgents[0]?._id;
-          }
-        }
-
-        // agentId is required for socket rooms so inbox receives visitor messages
         agentId = currentAgentId || undefined;
         if (!agentId && agentData) {
           try {
@@ -135,9 +116,14 @@ export const useSocketManager = ({
           }
         }
 
-        const query: Record<string, string> = { token: token || '' };
+        if (!token) {
+          isInitializingRef.current = false;
+          return;
+        }
+
+        const query: Record<string, string> = { token };
         if (humanAgentId) query.humanAgentId = humanAgentId;
-        if (agentId) query.agentId = agentId;
+        if (agentId) query.agentId = String(agentId);
 
         const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
           query,

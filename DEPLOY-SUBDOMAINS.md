@@ -53,6 +53,8 @@ Both use `AUTH_COOKIE_DOMAIN=.chataffy.com` (backend + frontend `.env`). Middlew
 
 Agent logout: `POST /api/agents/logout` (does not clear client session).
 
+Socket.IO uses JWT in the **query string** (not cookies). After login, `sessionStorage` holds a copy until httpOnly cookies are read. Ensure `AUTH_COOKIE_DOMAIN=.chataffy.com` on both backend and frontend `.env`.
+
 ## Nginx
 
 Full config lives in the backend repo: `new-backend/nginx/nginx.conf`.

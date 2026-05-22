@@ -7,6 +7,7 @@ import { verifyEmailApi, setClientSessionCookies } from '../../../_api/login/act
 import { useSocket, dispatchAuthStorageSync } from '../../../socketContext'
 import { LoginForm } from '../../login/_components/login'
 import { redirectAfterClientLogin } from '@/lib/postLoginRedirect'
+import { setSocketToken } from '@/lib/socketSession'
 
 const TOAST_ID = 'verify-email-result'
 
@@ -48,7 +49,7 @@ export function VerifyEmailClient() {
             // httpOnly cookies optional for client-driven navigation; localStorage backs API calls
           }
           toast.success(response.message || 'Email verified successfully', { toastId: TOAST_ID })
-          localStorage.setItem('token', sessionToken)
+          setSocketToken('client', sessionToken)
           if (response.userId) localStorage.setItem('userId', String(response.userId))
           if (response.agents?.length) {
             localStorage.setItem('agents', JSON.stringify(response.agents))
