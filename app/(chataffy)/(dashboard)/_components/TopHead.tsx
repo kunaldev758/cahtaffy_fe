@@ -51,18 +51,18 @@ export default function TopHead({
       if (userId) {
         params.set('userId', userId)
       }
-      if (provider === 'shopify') {
-        if (shop) params.set('shop', shop)
+      // if (provider === 'shopify') {
+      //   if (shop) params.set('shop', shop)
     
-          if (sf_params) {
-            const savedParams = new URLSearchParams(sf_params);
-            savedParams.forEach((value, key) => params.set(key, value));
-          }
-      }
+      //     if (sf_params) {
+      //       const savedParams = new URLSearchParams(sf_params);
+      //       savedParams.forEach((value, key) => params.set(key, value));
+      //     }
+      // }
     
-      if (provider === 'bigcommerce') {
-        if (signedPayloadJwt) params.set('signed_payload_jwt', signedPayloadJwt)
-      }
+      // if (provider === 'bigcommerce') {
+      //   if (signedPayloadJwt) params.set('signed_payload_jwt', signedPayloadJwt)
+      // }
     
       const base = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || ''
       const url = `${base.replace(/\/$/, '')}/platform-redirection-login?${params.toString()}`
