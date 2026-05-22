@@ -3,21 +3,32 @@
 import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
+import { usePathname } from 'next/navigation';
 
-declare global {
-  interface Window {
-    shopify?: {
-      idToken: () => Promise<string>;
-    };
-  }
-}
+// declare global {
+//   interface Window {
+//     shopify?: {
+//       idToken: () => Promise<string>;
+//       config: {
+//         shop: string;
+//         locale: string;
+//         version: string;
+//       };
+//     };
+//   }
+// }
 
-/**
- * Re-applies Shopify/BigCommerce cookies when the embedded tab regains focus.
- * Shared cookies are overwritten when the user opens the standalone web app in another tab.
- */
+
+//  Re-applies Shopify/BigCommerce cookies when the embedded tab regains focus.
+//  Shared cookies are overwritten when the user opens the standalone web app in another tab.
 export default function PlatformSessionSync() {
   const syncingRef = useRef(false);
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -36,6 +47,9 @@ export default function PlatformSessionSync() {
         syncingRef.current = false;
         return;
       };
+
+      // do not sync platform session for load page
+      if (pathnameRef.current === "/load") return;
 
 
       // const provider = localStorage.getItem('provider');

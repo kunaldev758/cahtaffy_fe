@@ -24,10 +24,13 @@ export default function RootLayout({
     <html lang="en" >
       <head>
         {process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ? (
-          <meta
-            name="shopify-api-key"
-            content={process.env.NEXT_PUBLIC_SHOPIFY_API_KEY}
-          />
+          <>
+            <meta
+              name="shopify-api-key"
+              content={process.env.NEXT_PUBLIC_SHOPIFY_API_KEY}
+              />
+            <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
+          </>
         ) : null}
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
