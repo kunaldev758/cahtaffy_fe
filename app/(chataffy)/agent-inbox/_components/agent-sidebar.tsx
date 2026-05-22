@@ -9,7 +9,9 @@ import {
   Menu,
   X,
   Edit3,
+  Loader2,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { toggleActiveStatus, logoutApi } from "@/app/_api/dashboard/action";
 import AgentEditProfileModal, { type AgentEditProfileAgent } from "./AgentEditProfileModal";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
@@ -32,6 +34,7 @@ export default function AgentSidebar() {
   const { socket } = useSocket();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   const router = useRouter();
 
@@ -53,53 +56,57 @@ export default function AgentSidebar() {
     return () => window.removeEventListener('agent-status-updated', refreshAgentFromStorage);
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      // Remove all agent-related localStorage items
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('agent');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('humanAgentId');
-      localStorage.removeItem('currentAgentId');
+  const clearAgentSession = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('agent');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('humanAgentId');
+    localStorage.removeItem('currentAgentId');
+    localStorage.removeItem('clientAgent');
+    localStorage.removeItem('client');
+    localStorage.removeItem('user');
+  };
 
-      // Also remove any client-related items that might have been set
-      localStorage.removeItem('clientAgent');
-      localStorage.removeItem('client');
-      localStorage.removeItem('user');
-      
-      // Delete cookies via server action
+  const handleLogout = async (options?: { silent?: boolean }) => {
+    if (isLoggingOut) return;
+    if (!options?.silent) setIsLoggingOut(true);
+    try {
+      clearAgentSession();
+
       try {
         await logoutApi();
       } catch (cookieError) {
-        // Even if logoutApi fails, cookies deletion might have succeeded
         console.error('Logout API error:', cookieError);
       }
 
       dispatchAuthStorageSync();
+      if (!options?.silent) {
+        toast.success('Logout successful');
+      }
       router.push('/agent-login');
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear localStorage and redirect even if there's an error
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('agent');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('humanAgentId');
-      localStorage.removeItem('currentAgentId');
+      clearAgentSession();
       dispatchAuthStorageSync();
-      router.push('/agent-login');
+      if (!options?.silent) {
+        toast.error('Logout failed. Please try again.');
+        setIsLoggingOut(false);
+      } else {
+        router.push('/agent-login');
+      }
     }
   };
 
-  useEffect(()=>{
-    console.log("agent deleted")
-    socket?.on('agent-deleted-success',handleLogout)
-    
+  useEffect(() => {
+    const onAgentDeleted = () => {
+      void handleLogout({ silent: true });
+    };
+    socket?.on('agent-deleted-success', onAgentDeleted);
     return () => {
-      socket?.off('agent-deleted-success', handleLogout)
-    }
-  },[socket])
+      socket?.off('agent-deleted-success', onAgentDeleted);
+    };
+  }, [socket]);
 
   const toggleAgentStatus = async () => {
     if (!agent) return;
@@ -235,12 +242,22 @@ export default function AgentSidebar() {
           </div>
 
           <button
-            onClick={handleLogout}
-            className="w-full flex items-center space-x-3 p-3 hover:bg-red-600 rounded-lg transition-colors text-gray-300 hover:text-white"
+            onClick={() => handleLogout()}
+            disabled={isLoggingOut}
+            className="w-full flex items-center space-x-3 p-3 hover:bg-red-600 rounded-lg transition-colors text-gray-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             title={isCollapsed ? "Logout" : undefined}
           >
-            <LogOut size={20} />
-            {!isCollapsed && <span>Logout</span>}
+            {isLoggingOut ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                {!isCollapsed && <span>Logging out...</span>}
+              </>
+            ) : (
+              <>
+                <LogOut size={20} />
+                {!isCollapsed && <span>Logout</span>}
+              </>
+            )}
           </button>
         </div>
       </div>

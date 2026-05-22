@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronDown, Globe, Check, Loader2 } from 'lucide-react'
+import { toast } from 'react-toastify'
 import { getAIAgents, logoutApi, toggleActiveStatus } from '@/app/_api/dashboard/action'
 import { dispatchAuthStorageSync } from '@/app/socketContext'
 import NotificationBell from '@/app/(chataffy)/(dashboard)/_components/NotificationBell'
@@ -128,6 +129,7 @@ export default function AgentTopBar() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   /** False on first paint; true after localStorage is read so we can reserve space for status/profile. */
   const [hasReadAgentFromStorage, setHasReadAgentFromStorage] = useState(false)
 
@@ -219,12 +221,20 @@ export default function AgentTopBar() {
   const humanAvatarUrl = avatarSrc(humanAgent?.avatar)
 
   const handleProfileLogout = async () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
     try {
-      await logoutApi()
-    } catch { /* ignore */ }
-    localStorage.clear()
-    dispatchAuthStorageSync()
-    router.replace('/login')
+      try {
+        await logoutApi()
+      } catch { /* ignore */ }
+      localStorage.clear()
+      dispatchAuthStorageSync()
+      toast.success('Logout successful')
+      router.replace('/agent-login')
+    } catch {
+      toast.error('Logout failed. Please try again.')
+      setIsLoggingOut(false)
+    }
   }
 
   const toggleHumanStatus = async () => {
@@ -440,14 +450,24 @@ export default function AgentTopBar() {
                   <div className="border-t border-gray-100">
                     <button
                       type="button"
+                      disabled={isLoggingOut}
                       onClick={() => {
                         setIsProfileMenuOpen(false)
                         void handleProfileLogout()
                       }}
-                      className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150 justify-center"
+                      className="flex items-center gap-[12px] w-full px-[16px] py-[12px] text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="material-symbols-outlined !text-[20px]">logout</span>
-                      Logout
+                      {isLoggingOut ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Logging out...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined !text-[20px]">logout</span>
+                          Logout
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

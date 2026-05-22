@@ -3,29 +3,36 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAgentApi } from "../../_api/login/action";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 
 export default function AgentLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
     try {
-      console.log(email,password,"email pass")
       const res = await loginAgentApi(email.trim(), password.trim())
 
       if (res.message != "Login successful") {
-        setError(res.message || "Login failed");
+        const message = res.message || "Login failed";
+        setError(message);
+        toast.error(message);
+        setIsLoading(false);
         return;
       }
       const humanAgent = res.humanAgent;
       if (!humanAgent) {
         setError("Invalid login response");
+        toast.error("Invalid login response");
+        setIsLoading(false);
         return;
       }
       const humanAgentId = humanAgent.id?.toString?.() || humanAgent.id;
@@ -38,9 +45,12 @@ export default function AgentLogin() {
       localStorage.setItem("humanAgentId", humanAgentId);
       localStorage.setItem("currentAgentId", currentAgentId);
       dispatchAuthStorageSync();
+      toast.success("Human agent login successful");
       router.push("/agent-inbox");
     } catch (err) {
       setError("Login failed. Please try again.");
+      toast.error("Login failed. Please try again.");
+      setIsLoading(false);
     }
   };
 
@@ -88,9 +98,17 @@ export default function AgentLogin() {
         </div>
         <button
           type="submit"
-          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition"
+          disabled={isLoading}
+          className="w-full flex justify-center items-center bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Login
+          {isLoading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Logging in...
+            </>
+          ) : (
+            "Login"
+          )}
         </button>
       </form>
     </div>
