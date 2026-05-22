@@ -17,8 +17,8 @@ import AgentConnectionRequest from "./AgentConnectionRequest";
 import InboxSkeleton from "./InboxSkeleton";
 
 export default function Inbox(Props: any) {
-  const searchParams:any = useSearchParams();
-  const currentConversationId = searchParams.get('conversationId');
+  const searchParams = useSearchParams();
+  const currentConversationId = searchParams?.get("conversationId") ?? null;
   // Add this state near the top of Inbox component
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 

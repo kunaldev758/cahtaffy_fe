@@ -184,7 +184,18 @@ export default function AgentTopBar() {
   }, [])
 
   // Only show agents assigned to this human agent
-  const assignedIds = humanAgent?.assignedAgents?.map((id: any) => id?.toString()) ?? []
+  const assignedIds =
+    humanAgent?.assignedAgents?.map((id: unknown) => {
+      if (id == null || id === "") return "";
+      if (typeof id === "string") return id;
+      if (typeof id === "object" && id !== null) {
+        const o = id as { _id?: unknown; $oid?: string; toString?: () => string };
+        if (typeof o.$oid === "string") return o.$oid;
+        if (o._id != null) return String(o._id);
+        if (typeof o.toString === "function") return o.toString();
+      }
+      return String(id);
+    }).filter(Boolean) ?? [];
   const visibleAgents =
     assignedIds.length > 0
       ? allAgents.filter((a) => assignedIds.includes(a._id))

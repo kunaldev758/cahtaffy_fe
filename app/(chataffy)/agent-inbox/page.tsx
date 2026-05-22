@@ -1,12 +1,14 @@
-import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import AgentLayout from "./_components/agent-layout";
-const Inbox = dynamic(() => import("../(dashboard)/inbox/_components/inbox"), { ssr: false });
+import Inbox from "../(dashboard)/inbox/_components/inbox";
+import InboxSkeleton from "../(dashboard)/inbox/_components/InboxSkeleton";
 
 export default function AgentInboxPage() {
-  // Add auth check here if needed
-   return (
+  return (
     <AgentLayout>
-      <Inbox />
+      <Suspense fallback={<InboxSkeleton />}>
+        <Inbox />
+      </Suspense>
     </AgentLayout>
   );
 }
