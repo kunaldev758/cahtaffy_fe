@@ -14,6 +14,10 @@ interface SocketContextProps {
   socket: Socket | null;
 }
 
+const SocketContext = createContext<SocketContextProps>({
+  socket: null,
+});
+
 export const AUTH_STORAGE_SYNC_EVENT = "chataffy-auth-storage-sync";
 
 export function dispatchAuthStorageSync() {
@@ -179,4 +183,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
-export const useSocket = () => useContext(SocketContext);
+export function useSocket(): SocketContextProps {
+  return useContext(SocketContext);
+}
