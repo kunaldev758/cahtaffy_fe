@@ -10,7 +10,7 @@ import {
   X,
   Edit3,
 } from "lucide-react";
-import { toggleActiveStatus, logoutApi } from "@/app/_api/dashboard/action";
+import { toggleActiveStatus, logoutAgentApi } from "@/app/_api/dashboard/action";
 import AgentEditProfileModal, { type AgentEditProfileAgent } from "./AgentEditProfileModal";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
 import { useSocket } from "@/app/socketContext";
@@ -70,7 +70,7 @@ export default function AgentSidebar() {
       
       // Delete cookies via server action
       try {
-        await logoutApi();
+        await logoutAgentApi();
       } catch (cookieError) {
         // Even if logoutApi fails, cookies deletion might have succeeded
         console.error('Logout API error:', cookieError);

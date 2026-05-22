@@ -1,24 +1,46 @@
 'use server'
 import { cookies } from 'next/headers';
+import {
+  AGENT_TOKEN,
+  CLIENT_TOKEN,
+  LEGACY_TOKEN,
+  serverAuthCookieOpts,
+} from '@/lib/authCookies';
 
-const ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
+const cookieOpts = () => serverAuthCookieOpts();
 
-/**
- * Returns the cookie name that holds the session token for the current platform.
- * platform cookie: 'shopify' → sf_token, 'bigcommerce' → bc_token, else → token
- */
 function getPlatformCookieName() {
   const platform = cookies().get('platform')?.value || 'local';
-  if (platform === 'shopify')     return 'sf_token';
+  if (platform === 'shopify') return 'sf_token';
   if (platform === 'bigcommerce') return 'bc_token';
-  return 'token';
+  return CLIENT_TOKEN;
 }
 
-/** Returns the active session token for the current platform, or null if none. */
-export const getToken = async () => {
-  const cookieName = getPlatformCookieName();
-  return cookies().get(cookieName)?.value || null;
-}
+export const getClientToken = async () => {
+  const platform = cookies().get('platform')?.value || 'local';
+  if (platform === 'shopify') {
+    return cookies().get('sf_token')?.value || null;
+  }
+  if (platform === 'bigcommerce') {
+    return cookies().get('bc_token')?.value || null;
+  }
+  return (
+    cookies().get(CLIENT_TOKEN)?.value ||
+    cookies().get(LEGACY_TOKEN)?.value ||
+    null
+  );
+};
+
+export const getAgentToken = async () => {
+  return (
+    cookies().get(AGENT_TOKEN)?.value ||
+    cookies().get(LEGACY_TOKEN)?.value ||
+    null
+  );
+};
+
+/** Client dashboard session (backward-compatible name). */
+export const getToken = async () => getClientToken();
 
 function getAuthorizationHeader() {
   const cookieName = getPlatformCookieName();
@@ -28,20 +50,16 @@ function getAuthorizationHeader() {
 function syncTokenFromSetCookieHeader(setCookieHeader) {
   if (!setCookieHeader) return;
 
-  const cookieName = getPlatformCookieName();
-  const token = setCookieHeader.match(new RegExp(`(?:^|,\\s*)${cookieName}=([^;]+)`))?.[1];
-  console.log("token from setCookieHeader ----> ", token)
-  if (!token) return;
-
-  cookies().set({
-    name: cookieName,
-    value: token,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
-    maxAge: ONE_WEEK_IN_SECONDS,
-    path: '/',
-  });
+  const names = [getPlatformCookieName(), CLIENT_TOKEN, AGENT_TOKEN, LEGACY_TOKEN];
+  for (const cookieName of names) {
+    const token = setCookieHeader.match(
+      new RegExp(`(?:^|,\\s*)${cookieName}=([^;]+)`),
+    )?.[1];
+    if (token) {
+      cookies().set({ name: cookieName, value: token, ...cookieOpts() });
+      return;
+    }
+  }
 }
 
 async function fetchData(endpoint, requestData = {}) {
@@ -288,9 +306,25 @@ export async function updateOnboardingStepApi(agentId, step, websiteUrl, extract
 
 
 export async function logoutApi() {
-  cookies().delete('token')
-  cookies().delete('role')
+  cookies().delete(CLIENT_TOKEN);
+  cookies().delete(LEGACY_TOKEN);
+  cookies().delete('role');
   return await fetchData('logout');
+}
+
+export async function logoutAgentApi() {
+  cookies().delete(AGENT_TOKEN);
+  cookies().delete(LEGACY_TOKEN);
+  cookies().delete('role');
+  try {
+    await fetch(`${process.env.API_HOST}agents/logout`, {
+      method: 'POST',
+      cache: 'no-cache',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch {
+    /* cookie clear is enough for UI */
+  }
 }
 
 // Human Agent API functions

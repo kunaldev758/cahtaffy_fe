@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronDown, Globe, Check, Loader2 } from 'lucide-react'
-import { getAIAgents, logoutApi, toggleActiveStatus } from '@/app/_api/dashboard/action'
+import { getAIAgents, logoutAgentApi, toggleActiveStatus } from '@/app/_api/dashboard/action'
 import { dispatchAuthStorageSync } from '@/app/socketContext'
 import NotificationBell from '@/app/(chataffy)/(dashboard)/_components/NotificationBell'
 import AgentEditProfileModal, { type AgentEditProfileAgent } from './AgentEditProfileModal'
@@ -231,15 +231,7 @@ export default function AgentTopBar() {
 
   const handleProfileLogout = async () => {
     try {
-      // await logoutApi()
-      await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
-        credentials: 'include',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
+      await logoutAgentApi()
     } catch { /* ignore */ }
     localStorage.clear()
     dispatchAuthStorageSync()

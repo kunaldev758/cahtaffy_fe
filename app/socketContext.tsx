@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import initializeSocket from "./socket";
 import { Socket } from "socket.io-client";
-import { getToken } from "./_api/dashboard/action";
+import { getClientToken, getAgentToken } from "./_api/dashboard/action";
+import { portalFromHostname } from "@/lib/authCookies";
 
 interface SocketContextProps {
   socket: Socket | null;
@@ -31,7 +32,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const lastHumanAgentProfileSocketKey = useRef<string>("");
 
   const readAndSetIdentifiers = async () => {
-    const storedToken = await getToken() || '';
+    const portal =
+      typeof window !== "undefined"
+        ? portalFromHostname(window.location.hostname)
+        : "client";
+    const storedToken =
+      portal === "agent"
+        ? (await getAgentToken()) || ""
+        : (await getClientToken()) || "";
     const storedUserId = localStorage.getItem("userId");
     const storedAgentId = localStorage.getItem("currentAgentId");
     const storedHumanAgentId = localStorage.getItem("humanAgentId");

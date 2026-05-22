@@ -42,6 +42,17 @@ ENVIRONMENT=production
 
 Frontend API calls use `https://chataffy.com/api/` (nginx `/api/` → port 9000), not `/chataffy/chataffy/`.
 
+## Dual sessions (client + agent in one browser)
+
+| Cookie | Set by | Used on |
+|--------|--------|---------|
+| `CLIENT_TOKEN` | Client login, OAuth, verify email | `dashboard.chataffy.com` |
+| `AGENT_TOKEN` | Agent login | `agent.chataffy.com` |
+
+Both use `AUTH_COOKIE_DOMAIN=.chataffy.com` (backend + frontend `.env`). Middleware picks the cookie by **host**, not `role`. Legacy `token` is still accepted during migration.
+
+Agent logout: `POST /api/agents/logout` (does not clear client session).
+
 ## Nginx
 
 Full config lives in the backend repo: `new-backend/nginx/nginx.conf`.
