@@ -60,6 +60,8 @@ export const useSocketManager = ({
   openVisitorIp,
   isAIChat,
 }: SocketManagerProps) => {
+
+  console.log("use socket manager ke andar : ",)
   // const { socket } = useSocket();
   const socketRef = useRef<Socket | null>(null);
   const isInitializingRef = useRef(false);
@@ -68,46 +70,148 @@ export const useSocketManager = ({
   const [socketVersion, setSocketVersion] = useState(0);
   const [socketConnected, setSocketConnected] = useState(false);
 
-    // Socket initialization
-    const initializeSocket = useCallback(async () => {
-      // Prevent multiple simultaneous initializations
-      if (isInitializingRef.current) {
-        return;
-      }
+  // Socket initialization
+  const initializeSocket = useCallback(async () => {
 
-      // If socket already exists and is connected, don't reinitialize
-      if (socketRef.current && socketRef.current.connected) {
-        console.log("Socket already connected, skipping reinitialization");
-        return;
-      }
+    // console.log("Initializing socket connection. Current socket:", socketRef.current, "Connected:", socketConnected);
+    // // Prevent multiple simultaneous initializations
+    // if (isInitializingRef.current) {
+    //   return;
+    // }
 
-      // If socket exists but not connected, disconnect it first
-      if (socketRef.current) {
-        console.log("Disconnecting existing socket before reinitialization");
-        socketRef.current.removeAllListeners(); // Remove all listeners to prevent memory leaks
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+    // // If socket already exists and is connected, don't reinitialize
+    // if (socketRef.current && socketRef.current.connected) {
+    //   console.log("Socket already connected, skipping reinitialization");
+    //   return;
+    // }
 
-      isInitializingRef.current = true;
-  
-      try {
-        const token =
-          (await getClientToken()) || getSocketTokenFromSession("client") || "";
-        let humanAgentId = resolveHumanAgentIdForSocket("client");
-        let agentId: string | undefined;
+    // // If socket exists but not connected, disconnect it first
+    // if (socketRef.current) {
+    //   console.log("Disconnecting existing socket before reinitialization");
+    //   socketRef.current.removeAllListeners(); // Remove all listeners to prevent memory leaks
+    //   socketRef.current.disconnect();
+    //   socketRef.current = null;
+    // }
 
-        const agentData = localStorage.getItem('agent');
+    // isInitializingRef.current = true;
+
+    // try {
+    //   const token =
+    //     (await getClientToken()) || getSocketTokenFromSession("client") || "";
+
+    //     console.log("Initializing socket with token:", !!token);
+    //   let humanAgentId = resolveHumanAgentIdForSocket("client");
+    //   let agentId: string | undefined;
+
+    //   const agentData = localStorage.getItem('agent');
+    //   const currentAgentId = localStorage.getItem('currentAgentId');
+
+    //   agentId = currentAgentId || undefined;
+    //   if (!agentId && agentData) {
+    //     try {
+    //       const parsedAgent = JSON.parse(agentData);
+    //       const firstAssigned = parsedAgent?.assignedAgents?.[0];
+    //       agentId = firstAssigned?.toString?.() || firstAssigned;
+    //     } catch {}
+    //   }
+    //   if (!agentId) {
+    //     const agents = localStorage.getItem('agents');
+    //     if (agents) {
+    //       const parsedAgents = JSON.parse(agents);
+    //       agentId = parsedAgents[0]?._id;
+    //     }
+    //   }
+
+    //   if (!token) {
+    //     isInitializingRef.current = false;
+    //     return;
+    //   }
+
+    //   const query: Record<string, string> = { token };
+    //   if (humanAgentId) query.humanAgentId = humanAgentId;
+    //   if (agentId) query.agentId = String(agentId);
+
+    //   const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
+    //     query,
+    //     transports: ["websocket", "polling"],
+    //     reconnection: true,
+    //     reconnectionAttempts: 5,
+    //     reconnectionDelay: 1000,
+    //     reconnectionDelayMax: 5000,
+    //     timeout: 20000,
+    //     forceNew: false, // Reuse existing connection if available
+    //   });
+
+    //   socketInstance.on("connect", () => {
+    //     console.log("Socket connected successfully");
+    //     isInitializingRef.current = false;
+    //     setSocketConnected(true);
+    //   });
+
+    //   socketInstance.on("connect_error", (error) => {
+    //     console.error("Socket connection error:", error);
+    //     isInitializingRef.current = false;
+    //   });
+
+
+    if (isInitializingRef.current) {
+      return;
+    }
+
+    if (socketRef.current && socketRef.current.connected) {
+      console.log("Socket already connected, skipping reinitialization");
+      return;
+    }
+
+    if (socketRef.current) {
+      console.log("Disconnecting existing socket before reinitialization");
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
+    isInitializingRef.current = true;
+
+    try {
+      // ✅ NEW: Check if it's an AGENT login, not a CLIENT login
+      const agentData = localStorage.getItem('agent');
+      const isAgentLogin = agentData && agentData !== 'null' && agentData !== 'undefined';
+
+      let token = "";
+      let humanAgentId = "";
+      let agentId: string | undefined;
+
+      if (isAgentLogin) {
+        // AGENT PATH: Get agent token from action.js
+        const { getAgentToken } = await import("@/app/_api/dashboard/action");
+        token = (await getAgentToken()) || getSocketTokenFromSession("agent") || "";
+        humanAgentId = resolveHumanAgentIdForSocket("agent");
+
         const currentAgentId = localStorage.getItem('currentAgentId');
-
         agentId = currentAgentId || undefined;
+
         if (!agentId && agentData) {
           try {
             const parsedAgent = JSON.parse(agentData);
             const firstAssigned = parsedAgent?.assignedAgents?.[0];
             agentId = firstAssigned?.toString?.() || firstAssigned;
-          } catch {}
+          } catch { }
         }
+      } else {
+        // CLIENT PATH: Keep existing logic
+        token = (await getClientToken()) || getSocketTokenFromSession("client") || "";
+        humanAgentId = resolveHumanAgentIdForSocket("client");
+        const currentAgentId = localStorage.getItem('currentAgentId');
+        agentId = currentAgentId || undefined;
+
+        if (!agentId && agentData) {
+          try {
+            const parsedAgent = JSON.parse(agentData);
+            const firstAssigned = parsedAgent?.assignedAgents?.[0];
+            agentId = firstAssigned?.toString?.() || firstAssigned;
+          } catch { }
+        }
+
         if (!agentId) {
           const agents = localStorage.getItem('agents');
           if (agents) {
@@ -115,87 +219,91 @@ export const useSocketManager = ({
             agentId = parsedAgents[0]?._id;
           }
         }
-
-        if (!token) {
-          isInitializingRef.current = false;
-          return;
-        }
-
-        const query: Record<string, string> = { token };
-        if (humanAgentId) query.humanAgentId = humanAgentId;
-        if (agentId) query.agentId = String(agentId);
-
-        const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-          query,
-          transports: ["websocket", "polling"],
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-          reconnectionDelayMax: 5000,
-          timeout: 20000,
-          forceNew: false, // Reuse existing connection if available
-        });
-  
-        socketInstance.on("connect", () => {
-          console.log("Socket connected successfully");
-          isInitializingRef.current = false;
-          setSocketConnected(true);
-        });
-  
-        socketInstance.on("connect_error", (error) => {
-          console.error("Socket connection error:", error);
-          isInitializingRef.current = false;
-        });
-
-        socketInstance.on("disconnect", (reason) => {
-          console.log("Socket disconnected:", reason);
-          setSocketConnected(false);
-          // Only reconnect if it wasn't a manual disconnect
-          if (reason === "io server disconnect") {
-            // Server disconnected, reconnect manually
-            socketInstance.connect();
-          } else if (reason === "io client disconnect") {
-            // Client disconnected manually, don't reconnect
-            console.log("Client manually disconnected, not reconnecting");
-          }
-        });
-
-        socketInstance.on("reconnect", (attemptNumber) => {
-          console.log("Socket reconnected after", attemptNumber, "attempts");
-          // Re-join conversation room if we have an open conversation
-          // The event handlers should persist, but we need to re-join rooms
-          setTimeout(() => {
-            if (socketRef.current && socketRef.current.connected && openConversationId) {
-              socketRef.current.emit("set-conversation-id", { conversationId: openConversationId }, (response: any) => {
-                if (response && response.success) {
-                  console.log("Rejoined conversation room after reconnect:", openConversationId);
-                }
-              });
-            }
-          }, 100);
-        });
-
-        socketInstance.on("reconnect_attempt", (attemptNumber) => {
-          console.log("Socket reconnection attempt", attemptNumber);
-        });
-
-        socketInstance.on("reconnect_error", (error) => {
-          console.error("Socket reconnection error:", error);
-        });
-
-        socketInstance.on("reconnect_failed", () => {
-          console.error("Socket reconnection failed after all attempts");
-          isInitializingRef.current = false;
-        });
-  
-        socketRef.current = socketInstance;
-        // Notify effects/callbacks that a new socket instance now exists.
-        setSocketVersion((v) => v + 1);
-      } catch (error) {
-        console.error("Error initializing socket:", error);
-        isInitializingRef.current = false;
       }
-    }, []);
+
+      if (!token) {
+        console.warn("No authentication token available for socket connection");
+        isInitializingRef.current = false;
+        return;
+      }
+
+      const query: Record<string, string> = { token };
+      if (humanAgentId) query.humanAgentId = humanAgentId;
+      if (agentId) query.agentId = String(agentId);
+
+      console.log("Initializing socket with query:", { humanAgentId, agentId, isAgentLogin });
+
+      const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
+        query,
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        forceNew: false,
+      });
+
+      socketInstance.on("connect", () => {
+        console.log("Socket connected successfully");
+        isInitializingRef.current = false;
+        setSocketConnected(true);
+      });
+
+      socketInstance.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+        isInitializingRef.current = false;
+      });
+
+      socketInstance.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason);
+        setSocketConnected(false);
+        // Only reconnect if it wasn't a manual disconnect
+        if (reason === "io server disconnect") {
+          // Server disconnected, reconnect manually
+          socketInstance.connect();
+        } else if (reason === "io client disconnect") {
+          // Client disconnected manually, don't reconnect
+          console.log("Client manually disconnected, not reconnecting");
+        }
+      });
+
+      socketInstance.on("reconnect", (attemptNumber) => {
+        console.log("Socket reconnected after", attemptNumber, "attempts");
+        // Re-join conversation room if we have an open conversation
+        // The event handlers should persist, but we need to re-join rooms
+        setTimeout(() => {
+          if (socketRef.current && socketRef.current.connected && openConversationId) {
+            socketRef.current.emit("set-conversation-id", { conversationId: openConversationId }, (response: any) => {
+              if (response && response.success) {
+                console.log("Rejoined conversation room after reconnect:", openConversationId);
+              }
+            });
+          }
+        }, 100);
+      });
+
+      socketInstance.on("reconnect_attempt", (attemptNumber) => {
+        console.log("Socket reconnection attempt", attemptNumber);
+      });
+
+      socketInstance.on("reconnect_error", (error) => {
+        console.error("Socket reconnection error:", error);
+      });
+
+      socketInstance.on("reconnect_failed", () => {
+        console.error("Socket reconnection failed after all attempts");
+        isInitializingRef.current = false;
+      });
+
+      socketRef.current = socketInstance;
+      // Notify effects/callbacks that a new socket instance now exists.
+      setSocketVersion((v) => v + 1);
+    } catch (error) {
+      console.error("Error initializing socket:", error);
+      isInitializingRef.current = false;
+    }
+  }, []);
 
   // Socket event handlers
   const setupMessageHandlers = useCallback(() => {
@@ -234,10 +342,10 @@ export const useSocketManager = ({
           data: prev.data?.map((conv: any) =>
             conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
               ? {
-                  ...conv,
-                  newMessage: (conv.newMessage || 0) + 1,
-                  ...(lastMessage !== undefined ? { lastMessage } : {}),
-                }
+                ...conv,
+                newMessage: (conv.newMessage || 0) + 1,
+                ...(lastMessage !== undefined ? { lastMessage } : {}),
+              }
               : conv
           ),
         }));
@@ -616,7 +724,7 @@ export const useSocketManager = ({
       } else {
         console.error("Failed to join conversation room:", response?.error || "Unknown error");
       }
-      
+
       callback?.(response);
     });
   }, [emitGetConversationTags]);
@@ -812,6 +920,8 @@ export const useSocketManager = ({
   // Initialize socket on mount - only once
   useEffect(() => {
     // Only initialize if socket doesn't exist or isn't connected
+
+    console.log("useSocketManager mount - initializing socket if needed. Current socket:", socketRef.current, "Connected:", socketConnected);
     if (!socketRef.current || !socketRef.current.connected) {
       initializeSocket();
     }
@@ -880,7 +990,7 @@ export const useSocketManager = ({
         setupHandlers();
       };
       socket.once("connect", onConnect);
-      
+
       return () => {
         socket.off("connect", onConnect);
         cleanupFunctions.forEach(cleanup => cleanup?.());

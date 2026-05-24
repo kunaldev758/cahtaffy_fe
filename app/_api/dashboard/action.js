@@ -44,8 +44,47 @@ export const getAgentToken = async () => {
 export const getToken = async () => getClientToken();
 
 /** Pick client vs agent session for server-side API calls (by host / referer). */
+// function resolveAuthPortal() {
+//   const host = (headers().get('host') || '').split(':')[0];
+
+//   console.log("Resolving auth portal. Host:", host);
+//   const fromHost = portalFromHostname(host);
+
+//   console.log("Portal from hostname:", fromHost);
+//   if (fromHost === 'agent') return 'agent';
+//   if (fromHost === 'client') return 'client';
+
+//   const referer = headers().get('referer') || '';
+
+//   console.log("Resolving auth portal. Host:", host, "Referer:", referer);
+//   if (
+//     referer.includes('/agent-inbox') ||
+//     referer.includes('/agent-login') ||
+//     referer.includes('/agent-accept-invite')
+//   ) {
+//     return 'agent';
+//   }
+//   return 'client';
+// }
+
 function resolveAuthPortal() {
   const host = (headers().get('host') || '').split(':')[0];
+
+  // Handle local development
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
+    const referer = headers().get('referer') || '';
+
+    console.log("Resolving auth portal in local environment. Host:", host, "Referer:", referer);
+    if (
+      referer.includes('/agent-inbox') ||
+      referer.includes('/agent-login') ||
+      referer.includes('/agent-accept-invite')
+    ) {
+      return 'agent';
+    }
+    return 'client';
+  }
+
   const fromHost = portalFromHostname(host);
   if (fromHost === 'agent') return 'agent';
   if (fromHost === 'client') return 'client';
@@ -136,7 +175,7 @@ async function fetchDatawithoutToken(endpoint, requestData = {}) {
 }
 
 
-async function uploadData(endpoint,formData,userId ) {
+async function uploadData(endpoint, formData, userId) {
   const response = await fetch(`${process.env.API_HOST}${endpoint}/${userId}`, {
     method: 'POST',
     body: formData,
@@ -153,29 +192,33 @@ async function uploadData(endpoint,formData,userId ) {
   return data
 }
 
-async function getFetchData(endpoint,params=null) {
-  let response =null; 
-  if(params){
-  response = await fetch(`${process.env.API_HOST}${endpoint}/${params}`, {
-    method: 'GET',
-    cache: 'no-cache',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: getAuthorizationHeader()
-    },
-  });
-}else{
-  response = await fetch(`${process.env.API_HOST}${endpoint}`, {
-    method: 'GET',
-    cache: 'no-cache',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: getAuthorizationHeader()
-    },
-  });
-}
+async function getFetchData(endpoint, params = null) {
+
+  console.log(`Fetching data ${process.env.API_HOST} from endpoint: ${endpoint} with params:`, params);
+  let response = null;
+  if (params) {
+    response = await fetch(`${process.env.API_HOST}${endpoint}/${params}`, {
+      method: 'GET',
+      cache: 'no-cache',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: getAuthorizationHeader()
+      },
+    });
+  } else {
+    response = await fetch(`${process.env.API_HOST}${endpoint}`, {
+      method: 'GET',
+      cache: 'no-cache',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: getAuthorizationHeader()
+      },
+    });
+  }
   const data = await response.json();
-  if(data?.status_code==401){
+
+  console.log(`Received response from ${endpoint}:`, data);
+  if (data?.status_code == 401) {
     // cookies().delete('token')
     return 'error'
   }
@@ -227,7 +270,7 @@ export async function openaiCreateSnippet(formData, agentId) {
     body: formData
   });
   const data = await response.json();
-  if(data.status_code==401){
+  if (data.status_code == 401) {
     return 'error'
   }
   const setCookie = response.headers.get('set-cookie');
@@ -302,11 +345,11 @@ export async function setBasicInfoApi(basicInfo) {
 }
 
 export async function getThemeSettings(id) {
-  return await getFetchData('getThemeSettings',id);
+  return await getFetchData('getThemeSettings', id);
 }
 
-export async function uploadLogo(formData,userId) {
-  return await uploadData('uploadLogo',formData,userId);
+export async function uploadLogo(formData, userId) {
+  return await uploadData('uploadLogo', formData, userId);
 }
 
 export async function updateThemeSettings(data) {
@@ -331,8 +374,8 @@ export async function updateAgentSettingsApi(data) {
  */
 export async function updateOnboardingStepApi(agentId, step, websiteUrl, extractedUrls) {
   const payload = { agentId, onboardingStep: step };
-  if (websiteUrl     !== undefined) payload.onboardingWebsiteUrl    = websiteUrl;
-  if (extractedUrls  !== undefined) payload.onboardingExtractedUrls = extractedUrls;
+  if (websiteUrl !== undefined) payload.onboardingWebsiteUrl = websiteUrl;
+  if (extractedUrls !== undefined) payload.onboardingExtractedUrls = extractedUrls;
   return await fetchData('updateAgentSettings', payload);
 }
 
@@ -397,8 +440,8 @@ export async function updateAgent(id, agentData) {
   return updateHumanAgent(id, agentData);
 }
 
-export async function toggleActiveStatus(id,status) {
-  return await fetchData(`agents/${id}/status`,{isActive:status});
+export async function toggleActiveStatus(id, status) {
+  return await fetchData(`agents/${id}/status`, { isActive: status });
 }
 
 export async function deleteAgent(id) {
@@ -427,7 +470,7 @@ export async function uploadAgentAvatar(formData, agentId) {
     },
   });
   const data = await response.json();
-  if(data.status_code==401){
+  if (data.status_code == 401) {
     return 'error'
   }
   const setCookie = response.headers.get('set-cookie');
@@ -474,16 +517,16 @@ export async function upgradePlan(newPlan) {
   return await fetchData(`upgradePlan`, { newPlan });
 }
 
-export async function capturePayment(orderID,plan,billing_cycle) {
-  return await fetchData(`paypal/capture-payment`,{orderID, plan, billing_cycle})
+export async function capturePayment(orderID, plan, billing_cycle) {
+  return await fetchData(`paypal/capture-payment`, { orderID, plan, billing_cycle })
 }
 
-export async function createOrder(value,currency,plan_name,billing_cycle) {
-  return await fetchData(`paypal/create-order`,{value,currency,plan_name,billing_cycle})
+export async function createOrder(value, currency, plan_name, billing_cycle) {
+  return await fetchData(`paypal/create-order`, { value, currency, plan_name, billing_cycle })
 }
 
-export async function sendEmailForOfflineChat(visitorDetails, contactNote,userId) {
-  return await fetchDatawithoutToken(`sendEmailForOfflineChat`, { message:contactNote,visitorDetails:visitorDetails ,userId:userId});
+export async function sendEmailForOfflineChat(visitorDetails, contactNote, userId) {
+  return await fetchDatawithoutToken(`sendEmailForOfflineChat`, { message: contactNote, visitorDetails: visitorDetails, userId: userId });
 }
 
 export async function toggleWidgetStatusApi(agentId, isActive) {
@@ -503,7 +546,7 @@ export async function updateChatTranscriptSettings(payload) {
 }
 
 export async function getVisitorLocation() {
-  const response = await fetch(process.env.IPINFO_URL,{
+  const response = await fetch(process.env.IPINFO_URL, {
     method: 'GET',
     cache: 'no-cache',
   });

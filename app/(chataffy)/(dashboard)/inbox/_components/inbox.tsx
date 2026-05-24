@@ -23,6 +23,9 @@ export default function Inbox(Props: any) {
   // Add this state near the top of Inbox component
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  const initialLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  console.log("now we are inside agent inbox component, currentConversationId:", currentConversationId);
 
   // State variables
   const [expandedSources, setExpandedSources] = useState<null | number>(null);
@@ -131,7 +134,7 @@ export default function Inbox(Props: any) {
           console.error('Error parsing client agent data:', error);
         }
       }
-      
+
       // Always fetch client data from API to ensure we have the latest status
       const fetchClientData = async () => {
         try {
@@ -171,7 +174,7 @@ export default function Inbox(Props: any) {
           console.error('Error fetching client data:', error);
         }
       };
-      
+
       // Fetch from API to get latest status
       fetchClientData();
     }
@@ -396,12 +399,43 @@ export default function Inbox(Props: any) {
     isAIChat,
   });
 
-    //flips once, stays false
+  //flips once, stays false
+  // useEffect(() => {
+  //   if (socketConnected && !conversationsList.loading) {
+  //     setIsInitialLoad(false);
+  //   }
+  // }, [socketConnected, conversationsList.loading]);
+
+  // Hide skeleton once conversations list finishes loading (with 5-second timeout fallback)
   useEffect(() => {
-    if (socketConnected && !conversationsList.loading) {
+    if (!conversationsList.loading) {
+      // List loaded successfully, hide skeleton immediately
       setIsInitialLoad(false);
+
+      // Clear any pending timeout
+      if (initialLoadTimeoutRef.current) {
+        clearTimeout(initialLoadTimeoutRef.current);
+        initialLoadTimeoutRef.current = null;
+      }
+    } else {
+      // List is still loading, set a 5-second timeout fallback to force hide skeleton
+      if (!initialLoadTimeoutRef.current) {
+        initialLoadTimeoutRef.current = setTimeout(() => {
+          console.warn('⚠️ Conversation list loading timeout - forcing skeleton hidden');
+          setIsInitialLoad(false);
+          initialLoadTimeoutRef.current = null;
+        }, 5000);
+      }
     }
-  }, [socketConnected, conversationsList.loading]);
+
+    // Cleanup: clear timeout on unmount or when loading changes
+    return () => {
+      if (initialLoadTimeoutRef.current) {
+        clearTimeout(initialLoadTimeoutRef.current);
+        initialLoadTimeoutRef.current = null;
+      }
+    };
+  }, [conversationsList.loading]);
 
   // Unified listener for both regular agent and client-agent status updates.
   // Using named handlers so socket.off reliably removes them.
@@ -508,7 +542,7 @@ export default function Inbox(Props: any) {
       if (data) {
         // const conversationId = data.chatMessages[0]?.conversation_id;
         history.pushState(null, '', `?conversationId=${conversationId}`);
-        
+
         setConversationMessages({
           data: data.chatMessages,
           loading: false,
@@ -517,7 +551,7 @@ export default function Inbox(Props: any) {
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(conversationId);
-        
+
         // Update current conversation with feedback if available
         if (data.conversationFeedback && ConversationData) {
           setCurrentConversation({
@@ -661,17 +695,17 @@ export default function Inbox(Props: any) {
       const customEvent = event as CustomEvent;
       const { conversationId } = customEvent.detail;
       console.log("Notification navigate to conversation:", conversationId);
-      
+
       // Find the conversation in the list
       const conversation = conversationsList?.data?.find(
         (conv: any) =>
           String(conv._id) === String(conversationId) || String(conv.id) === String(conversationId)
       );
-      
+
       if (conversation) {
-        const visitorName = conversation.visitor?.visitorDetails?.find((d: any) => d.field === 'Name')?.value || 
-                           conversation.visitorName || 
-                           'Visitor';
+        const visitorName = conversation.visitor?.visitorDetails?.find((d: any) => d.field === 'Name')?.value ||
+          conversation.visitorName ||
+          'Visitor';
         await openConversation(conversation, visitorName, 0);
       } else {
         // If conversation not found in list, try to open it directly by ID
@@ -1000,162 +1034,164 @@ export default function Inbox(Props: any) {
 
   const showSkeleton = isInitialLoad || (!!openConversationId && conversationMessages.loading);
 
+  console.log("show skeleton: ", { showSkeleton, isInitialLoad, conversationMessagesLoading: conversationMessages.loading, openConversationId });
+
   return (
     <>
-    {showSkeleton && <InboxSkeleton />}
-    <div className={`rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)] ${showSkeleton ? 'hidden' : ''}`}>
-      <ConversationsList
-        conversationsList={conversationsList}
-        searchConversationsList={searchConversationsList}
-        openConversationId={openConversationId}
-        searchText={searchText}
-        status={status}
-        rating={rating}
-        sortBy={sortBy}
-        onConversationClick={handleConversationClick}
-        onSearchInputChange={handleSearchInputChange}
-        onSearchInputClick={handleSearchInputClick}
-        onStatusChange={handleStatusChange}
-        onRatingChange={handleRatingChange}
-        onSortChange={handleSortChange}
-        onCloseConversation={handleCloseConversationFromList}
-      />
-
-      {isConversationAvailable ? (
-        <>
-          {conversationMessages?.data?.length > 1 ? (
-            <div className="flex-1 flex flex-col relative bg-white rounded-[20px]">
-              <ChatHeader
-                visitorName={conversationMessages.visitorName}
-                isAIChat={isAIChat}
-                isVisitorClosed={isVisitorClosed}
-                openConversationStatus={openConversationStatus}
-                tags={tags}
-                inputAddTag={inputAddTag}
-                onToggleAI={handleToggle}
-                onCloseConversation={handleCloseConversation}
-                onBlockVisitor={handleBlockVisitor}
-                onAddTagClick={handleAddTagClick}
-                onTagDelete={handleTagDelete}
-                onInputAddTagChange={handleInputAddTagChange}
-                canReply={canReply}
-              />
-
-              {agentConnectionRequest &&
-                String(agentConnectionRequest.conversationId) === String(openConversationId) && (
-                <AgentConnectionRequest
-                  conversationId={agentConnectionRequest.conversationId}
-                  visitorName={agentConnectionRequest.visitorName}
-                  requestStartedAt={agentConnectionRequest.requestStartedAt}
-                  socketRef={socketRef}
-                  acceptChatsEnabled={acceptChatsEnabled}
-                  onExpired={dismissAgentConnectionPopup}
-                  onAccept={() => {
-                    if (typeof window !== "undefined" && agentConnectionRequest?.conversationId != null) {
-                      sessionStorage.removeItem(
-                        `agentConnectionDismissed:${String(agentConnectionRequest.conversationId)}`
-                      );
-                    }
-                    setAgentConnectionRequest(null);
-                    setIsAIChat(false);
-                  }}
-                  onDecline={() => {
-                    if (
-                      typeof window !== "undefined" &&
-                      agentConnectionRequest?.requestStartedAt != null &&
-                      agentConnectionRequest.conversationId != null
-                    ) {
-                      sessionStorage.setItem(
-                        `agentConnectionDismissed:${String(agentConnectionRequest.conversationId)}`,
-                        String(agentConnectionRequest.requestStartedAt)
-                      );
-                    }
-                    setAgentConnectionRequest(null);
-                  }}
-                />
-              )}
-
-              <MessagesArea
-                ref={containerRef}
-                conversationMessages={conversationMessages}
-                expandedSources={expandedSources}
-                setExpandedSources={setExpandedSources}
-                messageRefs={messageRefs}
-                currentConversation={currentConversation}
-                isAITyping={isAITyping}
-                onReviseAnswer={handleReviseAnswer}
-                onReply={handleReply}
-                onJumpToReply={handleScrollToMessage}
-              />
-              <MessageInput
-                inputMessage={inputMessage}
-                wordCount={wordCount}
-                maxWords={MAX_WORDS}
-                isNoteActive={isNoteActive}
-                isAIChat={isAIChat}
-                isVisitorClosed={isVisitorClosed}
-                openConversationStatus={openConversationStatus}
-                conversationId={openConversationId}
-                visitorId={openVisitorId}
-                socketRef={socketRef}
-                onInputChange={handleInputChange}
-                onMessageSend={handleMessageSend}
-                onAddNote={handleAddNote}
-                setIsNoteActive={setIsNoteActive}
-                canReply={canReply}
-                replyingTo={replyingTo}
-                onClearReply={() => setReplyingTo(null)}
-                onJumpToReplyPreview={handleScrollToMessage}
-              />
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center bg-white rounded-[20px]">
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Conversation</h3>
-                <p className="text-sm text-gray-500">This conversation is currently closed or not available.</p>
-              </div>
-            </div>
-          )}
-
-          <DetailsPanel
-            visitorDetails={visitorDetails}
-            notesList={notesList}
-            oldConversationList={oldConversationList}
-            openConversationId={openConversationId}
-            openVisitorName={openVisitorName}
-            onScrollToMessage={handleScrollToMessage}
-            onOldConversationClick={handleOldConversationClick}
-            currentConversation={currentConversation}
-            openConversationStatus={openConversationStatus}
-            isAIChat={isAIChat}
-          />
-        </>
-      ) : (
-        <EmptyState />
-      )}
-
-      {/* Revise Answer Modal */}
-      {reviseAnswerModal && (
-        <ReviseAnswerModal
-          visitorMessage={reviseAnswerModal.visitorMessage}
-          agentResponse={reviseAnswerModal.agentResponse}
-          agentId={
-            (typeof currentConversation?.agentId === 'string'
-              ? currentConversation.agentId
-              : currentConversation?.agentId?._id) || ''
-          }
-          userId={
-            (currentConversation?.userId != null
-              ? String(currentConversation.userId)
-              : typeof window !== 'undefined'
-                ? localStorage.getItem('userId') || ''
-                : '') || ''
-          }
-          onClose={() => setReviseAnswerModal(null)}
-          onSuccess={() => {/* answer stored, Qdrant updated */}}
+      {showSkeleton && <InboxSkeleton />}
+      <div className={`rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)] ${showSkeleton ? 'hidden' : ''}`}>
+        <ConversationsList
+          conversationsList={conversationsList}
+          searchConversationsList={searchConversationsList}
+          openConversationId={openConversationId}
+          searchText={searchText}
+          status={status}
+          rating={rating}
+          sortBy={sortBy}
+          onConversationClick={handleConversationClick}
+          onSearchInputChange={handleSearchInputChange}
+          onSearchInputClick={handleSearchInputClick}
+          onStatusChange={handleStatusChange}
+          onRatingChange={handleRatingChange}
+          onSortChange={handleSortChange}
+          onCloseConversation={handleCloseConversationFromList}
         />
-      )}
-    </div>
+
+        {isConversationAvailable ? (
+          <>
+            {conversationMessages?.data?.length > 1 ? (
+              <div className="flex-1 flex flex-col relative bg-white rounded-[20px]">
+                <ChatHeader
+                  visitorName={conversationMessages.visitorName}
+                  isAIChat={isAIChat}
+                  isVisitorClosed={isVisitorClosed}
+                  openConversationStatus={openConversationStatus}
+                  tags={tags}
+                  inputAddTag={inputAddTag}
+                  onToggleAI={handleToggle}
+                  onCloseConversation={handleCloseConversation}
+                  onBlockVisitor={handleBlockVisitor}
+                  onAddTagClick={handleAddTagClick}
+                  onTagDelete={handleTagDelete}
+                  onInputAddTagChange={handleInputAddTagChange}
+                  canReply={canReply}
+                />
+
+                {agentConnectionRequest &&
+                  String(agentConnectionRequest.conversationId) === String(openConversationId) && (
+                    <AgentConnectionRequest
+                      conversationId={agentConnectionRequest.conversationId}
+                      visitorName={agentConnectionRequest.visitorName}
+                      requestStartedAt={agentConnectionRequest.requestStartedAt}
+                      socketRef={socketRef}
+                      acceptChatsEnabled={acceptChatsEnabled}
+                      onExpired={dismissAgentConnectionPopup}
+                      onAccept={() => {
+                        if (typeof window !== "undefined" && agentConnectionRequest?.conversationId != null) {
+                          sessionStorage.removeItem(
+                            `agentConnectionDismissed:${String(agentConnectionRequest.conversationId)}`
+                          );
+                        }
+                        setAgentConnectionRequest(null);
+                        setIsAIChat(false);
+                      }}
+                      onDecline={() => {
+                        if (
+                          typeof window !== "undefined" &&
+                          agentConnectionRequest?.requestStartedAt != null &&
+                          agentConnectionRequest.conversationId != null
+                        ) {
+                          sessionStorage.setItem(
+                            `agentConnectionDismissed:${String(agentConnectionRequest.conversationId)}`,
+                            String(agentConnectionRequest.requestStartedAt)
+                          );
+                        }
+                        setAgentConnectionRequest(null);
+                      }}
+                    />
+                  )}
+
+                <MessagesArea
+                  ref={containerRef}
+                  conversationMessages={conversationMessages}
+                  expandedSources={expandedSources}
+                  setExpandedSources={setExpandedSources}
+                  messageRefs={messageRefs}
+                  currentConversation={currentConversation}
+                  isAITyping={isAITyping}
+                  onReviseAnswer={handleReviseAnswer}
+                  onReply={handleReply}
+                  onJumpToReply={handleScrollToMessage}
+                />
+                <MessageInput
+                  inputMessage={inputMessage}
+                  wordCount={wordCount}
+                  maxWords={MAX_WORDS}
+                  isNoteActive={isNoteActive}
+                  isAIChat={isAIChat}
+                  isVisitorClosed={isVisitorClosed}
+                  openConversationStatus={openConversationStatus}
+                  conversationId={openConversationId}
+                  visitorId={openVisitorId}
+                  socketRef={socketRef}
+                  onInputChange={handleInputChange}
+                  onMessageSend={handleMessageSend}
+                  onAddNote={handleAddNote}
+                  setIsNoteActive={setIsNoteActive}
+                  canReply={canReply}
+                  replyingTo={replyingTo}
+                  onClearReply={() => setReplyingTo(null)}
+                  onJumpToReplyPreview={handleScrollToMessage}
+                />
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center bg-white rounded-[20px]">
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Conversation</h3>
+                  <p className="text-sm text-gray-500">This conversation is currently closed or not available.</p>
+                </div>
+              </div>
+            )}
+
+            <DetailsPanel
+              visitorDetails={visitorDetails}
+              notesList={notesList}
+              oldConversationList={oldConversationList}
+              openConversationId={openConversationId}
+              openVisitorName={openVisitorName}
+              onScrollToMessage={handleScrollToMessage}
+              onOldConversationClick={handleOldConversationClick}
+              currentConversation={currentConversation}
+              openConversationStatus={openConversationStatus}
+              isAIChat={isAIChat}
+            />
+          </>
+        ) : (
+          <EmptyState />
+        )}
+
+        {/* Revise Answer Modal */}
+        {reviseAnswerModal && (
+          <ReviseAnswerModal
+            visitorMessage={reviseAnswerModal.visitorMessage}
+            agentResponse={reviseAnswerModal.agentResponse}
+            agentId={
+              (typeof currentConversation?.agentId === 'string'
+                ? currentConversation.agentId
+                : currentConversation?.agentId?._id) || ''
+            }
+            userId={
+              (currentConversation?.userId != null
+                ? String(currentConversation.userId)
+                : typeof window !== 'undefined'
+                  ? localStorage.getItem('userId') || ''
+                  : '') || ''
+            }
+            onClose={() => setReviseAnswerModal(null)}
+            onSuccess={() => {/* answer stored, Qdrant updated */ }}
+          />
+        )}
+      </div>
     </>
   );
 }

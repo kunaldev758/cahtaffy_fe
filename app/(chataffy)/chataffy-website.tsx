@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { MessageCircle, Users, Bot, Zap, Shield, BarChart3, Check, ArrowRight, Mail, Phone, MapPin, Menu, X } from 'lucide-react';
 
 const ChataffyWebsite = () => {
+
+
+  console.log("chattaffy website rendered");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('blue');
   const [formData, setFormData] = useState({
@@ -150,6 +153,8 @@ const ChataffyWebsite = () => {
       popular: false
     }
   ];
+
+  console.log("next public dashboard url", process.env.NEXT_PUBLIC_DASHBOARD_URL);
 
   return (
     <div className="min-h-screen bg-white">

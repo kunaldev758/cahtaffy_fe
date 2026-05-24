@@ -17,18 +17,22 @@ export default function AgentLogin() {
     setLoading(true);
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_HOST || "";
-      await fetch(`${apiBase}/api/agents/login`, {
-        method: "POST",
-        cache: "no-cache",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password.trim(),
-        }),
-      });
+
+      console.log(`Fetching data from endpoint: ${apiBase}/api/agents/login`);
+      // await fetch(`${apiBase}/api/agents/login`, {
+      //   method: "POST",
+      //   cache: "no-cache",
+      //   headers: { "Content-Type": "application/json" },
+      //   credentials: "include",
+      //   body: JSON.stringify({
+      //     email: email.trim(),
+      //     password: password.trim(),
+      //   }),
+      // });
 
       const res = await loginAgentApi(email.trim(), password.trim());
+
+      console.log("Login response:", res);
 
       if (res.message !== "Login successful") {
         setError(res.message || "Login failed");
@@ -53,7 +57,9 @@ export default function AgentLogin() {
       localStorage.setItem("currentAgentId", currentAgentId);
       dispatchAuthStorageSync();
       redirectAfterAgentLogin();
-    } catch {
+    } catch(error:any){
+
+      console.log("Login error:", error);
       setError("Login failed. Please try again.");
     } finally {
       setLoading(false);

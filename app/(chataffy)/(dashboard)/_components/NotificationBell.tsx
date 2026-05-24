@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell, Bot } from "lucide-react";
 import { useSocket } from "@/app/socketContext";
 import { useRouter, usePathname } from "next/navigation";
-import { getToken } from "@/app/_api/dashboard/action";
+import { getToken, getAgentToken } from "@/app/_api/dashboard/action";
 
 interface NotificationItem {
   _id: string;
@@ -70,6 +70,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [humanAgentId, setHumanAgentId] = useState<string | null>(null);
+  const [isAgentLogin, setIsAgentLogin] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const seenDedup = useRef(new Set<string>());
   // Timestamp of when the dropdown was last opened – used to prevent click-through
@@ -85,12 +86,16 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   let unseen = notifications.filter((n) => !n.isSeen);
   let unseenCount = unseen.length;
 
-  // Resolve humanAgentId from localStorage
+  // Resolve humanAgentId from localStorage and detect if agent or client login
   useEffect(() => {
+    // Check if this is an agent login
+    const agentRaw = localStorage.getItem("agent");
+    const isAgent = agentRaw && agentRaw !== 'null' && agentRaw !== 'undefined';
+    setIsAgentLogin(!!isAgent);
+
     const stored = localStorage.getItem("humanAgentId");
     if (stored) { setHumanAgentId(stored); return; }
     try {
-      const agentRaw = localStorage.getItem("agent");
       if (agentRaw) {
         const parsed = JSON.parse(agentRaw);
         const id = parsed?.id || parsed?._id;
@@ -108,6 +113,15 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
 
   const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
 
+  // Get the correct token based on login type
+  const getCorrectToken = useCallback(async () => {
+    if (isAgentLogin) {
+      return await getAgentToken() || '';
+    } else {
+      return await getToken() || '';
+    }
+  }, [isAgentLogin]);
+
   // Fetch notifications from REST API and merge with any existing optimistic entries.
   // If the API returns an empty array we deliberately keep the current state so that
   // real-time optimistic entries (added via socket events) are never wiped out.
@@ -119,20 +133,30 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
       isFetchingRef.current = false;
     }
     try {
-      const token = await getToken() || '';
+      const token = await getCorrectToken();
+      if (!token) {
+        console.warn("No token available for fetching notifications");
+        return;
+      }
+
       const currentPage = page.current;
       const res = await fetch(
         `${apiBase}notifications/agent/${humanAgentId}?page=${currentPage}&limit=20`,
-        { headers: { Authorization: token || "" } }
+        { headers: { Authorization: token } }
       );
-      if (!res.ok) return;
+
+      if (!res.ok) {
+        console.error("Failed to fetch notifications:", res.status, res.statusText);
+        return;
+      }
+
       const data = await res.json();
       if (!Array.isArray(data?.data) || data?.data?.length === 0) {
         hasMore.current = false;
         return;
       }
       hasMore.current = data?.hasMore || false;
-      if(hasMore.current) {
+      if (hasMore.current) {
         page.current = currentPage + 1;
       }
       setNotifications((prev) => {
@@ -156,8 +180,10 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         );
         return [...(data?.data || []), ...orphaned];
       });
-    } catch { }
-  }, [humanAgentId, apiBase]);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  }, [humanAgentId, apiBase, getCorrectToken]);
 
   useEffect(() => {
     fetchNotifications();
@@ -166,23 +192,32 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   const fetchMoreNotifications = useCallback(async () => {
     if (!humanAgentId || isFetchingRef.current || !hasMore.current) return;
     isFetchingRef.current = true;
-  
+
     try {
-      const token = await getToken() || '';
+      const token = await getCorrectToken();
+      if (!token) {
+        console.warn("No token available for fetching more notifications");
+        return;
+      }
+
       const res = await fetch(
         `${apiBase}notifications/agent/${humanAgentId}?page=${page.current}&limit=20`,
-        { headers: { Authorization: token || "" } }
+        { headers: { Authorization: token } }
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.error("Failed to fetch more notifications:", res.status);
+        return;
+      }
+
       const data = await res.json();
       if (!Array.isArray(data?.data) || data.data.length === 0) {
         hasMore.current = false;
         return;
       }
-  
+
       hasMore.current = data?.hasMore || false;
       page.current += 1;
-  
+
       setNotifications((prev) => {
         const existingIds = new Set(prev.map((n) => n._id));
         const newItems = data.data.filter(
@@ -195,7 +230,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     } finally {
       isFetchingRef.current = false;
     }
-  }, [humanAgentId, apiBase]);
+  }, [humanAgentId, apiBase, getCorrectToken]);
 
   useEffect(() => {
     if (!bottomRef.current || !listRef.current || !isOpen) return;
@@ -223,6 +258,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     if (!socket) return;
 
     const handleNew = (data: any) => {
+
+      console.log("Received new notification via socket:", data);
+
       const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
       if (convId && seenDedup.current.has(convId)) return;
       if (convId) {
@@ -231,7 +269,6 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
       }
       // Build an optimistic notification entry so it appears immediately
       const optimistic: NotificationItem = {
-        // _id: `tmp-${Date.now()}`,
         _id: data?.notificationId ? data?.notificationId : `tmp-${Date.now()}`,
         message: data?.message || "Visitor requested to connect to an agent",
         type: "agent-connection-request",
@@ -249,32 +286,6 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     };
   }, [socket]);
 
-  // Also listen to the custom window event dispatched by useSocketManager
-  // useEffect(() => {
-  //   const handleWindowEvent = (e: Event) => {
-  //     const data = (e as CustomEvent).detail;
-  //     const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
-  //     if (convId && seenDedup.current.has(convId)) return;
-  //     if (convId) {
-  //       seenDedup.current.add(convId);
-  //       setTimeout(() => seenDedup.current.delete(convId), 3000);
-  //     }
-  //     const optimistic: NotificationItem = {
-  //       _id: `tmp-${Date.now()}`,
-  //       message: data?.message || "Visitor requested to connect to an agent",
-  //       type: "agent-connection-request",
-  //       isSeen: false,
-  //       createdAt: new Date().toISOString(),
-  //       conversationId: convId,
-  //       visitorId: data?.visitor ? { visitorDetails: data.visitor?.visitorDetails } : undefined,
-  //     };
-  //     setNotifications((prev) => [optimistic, ...prev]);
-  //   };
-
-  //   window.addEventListener("agent-connection-notification", handleWindowEvent);
-  //   return () => window.removeEventListener("agent-connection-notification", handleWindowEvent);
-  // }, []);
-
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -287,50 +298,52 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   }, []);
 
   const markAsSeen = async (id: string) => {
-
-    console.log("id in the mark as seen : ", id);
-    console.log("all notifications : ", notifications);
+    console.log("Marking notification as seen:", id);
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, isSeen: true } : n))
     );
-    // if (id.startsWith("tmp-")) return; // optimistic entries have no DB id yet
+
     try {
-      const token = await getToken() || '';
-      await fetch(
+      const token = await getCorrectToken();
+      if (!token) {
+        console.warn("No token available for marking notification as seen");
+        return;
+      }
+
+      const res = await fetch(
         `${apiBase}notifications/${id}/seen`,
-        { method: "PUT", headers: { Authorization: token || "" } }
+        { method: "PUT", headers: { Authorization: token } }
       );
-    } catch { }
+
+      if (!res.ok) {
+        console.error("Failed to mark notification as seen:", res.status);
+      }
+    } catch (error) {
+      console.error("Error marking notification as seen:", error);
+    }
   };
 
-
-  // const markAsSeen = async (id: string) => {
-  //   // 1. Optimistic UI update
-  //   setNotifications((prev) =>
-  //     prev.map((n) =>
-  //       n._id === id ? { ...n, isSeen: true } : n
-  //     )
-  //   );
-
-  //   // 2. Backend update
-  //   try {
-  //     await fetch(`${apiBase}notifications/mark-seen/${id}`, {
-  //       method: "PATCH",
-  //     });
-  //   } catch (err) {
-  //     console.error(err);
-  //   }
-  // };
   const markAllSeen = async () => {
     if (!humanAgentId) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, isSeen: true })));
     try {
-      const token = await getToken() || '';
-      await fetch(
+      const token = await getCorrectToken();
+      if (!token) {
+        console.warn("No token available for marking all notifications as seen");
+        return;
+      }
+
+      const res = await fetch(
         `${apiBase}notifications/agent/${humanAgentId}/seen-all`,
-        { method: "PUT", headers: { Authorization: token || "" } }
+        { method: "PUT", headers: { Authorization: token } }
       );
-    } catch { }
+
+      if (!res.ok) {
+        console.error("Failed to mark all notifications as seen:", res.status);
+      }
+    } catch (error) {
+      console.error("Error marking all notifications as seen:", error);
+    }
   };
 
   const handleNotificationClick = async (notif: NotificationItem) => {
@@ -374,14 +387,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   };
 
   useEffect(() => {
-
-
-    console.log("notifications in the use effect : ", notifications);
-    console.log("unseen in the use effect : ", unseen);
-    console.log("unseen count in the use effect : ", unseenCount);
+    console.log("Notifications updated:", notifications);
     unseen = notifications.filter((n) => !n.isSeen);
     unseenCount = unseen.length;
-
   }, [notifications])
 
   return (
@@ -490,7 +498,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
               })
             )}
 
-            <div ref={bottomRef}/>
+            <div ref={bottomRef} />
           </div>
 
           {/* Footer */}
