@@ -448,7 +448,7 @@ export const useSocketManager = ({
       }
     };
 
-    // Register event listeners
+    // Register event listeners (WITHOUT agent-connection handlers)
     socket.on("conversation-append-message", handleAppendMessage);
     socket.on("intermediate-response", handleIntermediateResponse);
     socket.on("new-message-count", handleNewMessageCount);
@@ -460,10 +460,28 @@ export const useSocketManager = ({
     socket.on("visitor-close-chat", handleVisitorCloseChat);
     socket.on("conversation-feedback-update", handleConversationFeedbackUpdate);
 
-    // Handle agent connection notifications
+    return () => {
+      socket.off("conversation-append-message", handleAppendMessage);
+      socket.off("intermediate-response", handleIntermediateResponse);
+      socket.off("new-message-count", handleNewMessageCount);
+      socket.off("note-append-message", handleNoteAppendMessage);
+      socket.off("ai-chat-status-update", handleAiChatStatusUpdate);
+      socket.off("conversation-close-triggered", handleConversationClose);
+      socket.off("visitor-blocked", handleVisitorBlocked);
+      socket.off("visitor-conversation-close", handleConversationClose);
+      socket.off("visitor-close-chat", handleVisitorCloseChat);
+      socket.off("conversation-feedback-update", handleConversationFeedbackUpdate);
+    };
+  }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setAITyping, setIsVisitorClosed]);
+
+  // ✅ NEW: Separate persistent agent-connection handlers (NEVER removed)
+  const setupAgentConnectionHandlers = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    console.log("🔌 Setting up persistent agent-connection handlers");
+
     const handleAgentConnectionNotification = (data: any) => {
-      // Dedup sound + browser notification only. Always forward to window so Inbox can show
-      // the popup when opening from a notification (check-pending often fires within 3s).
       const dedupKey = data?.conversationId?.toString?.() || data?.conversationId || '';
       const isDup = !!(dedupKey && recentNotificationIds.has(dedupKey));
       if (!isDup && dedupKey) {
@@ -488,7 +506,6 @@ export const useSocketManager = ({
       }
 
       if (!isDup) {
-        // Determine the correct inbox URL based on user role and current path
         const userRole = localStorage.getItem("role");
         const baseUrl = window.location.origin;
         const currentPath = window.location.pathname;
@@ -564,7 +581,7 @@ export const useSocketManager = ({
         }
       }
 
-      // Always forward so Inbox can show the accept/decline popup (e.g. after opening from notification).
+      // Always forward so Inbox can show the accept/decline popup
       window.dispatchEvent(new CustomEvent("agent-connection-notification", { detail: data }));
     };
 
@@ -574,11 +591,12 @@ export const useSocketManager = ({
     };
 
     const handleAgentConnectionTimeout = (data: any) => {
+      console.log("Agent connection timeout:", data);
       window.dispatchEvent(new CustomEvent("agent-connection-timeout", { detail: data }));
     };
 
-    /** When any agent accepts, visitor + all sockets in conversation room get this — inbox must hide the popup for other agents too. */
     const handleAgentConnectionAccepted = (data: any) => {
+      console.log("Agent connection accepted:", data);
       window.dispatchEvent(new CustomEvent("agent-connection-accepted", { detail: data }));
     };
 
@@ -587,23 +605,12 @@ export const useSocketManager = ({
     socket.on("agent-connection-timeout", handleAgentConnectionTimeout);
     socket.on("agent-connection-accepted", handleAgentConnectionAccepted);
 
+    // ✅ NO CLEANUP - These listeners persist for the socket lifetime
     return () => {
-      socket.off("conversation-append-message", handleAppendMessage);
-      socket.off("intermediate-response", handleIntermediateResponse);
-      socket.off("new-message-count", handleNewMessageCount);
-      socket.off("agent-connection-notification", handleAgentConnectionNotification);
-      socket.off("agent-connection-cancelled", handleAgentConnectionCancelled);
-      socket.off("agent-connection-timeout", handleAgentConnectionTimeout);
-      socket.off("agent-connection-accepted", handleAgentConnectionAccepted);
-      socket.off("note-append-message", handleNoteAppendMessage);
-      socket.off("ai-chat-status-update", handleAiChatStatusUpdate);
-      socket.off("conversation-close-triggered", handleConversationClose);
-      socket.off("visitor-blocked", handleVisitorBlocked);
-      socket.off("visitor-conversation-close", handleConversationClose);
-      socket.off("visitor-close-chat", handleVisitorCloseChat);
-      socket.off("conversation-feedback-update", handleConversationFeedbackUpdate);
+      console.log("⚠️ Skipping cleanup of agent-connection handlers (persistent listeners)");
+      // Intentionally NOT removing these listeners
     };
-  }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setAITyping, setIsVisitorClosed]);
+  }, []);
 
   const setupConversationListHandlers = useCallback(() => {
     const socket = socketRef.current;
@@ -1002,6 +1009,30 @@ export const useSocketManager = ({
       cleanupFunctions.forEach(cleanup => cleanup?.());
     };
   }, [setupMessageHandlers, setupConversationListHandlers, setupTagsHandler, socketVersion]);
+
+  // ✅ NEW: Setup persistent agent-connection handlers separately
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) {
+      return;
+    }
+
+    const setupHandlers = () => {
+      if (socketRef.current && socketRef.current.connected) {
+        setupAgentConnectionHandlers();
+      }
+    };
+
+    if (socket.connected) {
+      setupHandlers();
+    } else {
+      const onConnect = () => {
+        setupHandlers();
+      };
+      socket.once("connect", onConnect);
+      return () => socket.off("connect", onConnect);
+    }
+  }, [setupAgentConnectionHandlers, socketVersion]);
 
   // Auto-fetch conversations list when filters change or socket is re-created
   useEffect(() => {
