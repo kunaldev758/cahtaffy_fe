@@ -178,8 +178,10 @@ export const useSocketManager = ({
       const agentData = localStorage.getItem('agent');
       // const isAgentLogin = agentData && agentData !== 'null' && agentData !== 'undefined';
 
-      const isAgentLogin = isAgentPath(window.location.pathname);
+      const isAgentLogin = isAgentPath(window.location.pathname) || (agentData && agentData !== 'null' && agentData !== 'undefined');
 
+
+      // check subdomain based login 
       console.log("check path on the server side : ",window.location.pathname, "isAgentLogin:", isAgentLogin, "agentData:", agentData);
 
       let token = "";

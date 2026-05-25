@@ -5,6 +5,7 @@ import { Bell, Bot } from "lucide-react";
 import { useSocket } from "@/app/socketContext";
 import { useRouter, usePathname } from "next/navigation";
 import { getToken, getAgentToken } from "@/app/_api/dashboard/action";
+import { isAgentPath } from "@/lib/portalUrls";
 
 interface NotificationItem {
   _id: string;
@@ -90,8 +91,24 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   useEffect(() => {
     // Check if this is an agent login
     const agentRaw = localStorage.getItem("agent");
-    const isAgent = agentRaw && agentRaw !== 'null' && agentRaw !== 'undefined';
+    // const isAgent = agentRaw && agentRaw !== 'null' && agentRaw !== 'undefined';
+
+    // ✅ PRIMARY: URL-based detection
+    const pathBasedIsAgent = isAgentPath(window.location.pathname);
+
+    console.log("Path-based agent detection:", pathBasedIsAgent, "current path:", window.location.pathname);
+
+    // ✅ FALLBACK: localStorage-based detection  
+    const storageBasedIsAgent = agentRaw && agentRaw !== 'null' && agentRaw !== 'undefined';
+
+    // ✅ COMBINED: Either condition = agent
+    const isAgent = pathBasedIsAgent || storageBasedIsAgent;
+
+    console.log("agent to be set : ", !!isAgent)
+
+    console.log("is agent : ", isAgent, "pathBasedIsAgent:", pathBasedIsAgent, "storageBasedIsAgent:", storageBasedIsAgent, "agentRaw:", agentRaw);
     setIsAgentLogin(!!isAgent);
+
 
     const stored = localStorage.getItem("humanAgentId");
     if (stored) { setHumanAgentId(stored); return; }
@@ -112,6 +129,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   }, []);
 
   const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
+
+  console.log("api base url  : ",apiBase);
 
   // Get the correct token based on login type
   const getCorrectToken = useCallback(async () => {
@@ -255,6 +274,8 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
 
   // Listen for real-time agent connection notifications via socket
   useEffect(() => {
+
+    console.log("Setting up socket listener for agent-connection-notification, socket:", socket);
     if (!socket) return;
 
     const handleNew = (data: any) => {
