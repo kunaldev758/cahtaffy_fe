@@ -6,6 +6,7 @@ import {
 } from "@/lib/socketSession";
 import { useRef, useEffect, useCallback, useState } from "react";
 import { io, Socket } from 'socket.io-client';
+import { isAgentPath } from "@/lib/portalUrls";
 
 // Dedup guard – prevents processing the same agent-connection-notification twice
 // when the socket receives it due to backend room membership overlap.
@@ -175,10 +176,14 @@ export const useSocketManager = ({
     try {
       // ✅ NEW: Check if it's an AGENT login, not a CLIENT login
       const agentData = localStorage.getItem('agent');
-      const isAgentLogin = agentData && agentData !== 'null' && agentData !== 'undefined';
+      // const isAgentLogin = agentData && agentData !== 'null' && agentData !== 'undefined';
+
+      const isAgentLogin = isAgentPath(window.location.pathname);
+
+      console.log("check path on the server side : ",window.location.pathname, "isAgentLogin:", isAgentLogin, "agentData:", agentData);
 
       let token = "";
-      let humanAgentId = "";
+      let humanAgentId:any = "";
       let agentId: string | undefined;
 
       if (isAgentLogin) {
