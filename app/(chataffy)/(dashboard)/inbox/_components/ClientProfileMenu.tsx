@@ -162,13 +162,21 @@ export default function ClientProfileMenu({
   const applyClientStatusFromPayload = useCallback(
     (updatedClient: any) => {
       if (!updatedClient || updatedClient.isClient === false) return;
-      try {
-        const raw = localStorage.getItem('clientAgent');
-        const parsed = raw ? JSON.parse(raw) : {};
-        const myId = clientId ? String(clientId) : parsed._id ? String(parsed._id) : null;
-        if (updatedClient._id && myId && String(updatedClient._id) !== myId) return;
-      } catch {
-        return;
+      // Client inbox agent (isClient): one per account — do not compare to Client billing doc id
+      if (updatedClient.isClient !== true) {
+        try {
+          const raw = localStorage.getItem('clientAgent');
+          const parsed = raw ? JSON.parse(raw) : {};
+          const myId =
+            parsed._id || parsed.id
+              ? String(parsed._id || parsed.id)
+              : clientId
+                ? String(clientId)
+                : null;
+          if (updatedClient._id && myId && String(updatedClient._id) !== myId) return;
+        } catch {
+          return;
+        }
       }
       setIsOnline(updatedClient.isActive !== false);
       if (typeof window === 'undefined') return;
@@ -273,13 +281,13 @@ export default function ClientProfileMenu({
     if (isUpdating) return;
     setIsUpdating(true);
     const newStatus = !isOnline;
+    setIsOnline(newStatus);
 
     try {
       const response = await updateClientStatus(newStatus);
       if (response === 'error' || (response && response.status_code !== 200)) {
         throw new Error(response?.message || 'Failed to update client status');
       }
-      // State + localStorage come from server via response.agent (same payload as socket) and client-status-updated
       if (response && typeof response === 'object' && 'agent' in response && response.agent) {
         applyClientStatusFromPayload(response.agent);
         if (typeof window !== 'undefined') {
