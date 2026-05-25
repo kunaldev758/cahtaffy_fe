@@ -21,48 +21,6 @@ export default function IntegratedSidebar() {
   const [isCreatingAgent, setIsCreatingAgent] = useState(false)
   const { effectiveLimits } = usePlanContext()
 
-  useEffect(() => {
-    const fetchClient = async () => {
-      if (typeof window !== 'undefined') {
-        const storedClientAgent = localStorage.getItem('clientAgent')
-        const storedAgent = localStorage.getItem('agent')
-
-        if (storedClientAgent) {
-          try {
-            const parsed = JSON.parse(storedClientAgent)
-            if (parsed.isClient) setClientData(parsed)
-          } catch {}
-        } else if (storedAgent) {
-          try {
-            const parsed = JSON.parse(storedAgent)
-            if (parsed.isClient) setClientData(parsed)
-          } catch {}
-        }
-
-        try {
-          const data = await getClientData()
-          if (data && data.clientAgent) {
-            setClientData(data.clientAgent)
-            localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
-            dispatchAuthStorageSync()
-          }
-        } catch {}
-      }
-    }
-
-    fetchClient()
-
-    const handleClientStatusChange = (event: CustomEvent) => {
-      setClientData(event.detail)
-    }
-
-    window.addEventListener('client-status-changed', handleClientStatusChange as EventListener)
-    return () => {
-      window.removeEventListener('client-status-changed', handleClientStatusChange as EventListener)
-    }
-  }, [])
-
-  // app/(chataffy)/(dashboard)/_components/navigation.tsx
   // useEffect(() => {
   //   const fetchClient = async () => {
   //     if (typeof window !== 'undefined') {
@@ -73,46 +31,92 @@ export default function IntegratedSidebar() {
   //         try {
   //           const parsed = JSON.parse(storedClientAgent)
   //           if (parsed.isClient) setClientData(parsed)
-  //         } catch { }
+  //         } catch {}
   //       } else if (storedAgent) {
   //         try {
   //           const parsed = JSON.parse(storedAgent)
   //           if (parsed.isClient) setClientData(parsed)
-  //         } catch { }
+  //         } catch {}
   //       }
 
   //       try {
-  //         const data = await getClientData();
-
-  //         console.log('Fetched client data on sidebar mount:', data)
+  //         const data = await getClientData()
   //         if (data && data.clientAgent) {
   //           setClientData(data.clientAgent)
   //           localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
   //           dispatchAuthStorageSync()
   //         }
-  //       } catch { }
+  //       } catch {}
   //     }
   //   }
 
   //   fetchClient()
 
-  //   // ✅ ADD THIS: Listen for auth changes
-  //   const handleAuthStorageSync = () => {
-  //     fetchClient()
-  //   }
-
   //   const handleClientStatusChange = (event: CustomEvent) => {
   //     setClientData(event.detail)
   //   }
 
-  //   window.addEventListener('auth-storage-synced', handleAuthStorageSync)
   //   window.addEventListener('client-status-changed', handleClientStatusChange as EventListener)
-
   //   return () => {
-  //     window.removeEventListener('auth-storage-synced', handleAuthStorageSync)
   //     window.removeEventListener('client-status-changed', handleClientStatusChange as EventListener)
   //   }
   // }, [])
+
+
+
+  useEffect(() => {
+    const fetchClient = async () => {
+
+      console.log('Fetching client data on sidebar mount...')
+      if (typeof window !== 'undefined') {
+        const storedClientAgent = localStorage.getItem('clientAgent')
+        const storedAgent = localStorage.getItem('agent')
+
+        console.log('Checking localStorage for client data:', { storedClientAgent, storedAgent })
+        if (storedClientAgent) {
+          try {
+            const parsed = JSON.parse(storedClientAgent)
+            if (parsed.isClient) setClientData(parsed)
+          } catch { }
+        } else if (storedAgent) {
+          try {
+            const parsed = JSON.parse(storedAgent)
+            if (parsed.isClient) setClientData(parsed)
+          } catch { }
+        }
+
+        try {
+          const data = await getClientData();
+
+          console.log('Fetched client data on sidebar mount:', data)
+          if (data && data.clientAgent) {
+            setClientData(data.clientAgent)
+            localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
+            dispatchAuthStorageSync()
+          }
+        } catch { }
+      }
+    }
+
+    fetchClient()
+
+    // ✅ ADD THIS: Listen for auth changes
+    const handleAuthStorageSync = () => {
+      fetchClient()
+    }
+
+    const handleClientStatusChange = (event: CustomEvent) => {
+      setClientData(event.detail)
+    }
+
+    window.addEventListener('auth-storage-synced', handleAuthStorageSync)
+    window.addEventListener('client-status-changed', handleClientStatusChange as EventListener)
+
+    return () => {
+      window.removeEventListener('auth-storage-synced', handleAuthStorageSync)
+      window.removeEventListener('client-status-changed', handleClientStatusChange as EventListener)
+    }
+  }, [])
 
   const imageLoader = ({ src, width, quality }: { src: any; width: any; quality: any }) => {
     return `${src}?w=${width}&q=${quality || 75}`
@@ -171,6 +175,8 @@ export default function IntegratedSidebar() {
 
   const iconClass = (active: boolean) =>
     `w-5 h-5 flex-shrink-0 ${active ? 'text-white' : 'text-[#64748B]'}`
+
+  console.log('Rendering sidebar with clientData:', clientData)
 
   return (
     <div className="bg-[#F9F9F9] w-[256px] min-h-screen flex flex-col fixed top-0 left-0 z-10">

@@ -491,8 +491,20 @@ export async function getPlans() {
   return await getFetchData(`/available`);
 }
 
+// export async function getClientData() {
+//   const data = await fetchData('client');
+//   return data;
+// }
+
 export async function getClientData() {
   const data = await fetchData('client');
+  // ✅ Normalize response to use clientAgent key for backward compatibility
+  if (data && data.client) {
+    return {
+      ...data,
+      clientAgent: data.client, // Add clientAgent key that components expect
+    }
+  }
   return data;
 }
 
