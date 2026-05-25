@@ -254,14 +254,16 @@ export function LoginForm({ response }: { response?: Response }) {
             </button>
 
             {/* Additional Links */}
-            <div className="flex items-center justify-center">
-            
+            <div className="flex items-center justify-between">
               <div className="text-sm">
                 <span className="text-gray-600">Don't have an account? </span>
                 <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
                   Sign up
                 </Link>
               </div>
+              <Link href="/forget-password" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                Forgot password?
+              </Link>
             </div>
           </form>
         </div>

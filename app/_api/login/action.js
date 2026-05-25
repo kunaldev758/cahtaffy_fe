@@ -105,6 +105,36 @@ export async function verifyEmailApi(token) {
   }
 }
 
+export async function forgotPasswordApi(email) {
+  const response = await fetch(`${process.env.API_HOST}forgot-password`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { status: false, status_code: 500, message: 'Failed to send reset email' }
+  }
+}
+
+export async function resetPasswordApi(token, newPassword, confirmPassword) {
+  const response = await fetch(`${process.env.API_HOST}reset-password`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword, confirmPassword }),
+  })
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { status: false, status_code: 500, message: 'Failed to reset password' }
+  }
+}
+
 /** Call from client only (e.g. after verify-email). Cookies cannot be set when other server actions run during RSC render. */
 export async function setClientSessionCookies(token) {
   cookies().set({ name: 'token', value: token, httpOnly: true })
