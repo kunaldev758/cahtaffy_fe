@@ -498,12 +498,11 @@ export async function getPlans() {
 
 export async function getClientData() {
   const data = await fetchData('client');
-  // ✅ Normalize response to use clientAgent key for backward compatibility
-  if (data && data.client) {
-    return {
-      ...data,
-      clientAgent: data.client, // Add clientAgent key that components expect
-    }
+  if (!data || data === 'error') return data;
+  // HumanAgent (isClient) holds inbox status; Client doc is billing/plan only.
+  const clientAgent = data.clientAgent ?? data.client;
+  if (clientAgent) {
+    return { ...data, clientAgent };
   }
   return data;
 }

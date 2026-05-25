@@ -1037,7 +1037,9 @@ export const useSocketManager = ({
         setupHandlers();
       };
       socket.once("connect", onConnect);
-      return () => socket.off("connect", onConnect);
+      return () => {
+        socket.off("connect", onConnect);
+      };
     }
   }, [setupAgentConnectionHandlers, socketVersion]);
 
