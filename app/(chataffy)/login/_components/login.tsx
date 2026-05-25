@@ -30,22 +30,22 @@ export function LoginForm({ response }: { response?: Response }) {
   const [googleLoading, setGoogleLoading] = useState(false)
 
   useEffect(() => {
-   if(response){
-    console.log(response, "response verify email");
-    const hasShown = sessionStorage.getItem("hasShownToast");
+    if (response) {
+      console.log(response, "response verify email");
+      const hasShown = sessionStorage.getItem("hasShownToast");
       if (!hasShown) {
-        if (response?.status === true ) {
+        if (response?.status === true) {
           toast.success(response?.message)
         } else {
           toast.error(response?.message)
         }
         sessionStorage.setItem("hasShownToast", "true");
       }
-    
-   }
+
+    }
   }, [response])
 
-  const handleOnSubmit = async (event:any) => {
+  const handleOnSubmit = async (event: any) => {
     event.preventDefault()
     if (email !== '' && password !== '') {
       setButtonStatus({ loading: true, disabled: true })
@@ -68,7 +68,7 @@ export function LoginForm({ response }: { response?: Response }) {
     }
   }
 
-  const handleSocketEvent = (userId:any) => {
+  const handleSocketEvent = (userId: any) => {
     if (socket) {
       socket.on('user-logged-in', () => {
         socket.emit('join', userId);
@@ -76,17 +76,17 @@ export function LoginForm({ response }: { response?: Response }) {
     }
   }
 
-  const handleEmailOnChange = (event:any) => {
+  const handleEmailOnChange = (event: any) => {
     setEmail(event.target.value.trim())
     blankValidation(event.target.value.trim(), password)
   }
 
-  const handlePasswordOnChange = (event:any) => {
+  const handlePasswordOnChange = (event: any) => {
     setPassword(event.target.value.trim())
     blankValidation(email, event.target.value.trim())
   }
 
-  const blankValidation = (email:any, password:any) => {
+  const blankValidation = (email: any, password: any) => {
     if (email === '' || password === '') {
       setButtonStatus({ ...buttonStatus, disabled: true })
     } else {
@@ -111,6 +111,11 @@ export function LoginForm({ response }: { response?: Response }) {
             localStorage.setItem('agents', JSON.stringify(response.agents));
             localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
           }
+
+          //           const clientData = localStorage.getItem('client');
+          // if (clientData) return JSON.parse(clientData).email || '';
+          // const userData = localStorage.getItem('user');
+          // if (userData) return JSON.parse(userData).email || '';
           dispatchAuthStorageSync()
           handleSocketEvent(response.userId)
           redirectAfterClientLogin(!!response.isOnboarded)
@@ -127,7 +132,8 @@ export function LoginForm({ response }: { response?: Response }) {
       setGoogleLoading(false)
       toast.error('Google sign-in was cancelled or failed')
     },
-    scope: 'openid email profile'
+    scope: 'openid email profile',
+    flow: 'implicit',
   })
 
   return (
@@ -245,7 +251,7 @@ export function LoginForm({ response }: { response?: Response }) {
 
             {/* Additional Links */}
             <div className="flex items-center justify-center">
-            
+
               <div className="text-sm">
                 <span className="text-gray-600">Don't have an account? </span>
                 <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">

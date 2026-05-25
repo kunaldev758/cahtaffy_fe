@@ -62,6 +62,58 @@ export default function IntegratedSidebar() {
     }
   }, [])
 
+  // app/(chataffy)/(dashboard)/_components/navigation.tsx
+  // useEffect(() => {
+  //   const fetchClient = async () => {
+  //     if (typeof window !== 'undefined') {
+  //       const storedClientAgent = localStorage.getItem('clientAgent')
+  //       const storedAgent = localStorage.getItem('agent')
+
+  //       if (storedClientAgent) {
+  //         try {
+  //           const parsed = JSON.parse(storedClientAgent)
+  //           if (parsed.isClient) setClientData(parsed)
+  //         } catch { }
+  //       } else if (storedAgent) {
+  //         try {
+  //           const parsed = JSON.parse(storedAgent)
+  //           if (parsed.isClient) setClientData(parsed)
+  //         } catch { }
+  //       }
+
+  //       try {
+  //         const data = await getClientData();
+
+  //         console.log('Fetched client data on sidebar mount:', data)
+  //         if (data && data.clientAgent) {
+  //           setClientData(data.clientAgent)
+  //           localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
+  //           dispatchAuthStorageSync()
+  //         }
+  //       } catch { }
+  //     }
+  //   }
+
+  //   fetchClient()
+
+  //   // ✅ ADD THIS: Listen for auth changes
+  //   const handleAuthStorageSync = () => {
+  //     fetchClient()
+  //   }
+
+  //   const handleClientStatusChange = (event: CustomEvent) => {
+  //     setClientData(event.detail)
+  //   }
+
+  //   window.addEventListener('auth-storage-synced', handleAuthStorageSync)
+  //   window.addEventListener('client-status-changed', handleClientStatusChange as EventListener)
+
+  //   return () => {
+  //     window.removeEventListener('auth-storage-synced', handleAuthStorageSync)
+  //     window.removeEventListener('client-status-changed', handleClientStatusChange as EventListener)
+  //   }
+  // }, [])
+
   const imageLoader = ({ src, width, quality }: { src: any; width: any; quality: any }) => {
     return `${src}?w=${width}&q=${quality || 75}`
   }
@@ -112,10 +164,9 @@ export default function IntegratedSidebar() {
   const isParentActive = (path: string) => !!pathname?.startsWith(path)
 
   const navItemClass = (active: boolean) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-      active
-        ? 'bg-[#111827] text-white'
-        : 'text-[#64748B] hover:bg-gray-100 hover:text-[#111827]'
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${active
+      ? 'bg-[#111827] text-white'
+      : 'text-[#64748B] hover:bg-gray-100 hover:text-[#111827]'
     }`
 
   const iconClass = (active: boolean) =>
