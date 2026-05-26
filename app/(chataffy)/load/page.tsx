@@ -65,14 +65,14 @@ function LoadPageContent() {
           if (result.status) {
             const { userId, isOnboarded, agents, bigcommerceStoreHash } =
               result;
-            localStorage.setItem("userId", userId);
-            localStorage.setItem("agents", JSON.stringify(agents));
-            localStorage.setItem("currentAgentId", agents[0]?._id ?? "");
-            localStorage.setItem("provider", "bigcommerce");
-            localStorage.setItem("bcStoreHash", bigcommerceStoreHash || "");
-            localStorage.setItem("signedPayloadJwt", signedPayload || "");
-            localStorage.removeItem("sf_params");
-            localStorage.removeItem("shopifyShop");
+            sessionStorage.setItem("userId", userId);
+            sessionStorage.setItem("agents", JSON.stringify(agents));
+            sessionStorage.setItem("currentAgentId", agents[0]?._id ?? "");
+            sessionStorage.setItem("provider", "bigcommerce");
+            sessionStorage.setItem("bcStoreHash", bigcommerceStoreHash || "");
+            sessionStorage.setItem("signedPayloadJwt", signedPayload || "");
+            sessionStorage.removeItem("sf_params");
+            sessionStorage.removeItem("shopifyShop");
             dispatchAuthStorageSync();
             handleSocketEvent(result.userId);
             router.replace(isOnboarded ? "/dashboard" : "/onboarding");
@@ -112,14 +112,14 @@ function LoadPageContent() {
             const result = res.data;
             if (result.status) {
               const { userId, isOnboarded, agents, shopifyShop } = result;
-              localStorage.setItem("userId", userId);
-              localStorage.setItem("agents", JSON.stringify(agents));
-              localStorage.setItem("currentAgentId", agents[0]?._id ?? "");
-              localStorage.setItem("provider", "shopify");
-              localStorage.setItem("shopifyShop", shopifyShop || shop || "");
-              localStorage.setItem("sf_params", searchParams?.toString() || "");
-              localStorage.removeItem("signedPayloadJwt");
-              localStorage.removeItem("bcStoreHash");
+              sessionStorage.setItem("userId", userId);
+              sessionStorage.setItem("agents", JSON.stringify(agents));
+              sessionStorage.setItem("currentAgentId", agents[0]?._id ?? "");
+              sessionStorage.setItem("provider", "shopify");
+              sessionStorage.setItem("shopifyShop", shopifyShop || shop || "");
+              sessionStorage.setItem("sf_params", searchParams?.toString() || "");
+              sessionStorage.removeItem("signedPayloadJwt");
+              sessionStorage.removeItem("bcStoreHash");
               dispatchAuthStorageSync();
               handleSocketEvent(result.userId);
               router.replace(isOnboarded ? "/dashboard" : "/onboarding");

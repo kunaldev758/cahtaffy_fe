@@ -50,16 +50,16 @@ export default function ClientProfileSettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const provider = typeof window !== 'undefined' ? localStorage.getItem("provider") : null;
+  const provider = typeof window !== 'undefined' ? sessionStorage.getItem("provider") : null;
 
   const syncLocalClientAgent = useCallback(
     (partial: { name?: string; email?: string; avatar?: string | null }) => {
       if (typeof window === 'undefined') return
       try {
-        const raw = localStorage.getItem('clientAgent')
+        const raw = sessionStorage.getItem('clientAgent')
         const base = raw ? JSON.parse(raw) : {}
         const next = { ...base, ...partial }
-        localStorage.setItem('clientAgent', JSON.stringify(next))
+        sessionStorage.setItem('clientAgent', JSON.stringify(next))
         window.dispatchEvent(new CustomEvent('client-profile-updated', { detail: next }))
       } catch {
         /* ignore */

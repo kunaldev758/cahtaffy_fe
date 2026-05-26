@@ -35,13 +35,13 @@ export function PlatformRedirectionLoginClient() {
           return;
         }
 
-        localStorage.setItem("token", data.token);
+        sessionStorage.setItem("token", data.token);
         if (data.userId != null) {
-          localStorage.setItem("userId", String(data.userId));
+          sessionStorage.setItem("userId", String(data.userId));
         }
         if (Array.isArray(data.agents) && data.agents.length > 0) {
-          localStorage.setItem("agents", JSON.stringify(data.agents));
-          localStorage.setItem(
+          sessionStorage.setItem("agents", JSON.stringify(data.agents));
+          sessionStorage.setItem(
             "currentAgentId",
             data.agents[0]?._id != null ? String(data.agents[0]._id) : ""
           );

@@ -52,17 +52,17 @@ export default function PlatformSessionSync() {
       if (pathnameRef.current === "/load") return;
 
 
-      // const provider = localStorage.getItem('provider');
+      // const provider = sessionStorage.getItem('provider');
     // 2. We are in an iframe. Grab URL params to identify the platform.
       const urlParams = new URLSearchParams(window.location.search);
       const shopUrl = urlParams.get('shop'); 
 
-      // 3. Detect provider using URL params or existing localStorage keys
+      // 3. Detect provider using URL params or existing sessionStorage keys
       let provider = 'local';
       
-      if (shopUrl || localStorage.getItem('shopifyShop') || localStorage.getItem('sf_params')) {
+      if (shopUrl || sessionStorage.getItem('shopifyShop') || sessionStorage.getItem('sf_params')) {
         provider = 'shopify';
-      } else if (localStorage.getItem('signedPayloadJwt') || urlParams.has('signed_payload_jwt')) {
+      } else if (sessionStorage.getItem('signedPayloadJwt') || urlParams.has('signed_payload_jwt')) {
         provider = 'bigcommerce';
       }
 
@@ -74,7 +74,7 @@ export default function PlatformSessionSync() {
       syncingRef.current = true;
       try {
         if (provider === 'bigcommerce') {
-          const signedPayloadJwt = localStorage.getItem('signedPayloadJwt');
+          const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt');
           if (!signedPayloadJwt) return;
 
           await axios.get(`${apiBase}/api/bigcommerce/auth/load`, {
@@ -82,8 +82,8 @@ export default function PlatformSessionSync() {
             withCredentials: true,
           });
         } else {
-          const shop = localStorage.getItem('shopifyShop');
-          const sfParams = localStorage.getItem('sf_params');
+          const shop = sessionStorage.getItem('shopifyShop');
+          const sfParams = sessionStorage.getItem('sf_params');
           if (!shop && !sfParams) return;
 
           const params: Record<string, string> = sfParams

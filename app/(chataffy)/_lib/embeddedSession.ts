@@ -10,21 +10,21 @@ export const EMBEDDED_SESSION_KEYS = [
   'currentAgentId',
 ] as const;
 
-/** Clears web auth localStorage but keeps embedded-app session keys for other tabs. */
+/** Clears web auth sessionStorage but keeps embedded-app session keys for other tabs. */
 export function clearWebAuthStorage() {
   if (typeof window === 'undefined') return;
 
   const preserved: Record<string, string> = {};
   for (const key of EMBEDDED_SESSION_KEYS) {
-    const value = localStorage.getItem(key);
+    const value = sessionStorage.getItem(key);
     if (value !== null) preserved[key] = value;
   }
 
-  localStorage.clear();
+  sessionStorage.clear();
 
   for (const [key, value] of Object.entries(preserved)) {
-    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
   }
 
-  localStorage.removeItem('token');
+  sessionStorage.removeItem('token');
 }

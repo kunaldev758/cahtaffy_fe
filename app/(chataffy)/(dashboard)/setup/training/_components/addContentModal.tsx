@@ -21,9 +21,9 @@ export default function Home(Props: any) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setCurrentAgentId(localStorage.getItem('currentAgentId'))
+    setCurrentAgentId(sessionStorage.getItem('currentAgentId'))
     const handleAgentChanged = (e: CustomEvent) => {
-      const id = (e as CustomEvent).detail?.agentId ?? localStorage.getItem('currentAgentId')
+      const id = (e as CustomEvent).detail?.agentId ?? sessionStorage.getItem('currentAgentId')
       setCurrentAgentId(id)
     }
     window.addEventListener('agent-changed', handleAgentChanged as EventListener)

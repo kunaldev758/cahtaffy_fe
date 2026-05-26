@@ -181,7 +181,7 @@ export default function EnhancedTrainingPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setAgentId(localStorage.getItem('currentAgentId'))
+      setAgentId(sessionStorage.getItem('currentAgentId'))
     }
   }, [])
 

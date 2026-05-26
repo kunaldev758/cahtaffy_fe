@@ -35,17 +35,17 @@ export default function TopHead({
   const [provider, setProvider] = useState<string | null>(null)
 
   useEffect(() => {
-    setProvider(localStorage.getItem('provider'))
+    setProvider(sessionStorage.getItem('provider'))
   }, [])
 
   const showOfficialWebsiteButton =
     (provider === 'shopify' || provider === 'bigcommerce') && window.self !== window.top
 
     const handleOpenWebsite = async () => {
-      const shop = localStorage.getItem('shopifyShop')
-      const signedPayloadJwt = localStorage.getItem('signedPayloadJwt') 
-      const sf_params = localStorage.getItem('sf_params')
-      const userId = localStorage.getItem('userId')
+      const shop = sessionStorage.getItem('shopifyShop')
+      const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt') 
+      const sf_params = sessionStorage.getItem('sf_params')
+      const userId = sessionStorage.getItem('userId')
       const params = new URLSearchParams()
       
       if (userId) {
