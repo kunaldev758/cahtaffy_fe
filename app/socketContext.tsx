@@ -50,8 +50,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         : "client";
 
     const storedToken = (await resolveSocketToken(portal)) || "";
-    const storedUserId = localStorage.getItem("userId");
-    const storedAgentId = localStorage.getItem("currentAgentId");
+    const storedUserId = sessionStorage.getItem("userId");
+    const storedAgentId = sessionStorage.getItem("currentAgentId");
     const resolvedHumanAgentId = resolveHumanAgentIdForSocket(portal);
 
     setToken(storedToken);
@@ -67,7 +67,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     window.addEventListener(AUTH_STORAGE_SYNC_EVENT, syncFromStorage);
 
     const handleAgentChanged = (event: CustomEvent) => {
-      const newAgentId = event.detail?.agentId ?? localStorage.getItem("currentAgentId");
+      const newAgentId = event.detail?.agentId ?? sessionStorage.getItem("currentAgentId");
       setAgentId(newAgentId);
     };
 
@@ -122,7 +122,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const applyHumanAgentProfileFromSocket = (updatedAgent: Record<string, unknown>) => {
       try {
-        const raw = localStorage.getItem("agent");
+        const raw = sessionStorage.getItem("agent");
         if (!raw) return;
         const current = JSON.parse(raw) as Record<string, unknown>;
         if (current.isClient) return;
@@ -152,13 +152,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           assignedAgents: nextAssigned,
         };
 
-        localStorage.setItem("agent", JSON.stringify(updatedAgentData));
+        sessionStorage.setItem("agent", JSON.stringify(updatedAgentData));
 
         const ids = ((updatedAgentData.assignedAgents as string[]) || []).map((x) => String(x));
-        const cur = localStorage.getItem("currentAgentId");
+        const cur = sessionStorage.getItem("currentAgentId");
         if (cur && ids.length > 0 && !ids.includes(cur)) {
           const next = ids[0];
-          localStorage.setItem("currentAgentId", next);
+          sessionStorage.setItem("currentAgentId", next);
           window.dispatchEvent(new CustomEvent("agent-changed", { detail: { agentId: next } }));
         }
 

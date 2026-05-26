@@ -24,8 +24,8 @@ export default function IntegratedSidebar() {
   // useEffect(() => {
   //   const fetchClient = async () => {
   //     if (typeof window !== 'undefined') {
-  //       const storedClientAgent = localStorage.getItem('clientAgent')
-  //       const storedAgent = localStorage.getItem('agent')
+  //       const storedClientAgent = sessionStorage.getItem('clientAgent')
+  //       const storedAgent = sessionStorage.getItem('agent')
 
   //       if (storedClientAgent) {
   //         try {
@@ -43,7 +43,7 @@ export default function IntegratedSidebar() {
   //         const data = await getClientData()
   //         if (data && data.clientAgent) {
   //           setClientData(data.clientAgent)
-  //           localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
+  //           sessionStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
   //           dispatchAuthStorageSync()
   //         }
   //       } catch {}
@@ -69,10 +69,10 @@ export default function IntegratedSidebar() {
 
       console.log('Fetching client data on sidebar mount...')
       if (typeof window !== 'undefined') {
-        const storedClientAgent = localStorage.getItem('clientAgent')
-        const storedAgent = localStorage.getItem('agent')
+        const storedClientAgent = sessionStorage.getItem('clientAgent')
+        const storedAgent = sessionStorage.getItem('agent')
 
-        console.log('Checking localStorage for client data:', { storedClientAgent, storedAgent })
+        console.log('Checking sessionStorage for client data:', { storedClientAgent, storedAgent })
         if (storedClientAgent) {
           try {
             const parsed = JSON.parse(storedClientAgent)
@@ -91,7 +91,7 @@ export default function IntegratedSidebar() {
           console.log('Fetched client data on sidebar mount:', data)
           if (data && data.clientAgent) {
             setClientData(data.clientAgent)
-            localStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
+            sessionStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
             dispatchAuthStorageSync()
           }
         } catch { }
@@ -126,7 +126,7 @@ export default function IntegratedSidebar() {
     const maxAgentsPerAccount = Number(effectiveLimits?.maxAgentsPerAccount)
     const currentAgentsCount = (() => {
       try {
-        const storedAgents = JSON.parse(localStorage.getItem('agents') || '[]')
+        const storedAgents = JSON.parse(sessionStorage.getItem('agents') || '[]')
         return Array.isArray(storedAgents) ? storedAgents.length : 0
       } catch {
         return 0
@@ -146,13 +146,13 @@ export default function IntegratedSidebar() {
         return
       }
       const newAgentId = res.agent._id
-      const previousAgentId = localStorage.getItem('currentAgentId') ?? ''
-      localStorage.setItem('previousAgentId', previousAgentId)
-      localStorage.setItem('currentAgentId', newAgentId)
+      const previousAgentId = sessionStorage.getItem('currentAgentId') ?? ''
+      sessionStorage.setItem('previousAgentId', previousAgentId)
+      sessionStorage.setItem('currentAgentId', newAgentId)
       // try {
-      //   const existing = JSON.parse(localStorage.getItem('agents') || '[]')
+      //   const existing = JSON.parse(sessionStorage.getItem('agents') || '[]')
       //   if (!existing.some((a: any) => a._id === newAgentId)) {
-      //     localStorage.setItem('agents', JSON.stringify([...existing, res.agent]))
+      //     sessionStorage.setItem('agents', JSON.stringify([...existing, res.agent]))
       //   }
       // } catch { /* keep existing agents array as-is */ }
       window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: newAgentId } }))

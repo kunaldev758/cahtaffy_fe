@@ -53,10 +53,10 @@ export function LoginForm({ response }: { response?: Response }) {
       setButtonStatus({ loading: false, disabled: false })
       if (response?.status_code == 200) {
         if (response.token) setSocketToken('client', response.token);
-        localStorage.setItem('userId', response.userId);
+        sessionStorage.setItem('userId', response.userId);
         if (response.agents) {
-          localStorage.setItem('agents', JSON.stringify(response.agents));
-          localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
+          sessionStorage.setItem('agents', JSON.stringify(response.agents));
+          sessionStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
         }
         dispatchAuthStorageSync()
         handleSocketEvent(response.userId)
@@ -105,16 +105,16 @@ export function LoginForm({ response }: { response?: Response }) {
           toast.success('Signed in with Google')
           if (response.token) setSocketToken('client', response.token);
           if (response.userId) {
-            localStorage.setItem('userId', response.userId)
+            sessionStorage.setItem('userId', response.userId)
           }
           if (response.agents) {
-            localStorage.setItem('agents', JSON.stringify(response.agents));
-            localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
+            sessionStorage.setItem('agents', JSON.stringify(response.agents));
+            sessionStorage.setItem('currentAgentId', response.agents[0]?._id ?? '');
           }
 
-          //           const clientData = localStorage.getItem('client');
+          //           const clientData = sessionStorage.getItem('client');
           // if (clientData) return JSON.parse(clientData).email || '';
-          // const userData = localStorage.getItem('user');
+          // const userData = sessionStorage.getItem('user');
           // if (userData) return JSON.parse(userData).email || '';
           dispatchAuthStorageSync()
           handleSocketEvent(response.userId)

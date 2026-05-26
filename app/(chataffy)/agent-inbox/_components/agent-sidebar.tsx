@@ -38,11 +38,11 @@ export default function AgentSidebar() {
 
   const [agent, setAgent] = useState<Agent | null>(null);
 
-  // Read agent from localStorage and re-read when socketContext syncs after admin edits
+  // Read agent from sessionStorage and re-read when socketContext syncs after admin edits
   useEffect(() => {
     const refreshAgentFromStorage = () => {
       try {
-        const agentData = localStorage.getItem('agent');
+        const agentData = sessionStorage.getItem('agent');
         const parsedAgent = agentData ? JSON.parse(agentData) : null;
         setAgent(parsedAgent);
       } catch {
@@ -56,18 +56,18 @@ export default function AgentSidebar() {
 
   const handleLogout = async () => {
     try {
-      // Remove all agent-related localStorage items
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('agent');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('humanAgentId');
-      localStorage.removeItem('currentAgentId');
+      // Remove all agent-related sessionStorage items
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('role');
+      sessionStorage.removeItem('agent');
+      sessionStorage.removeItem('userId');
+      sessionStorage.removeItem('humanAgentId');
+      sessionStorage.removeItem('currentAgentId');
 
       // Also remove any client-related items that might have been set
-      localStorage.removeItem('clientAgent');
-      localStorage.removeItem('client');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('clientAgent');
+      sessionStorage.removeItem('client');
+      sessionStorage.removeItem('user');
       clearSocketToken("agent");
 
       // Delete cookies via server action
@@ -82,13 +82,13 @@ export default function AgentSidebar() {
       router.push('/agent-login');
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear localStorage and redirect even if there's an error
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('agent');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('humanAgentId');
-      localStorage.removeItem('currentAgentId');
+      // Still clear sessionStorage and redirect even if there's an error
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('role');
+      sessionStorage.removeItem('agent');
+      sessionStorage.removeItem('userId');
+      sessionStorage.removeItem('humanAgentId');
+      sessionStorage.removeItem('currentAgentId');
       dispatchAuthStorageSync();
       router.push('/agent-login');
     }
@@ -112,13 +112,13 @@ export default function AgentSidebar() {
         throw new Error('Failed to update status');
       }
 
-      // Update localStorage and state
+      // Update sessionStorage and state
       const updatedAgent = {
         ...agent,
         isActive: !agent.isActive
       };
       
-      localStorage.setItem('agent', JSON.stringify(updatedAgent));
+      sessionStorage.setItem('agent', JSON.stringify(updatedAgent));
       setAgent(updatedAgent);
 
     } catch (error) {

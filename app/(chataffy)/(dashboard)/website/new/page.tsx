@@ -52,7 +52,7 @@ export default function NewAgentOnboardingPage() {
   const [agentId, setAgentId] = useState<string | null>(null)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const id = localStorage.getItem('currentAgentId')
+      const id = sessionStorage.getItem('currentAgentId')
       if (!id) {
         // No agent in progress — go back to website list
         router.replace('/website')
@@ -60,8 +60,8 @@ export default function NewAgentOnboardingPage() {
       }
 
       onboardingAgentIdRef.current = id
-      hasOnboardingSessionRef.current = localStorage.getItem('previousAgentId') ? true : false
-      previousAgentIdRef.current = hasOnboardingSessionRef.current ? localStorage.getItem('previousAgentId') : null
+      hasOnboardingSessionRef.current = sessionStorage.getItem('previousAgentId') ? true : false
+      previousAgentIdRef.current = hasOnboardingSessionRef.current ? sessionStorage.getItem('previousAgentId') : null
 
       setAgentId(id)
     }
@@ -78,7 +78,7 @@ export default function NewAgentOnboardingPage() {
     }
 
     try {
-      const storedAgents = JSON.parse(localStorage.getItem('agents') || '[]')
+      const storedAgents = JSON.parse(sessionStorage.getItem('agents') || '[]')
       const currentAgentsCount = Array.isArray(storedAgents) ? storedAgents.length : 0
       setIsAgentLimitReached(currentAgentsCount >= maxAgentsPerAccount)
       setAgentsLoading(false)
@@ -91,16 +91,16 @@ export default function NewAgentOnboardingPage() {
   const removeAgentFromStorage = (deletedId: string | null, prevAgentId: string | null) => {
     if (deletedId) {
       try {
-        const existing = JSON.parse(localStorage.getItem('agents') || '[]')
-        localStorage.setItem('agents', JSON.stringify(existing.filter((a: any) => a._id !== deletedId)))
+        const existing = JSON.parse(sessionStorage.getItem('agents') || '[]')
+        sessionStorage.setItem('agents', JSON.stringify(existing.filter((a: any) => a._id !== deletedId)))
       } catch { /* keep array as-is */ }
     }
     if (prevAgentId) {
-      localStorage.setItem('currentAgentId', prevAgentId)
+      sessionStorage.setItem('currentAgentId', prevAgentId)
     } else {
-      localStorage.removeItem('currentAgentId')
+      sessionStorage.removeItem('currentAgentId')
     }
-    localStorage.removeItem('previousAgentId')
+    sessionStorage.removeItem('previousAgentId')
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: prevAgentId ?? null } }))
   }
 
@@ -117,8 +117,8 @@ export default function NewAgentOnboardingPage() {
       if (!hasOnboardingSessionRef.current) return
       if (!isIntentionalExit.current) {
         const onboardingAgentId = onboardingAgentIdRef.current
-        const prevAgentId = previousAgentIdRef.current ?? localStorage.getItem('previousAgentId')
-        const currentAgentId = localStorage.getItem('currentAgentId')
+        const prevAgentId = previousAgentIdRef.current ?? sessionStorage.getItem('previousAgentId')
+        const currentAgentId = sessionStorage.getItem('currentAgentId')
         const shouldDeleteOnboardingAgent = Boolean(onboardingAgentId && onboardingAgentId === currentAgentId)
 
         if (shouldDeleteOnboardingAgent && onboardingAgentId) {
@@ -184,8 +184,8 @@ export default function NewAgentOnboardingPage() {
         return
       }
       const onboardingAgentId = onboardingAgentIdRef.current
-      const prevAgentId = previousAgentIdRef.current ?? localStorage.getItem('previousAgentId')
-      const currentAgentId = localStorage.getItem('currentAgentId')
+      const prevAgentId = previousAgentIdRef.current ?? sessionStorage.getItem('previousAgentId')
+      const currentAgentId = sessionStorage.getItem('currentAgentId')
       const canDeleteOnboardingAgent = Boolean(onboardingAgentId && onboardingAgentId === currentAgentId)
 
       if (canDeleteOnboardingAgent && onboardingAgentId) {
@@ -202,8 +202,8 @@ export default function NewAgentOnboardingPage() {
   // Complete: clear previousAgentId, stay with new agent, go to website
   const handleFinish = () => {
     isIntentionalExit.current = true
-    const confirmedAgentId = localStorage.getItem('currentAgentId')
-    localStorage.removeItem('previousAgentId')
+    const confirmedAgentId = sessionStorage.getItem('currentAgentId')
+    sessionStorage.removeItem('previousAgentId')
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: confirmedAgentId } }))
     router.replace('/website')
   }
@@ -220,6 +220,7 @@ export default function NewAgentOnboardingPage() {
   }
 
   const handleWebContinue = async () => {
+    console.log('Starting website URL processing for:', websiteUrl, 'with agentId:', agentId ?? 'null')
     const url = websiteUrl.trim()
     if (!url) { toast.error('Please enter a website URL'); return }
     if (!agentId) { toast.error('Session expired. Please log in again.'); return }
@@ -263,6 +264,8 @@ export default function NewAgentOnboardingPage() {
   }
 
   const handleTrainContinue = async (selectedUrls: string[]) => {
+
+    console.log('Starting training with selected URLs:', selectedUrls, 'and agentId:', agentId ?? 'null')
     if (!agentId) { toast.error('Session expired. Please log in again.'); return }
     setIsTrainingUrls(true)
     try {

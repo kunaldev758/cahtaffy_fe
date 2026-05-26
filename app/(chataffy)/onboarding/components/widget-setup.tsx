@@ -337,18 +337,18 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
   const checkboxUiClass = "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white [&_svg]:h-[14px] [&_svg]:w-[14px]"
 
-  // ── Keep agentId in sync with localStorage + AgentSwitcherBar ────────────
+  // ── Keep agentId in sync with sessionStorage + AgentSwitcherBar ────────────
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const syncFromStorage = () => setAgentId(localStorage.getItem('currentAgentId'))
+    const syncFromStorage = () => setAgentId(sessionStorage.getItem('currentAgentId'))
     syncFromStorage()
     const handleAgentChanged = (e: Event) => {
       const raw = (e as CustomEvent<{ agentId?: string | null }>).detail?.agentId
       const next =
         raw !== undefined && raw !== null && String(raw) !== ''
           ? String(raw)
-          : localStorage.getItem('currentAgentId')
+          : sessionStorage.getItem('currentAgentId')
       setAgentId(next)
     }
     window.addEventListener('agent-changed', handleAgentChanged as EventListener)

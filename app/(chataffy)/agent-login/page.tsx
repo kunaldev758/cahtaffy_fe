@@ -51,10 +51,10 @@ export default function AgentLogin() {
         "";
 
       setSocketToken("agent", res.token);
-      localStorage.setItem("agent", JSON.stringify({ ...humanAgent, _id: humanAgentId }));
-      localStorage.setItem("userId", userId);
-      localStorage.setItem("humanAgentId", humanAgentId);
-      localStorage.setItem("currentAgentId", currentAgentId);
+      sessionStorage.setItem("agent", JSON.stringify({ ...humanAgent, _id: humanAgentId }));
+      sessionStorage.setItem("userId", userId);
+      sessionStorage.setItem("humanAgentId", humanAgentId);
+      sessionStorage.setItem("currentAgentId", currentAgentId);
       dispatchAuthStorageSync();
       redirectAfterAgentLogin();
     } catch(error:any){

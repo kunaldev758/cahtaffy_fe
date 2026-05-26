@@ -8,6 +8,8 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { io, Socket } from 'socket.io-client';
 import { isAgentPath } from "@/lib/portalUrls";
 
+import {initializeAuthSession} from "@/lib/authInitializer";
+
 // Dedup guard – prevents processing the same agent-connection-notification twice
 // when the socket receives it due to backend room membership overlap.
 const recentNotificationIds = new Set<string>();
@@ -74,87 +76,6 @@ export const useSocketManager = ({
   // Socket initialization
   const initializeSocket = useCallback(async () => {
 
-    // console.log("Initializing socket connection. Current socket:", socketRef.current, "Connected:", socketConnected);
-    // // Prevent multiple simultaneous initializations
-    // if (isInitializingRef.current) {
-    //   return;
-    // }
-
-    // // If socket already exists and is connected, don't reinitialize
-    // if (socketRef.current && socketRef.current.connected) {
-    //   console.log("Socket already connected, skipping reinitialization");
-    //   return;
-    // }
-
-    // // If socket exists but not connected, disconnect it first
-    // if (socketRef.current) {
-    //   console.log("Disconnecting existing socket before reinitialization");
-    //   socketRef.current.removeAllListeners(); // Remove all listeners to prevent memory leaks
-    //   socketRef.current.disconnect();
-    //   socketRef.current = null;
-    // }
-
-    // isInitializingRef.current = true;
-
-    // try {
-    //   const token =
-    //     (await getClientToken()) || getSocketTokenFromSession("client") || "";
-
-    //     console.log("Initializing socket with token:", !!token);
-    //   let humanAgentId = resolveHumanAgentIdForSocket("client");
-    //   let agentId: string | undefined;
-
-    //   const agentData = localStorage.getItem('agent');
-    //   const currentAgentId = localStorage.getItem('currentAgentId');
-
-    //   agentId = currentAgentId || undefined;
-    //   if (!agentId && agentData) {
-    //     try {
-    //       const parsedAgent = JSON.parse(agentData);
-    //       const firstAssigned = parsedAgent?.assignedAgents?.[0];
-    //       agentId = firstAssigned?.toString?.() || firstAssigned;
-    //     } catch {}
-    //   }
-    //   if (!agentId) {
-    //     const agents = localStorage.getItem('agents');
-    //     if (agents) {
-    //       const parsedAgents = JSON.parse(agents);
-    //       agentId = parsedAgents[0]?._id;
-    //     }
-    //   }
-
-    //   if (!token) {
-    //     isInitializingRef.current = false;
-    //     return;
-    //   }
-
-    //   const query: Record<string, string> = { token };
-    //   if (humanAgentId) query.humanAgentId = humanAgentId;
-    //   if (agentId) query.agentId = String(agentId);
-
-    //   const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-    //     query,
-    //     transports: ["websocket", "polling"],
-    //     reconnection: true,
-    //     reconnectionAttempts: 5,
-    //     reconnectionDelay: 1000,
-    //     reconnectionDelayMax: 5000,
-    //     timeout: 20000,
-    //     forceNew: false, // Reuse existing connection if available
-    //   });
-
-    //   socketInstance.on("connect", () => {
-    //     console.log("Socket connected successfully");
-    //     isInitializingRef.current = false;
-    //     setSocketConnected(true);
-    //   });
-
-    //   socketInstance.on("connect_error", (error) => {
-    //     console.error("Socket connection error:", error);
-    //     isInitializingRef.current = false;
-    //   });
-
-
     if (isInitializingRef.current) {
       return;
     }
@@ -174,15 +95,21 @@ export const useSocketManager = ({
     isInitializingRef.current = true;
 
     try {
-      // ✅ NEW: Check if it's an AGENT login, not a CLIENT login
-      const agentData = localStorage.getItem('agent');
-      // const isAgentLogin = agentData && agentData !== 'null' && agentData !== 'undefined';
 
-      const isAgentLogin = isAgentPath(window.location.pathname) || (agentData && agentData !== 'null' && agentData !== 'undefined');
+          // ✅ NEW: Initialize auth session on app startup
+    const authStatus = await initializeAuthSession(window.location.pathname);
 
+        if (!authStatus.restored && authStatus.action === 'redirect-to-login') {
+      console.log('🔄 Redirecting to login:', authStatus.loginPath);
+      isInitializingRef.current = false;
+      window.location.href = authStatus.loginPath;
+      return;
+    }
 
-      // check subdomain based login 
-      console.log("check path on the server side : ",window.location.pathname, "isAgentLogin:", isAgentLogin, "agentData:", agentData);
+    // ✅ Now read from sessionStorage (guaranteed to be set)
+    const agentData = sessionStorage.getItem('agent');
+    const isAgentLogin = isAgentPath(window.location.pathname) || 
+      (agentData && agentData !== 'null' && agentData !== 'undefined');
 
       let token = "";
       let humanAgentId:any = "";
@@ -194,7 +121,9 @@ export const useSocketManager = ({
         token = (await getAgentToken()) || getSocketTokenFromSession("agent") || "";
         humanAgentId = resolveHumanAgentIdForSocket("agent");
 
-        const currentAgentId = localStorage.getItem('currentAgentId');
+        // const currentAgentId = sessionStorage.getItem('currentAgentId');
+
+              const currentAgentId = sessionStorage.getItem('currentAgentId');
         agentId = currentAgentId || undefined;
 
         if (!agentId && agentData) {
@@ -208,7 +137,7 @@ export const useSocketManager = ({
         // CLIENT PATH: Keep existing logic
         token = (await getClientToken()) || getSocketTokenFromSession("client") || "";
         humanAgentId = resolveHumanAgentIdForSocket("client");
-        const currentAgentId = localStorage.getItem('currentAgentId');
+        const currentAgentId = sessionStorage.getItem('currentAgentId');
         agentId = currentAgentId || undefined;
 
         if (!agentId && agentData) {
@@ -220,7 +149,7 @@ export const useSocketManager = ({
         }
 
         if (!agentId) {
-          const agents = localStorage.getItem('agents');
+          const agents = sessionStorage.getItem('agents');
           if (agents) {
             const parsedAgents = JSON.parse(agents);
             agentId = parsedAgents[0]?._id;
@@ -513,7 +442,7 @@ export const useSocketManager = ({
       }
 
       if (!isDup) {
-        const userRole = localStorage.getItem("role");
+        const userRole = sessionStorage.getItem("role");
         const baseUrl = window.location.origin;
         const currentPath = window.location.pathname;
 
@@ -523,7 +452,7 @@ export const useSocketManager = ({
         } else if (currentPath.startsWith("/inbox")) {
           inboxPath = "/inbox";
         } else {
-          const agentData = localStorage.getItem("agent");
+          const agentData = sessionStorage.getItem("agent");
           const isAgent = userRole === "agent" || (agentData && agentData !== "null" && agentData !== "undefined");
           inboxPath = isAgent ? "/agent-inbox" : "/inbox";
         }

@@ -71,7 +71,9 @@ export default function ClientProfileSettingsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getClientProfile()
+      const data = await getClientProfile();
+
+      console.log('Profile data:', data);
       if (data === 'error' || data?.status_code === 401) {
         toast.error('Session expired. Please sign in again.')
         return

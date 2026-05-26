@@ -112,7 +112,7 @@ export default function AgentEditProfileModal({ open, onClose, agent, onAgentUpd
           ...baseAgent,
           avatar: result.agent.avatar,
         }
-        localStorage.setItem('agent', JSON.stringify(updatedAgent))
+        sessionStorage.setItem('agent', JSON.stringify(updatedAgent))
         onAgentUpdated?.(updatedAgent)
         const avatarPath = result.agent.avatar.startsWith('http')
           ? result.agent.avatar
@@ -171,7 +171,7 @@ export default function AgentEditProfileModal({ open, onClose, agent, onAgentUpd
         name: payloadAgent.name ?? agent.name,
         avatar: payloadAgent.avatar ?? agent.avatar,
       }
-      localStorage.setItem('agent', JSON.stringify(updatedAgent))
+      sessionStorage.setItem('agent', JSON.stringify(updatedAgent))
       onAgentUpdated?.(updatedAgent)
       window.dispatchEvent(new CustomEvent('agent-status-updated'))
 

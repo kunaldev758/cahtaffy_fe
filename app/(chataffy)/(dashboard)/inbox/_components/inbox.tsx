@@ -100,12 +100,12 @@ export default function Inbox(Props: any) {
   // Avoid parallel openConversation() for the same URL id (list/socket can retrigger the effect)
   const urlConversationOpenInFlightRef = useRef<string | null>(null);
 
-  // Get agent data from localStorage (for agent-inbox context); re-sync when admin updates profile via socket
+  // Get agent data from sessionStorage (for agent-inbox context); re-sync when admin updates profile via socket
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const loadAgentFromStorage = () => {
-      const agentData = localStorage.getItem('agent');
+      const agentData = sessionStorage.getItem('agent');
       if (agentData) {
         try {
           const parsedAgent = JSON.parse(agentData);
@@ -121,14 +121,14 @@ export default function Inbox(Props: any) {
     return () => window.removeEventListener('agent-status-updated', loadAgentFromStorage);
   }, []);
 
-  // Get client agent data from localStorage and API (for client-inbox context)
+  // Get client agent data from sessionStorage and API (for client-inbox context)
   useEffect(() => {
     if (typeof window !== 'undefined' && !agent) {
-      const clientAgentData = localStorage.getItem('clientAgent');
+      const clientAgentData = sessionStorage.getItem('clientAgent');
       if (clientAgentData) {
         try {
           const parsedClientAgent = JSON.parse(clientAgentData);
-          console.log('Loading client agent from localStorage:', parsedClientAgent);
+          console.log('Loading client agent from sessionStorage:', parsedClientAgent);
           setClient(parsedClientAgent);
         } catch (error) {
           console.error('Error parsing client agent data:', error);
@@ -153,17 +153,17 @@ export default function Inbox(Props: any) {
             };
             console.log('Setting client agent state:', clientAgentInfo);
             setClient(clientAgentInfo);
-            localStorage.setItem('clientAgent', JSON.stringify(clientAgentInfo));
+            sessionStorage.setItem('clientAgent', JSON.stringify(clientAgentInfo));
             dispatchAuthStorageSync();
           } else if (data && data.client) {
-            // Fallback: if no clientAgent, try to get from agent localStorage
-            const agentData = localStorage.getItem('agent');
+            // Fallback: if no clientAgent, try to get from agent sessionStorage
+            const agentData = sessionStorage.getItem('agent');
             if (agentData) {
               try {
                 const parsedAgent = JSON.parse(agentData);
                 if (parsedAgent.isClient) {
                   setClient(parsedAgent);
-                  localStorage.setItem('clientAgent', JSON.stringify(parsedAgent));
+                  sessionStorage.setItem('clientAgent', JSON.stringify(parsedAgent));
                 }
               } catch (error) {
                 console.error('Error parsing agent data:', error);
@@ -225,7 +225,7 @@ export default function Inbox(Props: any) {
       }
     }
 
-    // Client dashboard: client from localStorage/API (clientAgent with isClient: true)
+    // Client dashboard: client from sessionStorage/API (clientAgent with isClient: true)
     if (client && client.isClient === true) {
       if (client.isActive === false) return false;
       return true;
@@ -445,7 +445,7 @@ export default function Inbox(Props: any) {
 
     const handleAgentStatusUpdate = (updatedAgent: any) => {
       if (updatedAgent.isClient) {
-        // Client-agent path: update client state + sync agent localStorage if needed
+        // Client-agent path: update client state + sync agent sessionStorage if needed
         setClient((prevClient: any) => {
           const updatedClientData = {
             ...(prevClient || {}),
@@ -457,15 +457,15 @@ export default function Inbox(Props: any) {
             lastActive: updatedAgent.lastActive,
             isClient: true,
           };
-          localStorage.setItem('clientAgent', JSON.stringify(updatedClientData));
+          sessionStorage.setItem('clientAgent', JSON.stringify(updatedClientData));
 
-          const agentData = localStorage.getItem('agent');
+          const agentData = sessionStorage.getItem('agent');
           if (agentData) {
             try {
               const parsedAgent = JSON.parse(agentData);
               if (parsedAgent.isClient) {
                 const merged = { ...parsedAgent, ...updatedClientData };
-                localStorage.setItem('agent', JSON.stringify(merged));
+                sessionStorage.setItem('agent', JSON.stringify(merged));
                 setAgent(merged);
               }
             } catch (e) {
@@ -502,11 +502,11 @@ export default function Inbox(Props: any) {
                 ? normalizeAssigned(updatedAgent.assignedAgents, prevAgent.assignedAgents)
                 : prevAgent.assignedAgents,
           };
-          localStorage.setItem("agent", JSON.stringify(merged));
+          sessionStorage.setItem("agent", JSON.stringify(merged));
           const ids = (merged.assignedAgents || []).map((x: string) => String(x));
-          const cur = localStorage.getItem("currentAgentId");
+          const cur = sessionStorage.getItem("currentAgentId");
           if (cur && ids.length > 0 && !ids.includes(cur)) {
-            localStorage.setItem("currentAgentId", ids[0]);
+            sessionStorage.setItem("currentAgentId", ids[0]);
             window.dispatchEvent(new CustomEvent("agent-changed", { detail: { agentId: ids[0] } }));
           }
           window.dispatchEvent(new CustomEvent("agent-status-updated"));
@@ -1184,7 +1184,7 @@ export default function Inbox(Props: any) {
               (currentConversation?.userId != null
                 ? String(currentConversation.userId)
                 : typeof window !== 'undefined'
-                  ? localStorage.getItem('userId') || ''
+                  ? sessionStorage.getItem('userId') || ''
                   : '') || ''
             }
             onClose={() => setReviseAnswerModal(null)}

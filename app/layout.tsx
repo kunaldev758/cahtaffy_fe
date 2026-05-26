@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect } from 'react';
+import { initializeAuthSession } from '@/lib/authInitializer';
+import { isAgentPath } from "@/lib/portalUrls";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -18,6 +23,23 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
 
+    useEffect(() => {
+    // On app startup, validate and restore auth session
+    if (typeof window !== 'undefined') {
+      initializeAuthSession(window.location.pathname).then(authStatus => {
+        if (
+          !authStatus.restored &&
+          authStatus.action === 'redirect-to-login' &&
+          authStatus.loginPath &&
+          window.location.pathname !== authStatus.loginPath
+        ) {
+          window.location.href = authStatus.loginPath;
+        }
+      }).catch(err => {
+        console.error('Auth initialization failed:', err);
+      });
+    }
+  }, []);
 
 
   return (

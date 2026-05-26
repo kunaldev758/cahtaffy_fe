@@ -129,17 +129,17 @@ export default function AgentTopBar() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
-  /** False on first paint; true after localStorage is read so we can reserve space for status/profile. */
+  /** False on first paint; true after sessionStorage is read so we can reserve space for status/profile. */
   const [hasReadAgentFromStorage, setHasReadAgentFromStorage] = useState(false)
 
   useEffect(() => {
-    // Read human agent from localStorage
+    // Read human agent from sessionStorage
     try {
-      const raw = localStorage.getItem('agent')
+      const raw = sessionStorage.getItem('agent')
       if (raw) setHumanAgent(JSON.parse(raw))
     } catch { }
 
-    setCurrentAgentId(localStorage.getItem('currentAgentId'))
+    setCurrentAgentId(sessionStorage.getItem('currentAgentId'))
     setHasReadAgentFromStorage(true)
 
     // Fetch all AI agents then filter to assigned ones
@@ -155,11 +155,11 @@ export default function AgentTopBar() {
 
     // Stay in sync with other parts of the app
     const handleAgentChanged = (e: CustomEvent) => {
-      setCurrentAgentId(e.detail?.agentId ?? localStorage.getItem('currentAgentId'))
+      setCurrentAgentId(e.detail?.agentId ?? sessionStorage.getItem('currentAgentId'))
     }
     const handleAgentStatusUpdate = () => {
       try {
-        const raw = localStorage.getItem('agent')
+        const raw = sessionStorage.getItem('agent')
         if (raw) setHumanAgent(JSON.parse(raw))
       } catch {}
       void fetchAgents()
@@ -220,7 +220,7 @@ export default function AgentTopBar() {
 
   const handleSwitch = (agentId: string) => {
     if (agentId === currentAgentId) { setIsOpen(false); return }
-    localStorage.setItem('currentAgentId', agentId)
+    sessionStorage.setItem('currentAgentId', agentId)
     setCurrentAgentId(agentId)
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId } }))
     setIsOpen(false)
@@ -235,7 +235,7 @@ export default function AgentTopBar() {
       await logoutAgentApi()
     } catch { /* ignore */ }
     clearSocketToken('agent')
-    localStorage.clear()
+    sessionStorage.clear()
     dispatchAuthStorageSync()
     router.replace('/agent-login')
   }
@@ -251,7 +251,7 @@ export default function AgentTopBar() {
       const updated = { ...humanAgent, isActive: !humanAgent.isActive }
       setHumanAgent(updated)
       try {
-        localStorage.setItem('agent', JSON.stringify(updated))
+        sessionStorage.setItem('agent', JSON.stringify(updated))
       } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent('agent-status-updated'))
     } catch {
@@ -290,7 +290,7 @@ export default function AgentTopBar() {
         </div>
 
         <div className='flex items-center gap-[20px]'>
-          {/* Status Toggle — skeleton until localStorage agent is read to avoid layout shift */}
+          {/* Status Toggle — skeleton until sessionStorage agent is read to avoid layout shift */}
           {!hasReadAgentFromStorage && <StatusBarSkeleton />}
           {hasReadAgentFromStorage && humanAgent && (
             <div className="inline-flex h-[40px] items-center gap-[9px] rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] text-[#111827]">

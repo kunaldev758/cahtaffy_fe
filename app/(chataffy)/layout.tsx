@@ -22,6 +22,8 @@ export default function DashboardLayout({
 }) {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID as string | undefined
 
+  console.log('DashboardLayout rendered with GOOGLE_CLIENT_ID:', googleClientId);
+
   return (
     <>
     {/* <div className={inter.className}> */}

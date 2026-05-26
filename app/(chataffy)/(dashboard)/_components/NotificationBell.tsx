@@ -87,10 +87,10 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   let unseen = notifications.filter((n) => !n.isSeen);
   let unseenCount = unseen.length;
 
-  // Resolve humanAgentId from localStorage and detect if agent or client login
+  // Resolve humanAgentId from sessionStorage and detect if agent or client login
   useEffect(() => {
     // Check if this is an agent login
-    const agentRaw = localStorage.getItem("agent");
+    const agentRaw = sessionStorage.getItem("agent");
     // const isAgent = agentRaw && agentRaw !== 'null' && agentRaw !== 'undefined';
 
     // ✅ PRIMARY: URL-based detection
@@ -98,7 +98,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
 
     console.log("Path-based agent detection:", pathBasedIsAgent, "current path:", window.location.pathname);
 
-    // ✅ FALLBACK: localStorage-based detection  
+    // ✅ FALLBACK: sessionStorage-based detection  
     const storageBasedIsAgent = agentRaw && agentRaw !== 'null' && agentRaw !== 'undefined';
 
     // ✅ COMBINED: Either condition = agent
@@ -110,7 +110,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     setIsAgentLogin(!!isAgent);
 
 
-    const stored = localStorage.getItem("humanAgentId");
+    const stored = sessionStorage.getItem("humanAgentId");
     if (stored) { setHumanAgentId(stored); return; }
     try {
       if (agentRaw) {
@@ -120,7 +120,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
       }
     } catch { }
     try {
-      const clientRaw = localStorage.getItem("clientAgent");
+      const clientRaw = sessionStorage.getItem("clientAgent");
       if (clientRaw) {
         const parsed = JSON.parse(clientRaw);
         if (parsed?._id) { setHumanAgentId(parsed._id); return; }
@@ -375,13 +375,13 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
 
     await markAsSeen(notif._id);
     const nextAgentId = notif.agentId;
-    const currentAgentId = localStorage.getItem("currentAgentId");
+    const currentAgentId = sessionStorage.getItem("currentAgentId");
     const didSwitchAgent = !!(nextAgentId && nextAgentId !== currentAgentId);
     if (didSwitchAgent) {
       window.dispatchEvent(
         new CustomEvent("agent-changed", { detail: { agentId: nextAgentId } })
       );
-      localStorage.setItem("currentAgentId", nextAgentId);
+      sessionStorage.setItem("currentAgentId", nextAgentId);
     }
     setIsOpen(false);
     const convId = getConversationId(notif);

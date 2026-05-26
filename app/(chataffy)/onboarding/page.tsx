@@ -46,11 +46,11 @@ export default function OnboardingPage() {
     // Real-time training progress from socket (used in widget step)
     const [isScrapingInProgress, setIsScrapingInProgress] = useState(false)
 
-    // Agent ID from localStorage
+    // Agent ID from sessionStorage
     const [agentId, setAgentId] = useState<string | null>(null)
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            setAgentId(localStorage.getItem('currentAgentId'))
+            setAgentId(sessionStorage.getItem('currentAgentId'))
         }
     }, [])
 
@@ -208,13 +208,18 @@ export default function OnboardingPage() {
 
     // Case 1: Train & Continue - start scraping
     const handleTrainContinue = async (selectedUrls: string[]) => {
+
+        console.log('check agent id :', selectedUrls, agentId);
+
         if (!agentId) {
             toast.error('Session expired. Please log in again.')
             return
         }
         setIsTrainingUrls(true)
         try {
-            const res = await startSitemapScrapingApi(agentId, selectedUrls)
+            const res = await startSitemapScrapingApi(agentId, selectedUrls);
+
+            console.log("startSitemapScrapingApi res ---> ", res);
             if (res?.success) {
                 toast.success('Training started successfully')
                 updateOnboardingStepApi(agentId, 'widget').catch(() => {})

@@ -82,13 +82,13 @@ export default function AgentSwitcherBar() {
   const shouldShow = !isHiddenPath && SHOW_ON_PATHS.some((p) => pathname === p || pathname?.startsWith(p + '/'))
   const isHumanAgentPage = pathname === '/humanAgent' || pathname?.startsWith('/humanAgent/')
 
-  // Load agents + read current agent from localStorage
+  // Load agents + read current agent from sessionStorage
   useEffect(() => {
     if (!shouldShow) return
 
     // Check if a human agent is logged in — they have assignedAgents in their data
     try {
-      const agentRaw = localStorage.getItem('agent')
+      const agentRaw = sessionStorage.getItem('agent')
       if (agentRaw) {
         const parsed = JSON.parse(agentRaw)
         if (Array.isArray(parsed?.assignedAgents) && parsed.assignedAgents.length > 0) {
@@ -112,13 +112,13 @@ export default function AgentSwitcherBar() {
       }
     }
 
-    const storedId = localStorage.getItem('currentAgentId')
+    const storedId = sessionStorage.getItem('currentAgentId')
     setCurrentAgentId(storedId)
     fetchAgents()
 
     const syncAssignedIdsFromStorage = () => {
       try {
-        const agentRaw = localStorage.getItem('agent')
+        const agentRaw = sessionStorage.getItem('agent')
         if (agentRaw) {
           const parsed = JSON.parse(agentRaw)
           if (Array.isArray(parsed?.assignedAgents) && parsed.assignedAgents.length > 0) {
@@ -134,7 +134,7 @@ export default function AgentSwitcherBar() {
 
     // Keep in sync if another part of the app changes the agent
     const handleAgentChanged = (e: CustomEvent) => {
-      setCurrentAgentId(e.detail?.agentId ?? localStorage.getItem('currentAgentId'))
+      setCurrentAgentId(e.detail?.agentId ?? sessionStorage.getItem('currentAgentId'))
     }
     const handleProfileOrAssignmentsSync = () => {
       syncAssignedIdsFromStorage()
@@ -182,7 +182,7 @@ export default function AgentSwitcherBar() {
 
   const handleSwitch = (agentId: string) => {
     if (agentId === currentAgentId) { setIsOpen(false); return }
-    localStorage.setItem('currentAgentId', agentId)
+    sessionStorage.setItem('currentAgentId', agentId)
     setCurrentAgentId(agentId)
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId } }))
     setIsOpen(false)
@@ -200,9 +200,9 @@ export default function AgentSwitcherBar() {
         return
       }
       const newAgentId = res.agent._id
-      const previousAgentId = localStorage.getItem('currentAgentId') ?? ''
-      localStorage.setItem('previousAgentId', previousAgentId)
-      localStorage.setItem('currentAgentId', newAgentId)
+      const previousAgentId = sessionStorage.getItem('currentAgentId') ?? ''
+      sessionStorage.setItem('previousAgentId', previousAgentId)
+      sessionStorage.setItem('currentAgentId', newAgentId)
       window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: newAgentId } }))
       router.push('/website/new')
     } catch {

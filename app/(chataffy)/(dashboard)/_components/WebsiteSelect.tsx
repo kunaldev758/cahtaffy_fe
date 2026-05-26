@@ -34,11 +34,11 @@ export default function WebsiteSelect() {
   const agentDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const storedId = localStorage.getItem('currentAgentId')
+    const storedId = sessionStorage.getItem('currentAgentId')
     setCurrentAgentId(storedId)
 
     const handleAgentChanged = (e: Event) => {
-      const id = (e as CustomEvent).detail?.agentId ?? localStorage.getItem('currentAgentId')
+      const id = (e as CustomEvent).detail?.agentId ?? sessionStorage.getItem('currentAgentId')
       setCurrentAgentId(id)
     }
     window.addEventListener('agent-changed', handleAgentChanged)
@@ -49,7 +49,7 @@ export default function WebsiteSelect() {
         const data = await getAIAgents()
         setAgents(Array.isArray(data) ? data : [])
         if(data.length > 0) {
-          window.localStorage.setItem('agents', JSON.stringify(data))
+          window.sessionStorage.setItem('agents', JSON.stringify(data))
         }
       } catch {
         // silent
@@ -76,7 +76,7 @@ export default function WebsiteSelect() {
       setIsAgentDropdownOpen(false)
       return
     }
-    localStorage.setItem('currentAgentId', agentId)
+    sessionStorage.setItem('currentAgentId', agentId)
     setCurrentAgentId(agentId)
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId } }))
     setIsAgentDropdownOpen(false)
@@ -98,8 +98,8 @@ export default function WebsiteSelect() {
         return
       }
       const newAgentId = res.agent._id
-      localStorage.setItem('previousAgentId', localStorage.getItem('currentAgentId') ?? '')
-      localStorage.setItem('currentAgentId', newAgentId)
+      sessionStorage.setItem('previousAgentId', sessionStorage.getItem('currentAgentId') ?? '')
+      sessionStorage.setItem('currentAgentId', newAgentId)
       window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: newAgentId } }))
       router.push('/website/new')
     } catch {
