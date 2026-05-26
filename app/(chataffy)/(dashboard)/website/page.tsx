@@ -100,18 +100,18 @@ export default function WebsitePage() {
 
   useEffect(() => {
     const cleanupOrphan = async () => {
-      const previousAgentId = localStorage.getItem('previousAgentId')
-      const currentAgentId = localStorage.getItem('currentAgentId')
+      const previousAgentId = sessionStorage.getItem('previousAgentId')
+      const currentAgentId = sessionStorage.getItem('currentAgentId')
       if (previousAgentId !== null) {
         if (currentAgentId) {
           try { await deleteAIAgentApi(currentAgentId) } catch { /* best-effort */ }
         }
         if (previousAgentId) {
-          localStorage.setItem('currentAgentId', previousAgentId)
+          sessionStorage.setItem('currentAgentId', previousAgentId)
         } else {
-          localStorage.removeItem('currentAgentId')
+          sessionStorage.removeItem('currentAgentId')
         }
-        localStorage.removeItem('previousAgentId')
+        sessionStorage.removeItem('previousAgentId')
         window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: previousAgentId || null } }))
       }
     }
@@ -123,7 +123,7 @@ export default function WebsitePage() {
         const data = await getAIAgents()
         setAgents(Array.isArray(data) ? data : [])
         if(data.length > 0) {
-          window.localStorage.setItem('agents', JSON.stringify(data))
+          window.sessionStorage.setItem('agents', JSON.stringify(data))
         }
       } catch {
         toast.error('Failed to load agents')
@@ -151,9 +151,9 @@ export default function WebsitePage() {
         return
       }
       const newAgentId = res.agent._id
-      const previousAgentId = localStorage.getItem('currentAgentId') ?? ''
-      localStorage.setItem('previousAgentId', previousAgentId)
-      localStorage.setItem('currentAgentId', newAgentId)
+      const previousAgentId = sessionStorage.getItem('currentAgentId') ?? ''
+      sessionStorage.setItem('previousAgentId', previousAgentId)
+      sessionStorage.setItem('currentAgentId', newAgentId)
       router.push('/website/new')
     } catch {
       toast.error('Failed to create agent. Please try again.')
@@ -171,14 +171,14 @@ export default function WebsitePage() {
         toast.error(res?.message || 'Failed to delete agent')
         return
       }
-      // Remove from localStorage if it was the active agent
-      const currentAgentId = localStorage.getItem('currentAgentId')
+      // Remove from sessionStorage if it was the active agent
+      const currentAgentId = sessionStorage.getItem('currentAgentId')
       if (currentAgentId === agentId) {
-        localStorage.removeItem('currentAgentId')
+        sessionStorage.removeItem('currentAgentId')
         window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: null } }))
       }
       setAgents(prev => prev.filter(a => a._id !== agentId))
-      localStorage.setItem('agents', JSON.stringify(agents.filter(a => a._id !== agentId) || []))
+      sessionStorage.setItem('agents', JSON.stringify(agents.filter(a => a._id !== agentId) || []))
       toast.success('Agent deleted successfully')
     } catch {
       toast.error('Failed to delete agent')
@@ -209,7 +209,7 @@ export default function WebsitePage() {
   }
 
   const handleEditTraining = (agentId: string) => {
-    localStorage.setItem('currentAgentId', agentId)
+    sessionStorage.setItem('currentAgentId', agentId)
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId } }))
     router.push('/training')
   }

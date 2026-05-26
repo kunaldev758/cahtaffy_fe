@@ -114,7 +114,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
   const markChatCompletedForReload = useCallback(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(chatCompletedStorageKey, '1');
+    sessionStorage.setItem(chatCompletedStorageKey, '1');
   }, [chatCompletedStorageKey]);
 
   const clearNoReplyTimer = () => {
@@ -196,16 +196,16 @@ export default function EnhancedChatWidget({ params }: any) {
 
   // Socket initialization — Engine.IO already does ping/pong; we rely on reconnection + browser online
   useEffect(() => {
-    const shouldRotateVisitorId = localStorage.getItem(chatCompletedStorageKey) === '1';
+    const shouldRotateVisitorId = sessionStorage.getItem(chatCompletedStorageKey) === '1';
     if (shouldRotateVisitorId) {
-      localStorage.removeItem('visitorId');
-      localStorage.removeItem(chatCompletedStorageKey);
+      sessionStorage.removeItem('visitorId');
+      sessionStorage.removeItem(chatCompletedStorageKey);
     }
 
-    let storedVisitorId = localStorage.getItem('visitorId');
+    let storedVisitorId = sessionStorage.getItem('visitorId');
     if (!storedVisitorId) {
       storedVisitorId = uuidv4();
-      localStorage.setItem('visitorId', storedVisitorId);
+      sessionStorage.setItem('visitorId', storedVisitorId);
     }
 
     hasSocketConnectedOnceRef.current = false;
@@ -222,7 +222,7 @@ export default function EnhancedChatWidget({ params }: any) {
           widgetId,
           widgetAuthToken: widgetToken,
           agentId: agentId,
-          visitorId: localStorage.getItem('visitorId'),
+          visitorId: sessionStorage.getItem('visitorId'),
         },
         transports: ["websocket", "polling"],
         reconnection: true,
@@ -823,10 +823,10 @@ export default function EnhancedChatWidget({ params }: any) {
   };
 
   const handleStartNewChat = () => {
-    // Clear localStorage
+    // Clear sessionStorage
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('visitorId');
-      localStorage.removeItem(chatCompletedStorageKey);
+      sessionStorage.removeItem('visitorId');
+      sessionStorage.removeItem(chatCompletedStorageKey);
     }
 
     // Disconnect socket
@@ -1479,7 +1479,7 @@ export default function EnhancedChatWidget({ params }: any) {
                     </div>
                   </div>
                 ) : isLimitExpired ? (
-                  <LimitExpiredComponent userId={userId} visitorId={typeof window !== 'undefined' ? localStorage.getItem('visitorId') : null}/>
+                  <LimitExpiredComponent userId={userId} visitorId={typeof window !== 'undefined' ? sessionStorage.getItem('visitorId') : null}/>
                 ) : (
                   <>
                     {/* Messages Area */}

@@ -89,7 +89,7 @@ export default function ClientProfileMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { socket } = useSocket();
-  const provider = typeof window !== 'undefined' ? localStorage.getItem("provider") : null;
+  const provider = typeof window !== 'undefined' ? sessionStorage.getItem("provider") : null;
 
   useEffect(() => {
     if (clientAvatar !== undefined) {
@@ -112,7 +112,7 @@ export default function ClientProfileMenu({
   useEffect(() => {
     const readLocal = () => {
       try {
-        const raw = localStorage.getItem('clientAgent');
+        const raw = sessionStorage.getItem('clientAgent');
         if (!raw) return;
         const p = JSON.parse(raw);
         if (p.avatar && String(p.avatar).trim()) {
@@ -147,7 +147,7 @@ export default function ClientProfileMenu({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const clientData = localStorage.getItem('client');
+      const clientData = sessionStorage.getItem('client');
       if (clientData) {
         try {
           const parsedClient = JSON.parse(clientData);
@@ -165,7 +165,7 @@ export default function ClientProfileMenu({
       // Client inbox agent (isClient): one per account — do not compare to Client billing doc id
       if (updatedClient.isClient !== true) {
         try {
-          const raw = localStorage.getItem('clientAgent');
+          const raw = sessionStorage.getItem('clientAgent');
           const parsed = raw ? JSON.parse(raw) : {};
           const myId =
             parsed._id || parsed.id
@@ -181,7 +181,7 @@ export default function ClientProfileMenu({
       setIsOnline(updatedClient.isActive !== false);
       if (typeof window === 'undefined') return;
       try {
-        const raw = localStorage.getItem('clientAgent');
+        const raw = sessionStorage.getItem('clientAgent');
         const base = raw ? JSON.parse(raw) : {};
         const merged = {
           ...base,
@@ -189,13 +189,13 @@ export default function ClientProfileMenu({
           isActive: updatedClient.isActive,
           lastActive: updatedClient.lastActive,
         };
-        localStorage.setItem('clientAgent', JSON.stringify(merged));
+        sessionStorage.setItem('clientAgent', JSON.stringify(merged));
         window.dispatchEvent(new CustomEvent('client-status-changed', { detail: merged }));
-        const clientData = localStorage.getItem('client');
+        const clientData = sessionStorage.getItem('client');
         if (clientData) {
           try {
             const parsedClient = JSON.parse(clientData);
-            localStorage.setItem(
+            sessionStorage.setItem(
               'client',
               JSON.stringify({
                 ...parsedClient,
@@ -238,7 +238,7 @@ export default function ClientProfileMenu({
       }
       if (typeof window !== 'undefined') {
         try {
-          const raw = localStorage.getItem('clientAgent');
+          const raw = sessionStorage.getItem('clientAgent');
           const base = raw ? JSON.parse(raw) : {};
           const next = {
             ...base,
@@ -246,7 +246,7 @@ export default function ClientProfileMenu({
             ...(data.email !== undefined && { email: data.email }),
             ...(data.avatar !== undefined && { avatar: data.avatar }),
           };
-          localStorage.setItem('clientAgent', JSON.stringify(next));
+          sessionStorage.setItem('clientAgent', JSON.stringify(next));
         } catch {
           /* ignore */
         }
@@ -291,12 +291,12 @@ export default function ClientProfileMenu({
       if (response && typeof response === 'object' && 'agent' in response && response.agent) {
         applyClientStatusFromPayload(response.agent);
         if (typeof window !== 'undefined') {
-          const agentData = localStorage.getItem('agent');
+          const agentData = sessionStorage.getItem('agent');
           if (agentData) {
             try {
               const parsedAgent = JSON.parse(agentData);
               if (parsedAgent.isClient) {
-                localStorage.setItem('agent', JSON.stringify({ ...parsedAgent, ...response.agent }));
+                sessionStorage.setItem('agent', JSON.stringify({ ...parsedAgent, ...response.agent }));
               }
             } catch { }
           }
@@ -334,9 +334,9 @@ export default function ClientProfileMenu({
     (typeof window !== 'undefined'
       ? (() => {
         try {
-          const clientData = localStorage.getItem('client');
+          const clientData = sessionStorage.getItem('client');
           if (clientData) return JSON.parse(clientData).email || '';
-          const userData = localStorage.getItem('user');
+          const userData = sessionStorage.getItem('user');
           if (userData) return JSON.parse(userData).email || '';
         } catch { }
         return '';

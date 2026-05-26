@@ -39,9 +39,9 @@ export function resolveHumanAgentIdForSocket(portal: AuthPortal): string | undef
   if (typeof window === "undefined") return undefined;
 
   if (portal === "agent") {
-    const stored = localStorage.getItem("humanAgentId");
+    const stored = sessionStorage.getItem("humanAgentId");
     if (stored) return stored;
-    const agentRaw = localStorage.getItem("agent");
+    const agentRaw = sessionStorage.getItem("agent");
     if (agentRaw) {
       try {
         const parsed = JSON.parse(agentRaw) as { id?: string; _id?: string };
@@ -54,7 +54,7 @@ export function resolveHumanAgentIdForSocket(portal: AuthPortal): string | undef
     return undefined;
   }
 
-  const clientAgentRaw = localStorage.getItem("clientAgent");
+  const clientAgentRaw = sessionStorage.getItem("clientAgent");
   if (clientAgentRaw) {
     try {
       const parsed = JSON.parse(clientAgentRaw) as { id?: string; _id?: string };

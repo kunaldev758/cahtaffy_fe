@@ -46,14 +46,14 @@ export function VerifyEmailClient() {
           try {
             await setClientSessionCookies(sessionToken)
           } catch {
-            // httpOnly cookies optional for client-driven navigation; localStorage backs API calls
+            // httpOnly cookies optional for client-driven navigation; sessionStorage backs API calls
           }
           toast.success(response.message || 'Email verified successfully', { toastId: TOAST_ID })
           setSocketToken('client', sessionToken)
-          if (response.userId) localStorage.setItem('userId', String(response.userId))
+          if (response.userId) sessionStorage.setItem('userId', String(response.userId))
           if (response.agents?.length) {
-            localStorage.setItem('agents', JSON.stringify(response.agents))
-            localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '')
+            sessionStorage.setItem('agents', JSON.stringify(response.agents))
+            sessionStorage.setItem('currentAgentId', response.agents[0]?._id ?? '')
           }
           dispatchAuthStorageSync()
           if (socket && response.userId) {

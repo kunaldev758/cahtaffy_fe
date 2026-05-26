@@ -44,11 +44,11 @@ export function RegistrationForm() {
           toast.success('Signed up with Google')
           if (response.token) setSocketToken('client', response.token);
           if (response.userId) {
-            localStorage.setItem('userId', response.userId)
+            sessionStorage.setItem('userId', response.userId)
           }
           if (response.agents) {
-            localStorage.setItem('agents', JSON.stringify(response.agents))
-            localStorage.setItem('currentAgentId', response.agents[0]?._id ?? '')
+            sessionStorage.setItem('agents', JSON.stringify(response.agents))
+            sessionStorage.setItem('currentAgentId', response.agents[0]?._id ?? '')
           }
           dispatchAuthStorageSync()
           handleSocketEvent(response.userId)

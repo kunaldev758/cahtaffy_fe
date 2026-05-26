@@ -37,11 +37,11 @@ export function DirectClientLoginClient() {
 
         setSocketToken("client", result.token);
         if (result.userId != null) {
-          localStorage.setItem("userId", String(result.userId));
+          sessionStorage.setItem("userId", String(result.userId));
         }
         if (Array.isArray(result.agents) && result.agents.length > 0) {
-          localStorage.setItem("agents", JSON.stringify(result.agents));
-          localStorage.setItem(
+          sessionStorage.setItem("agents", JSON.stringify(result.agents));
+          sessionStorage.setItem(
             "currentAgentId",
             result.agents[0]?._id != null ? String(result.agents[0]._id) : ""
           );
