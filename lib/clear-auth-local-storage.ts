@@ -12,11 +12,11 @@ const AUTH_STORAGE_KEYS = [
 ] as const;
 
 /** Removes app auth keys only (keeps e.g. visitorId for the widget). */
-export function clearAuthsessionStorage() {
+export function clearAuthLocalStorage() {
   if (typeof window === "undefined") return;
   try {
     for (const key of AUTH_STORAGE_KEYS) {
-      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
     }
   } catch {
     /* ignore */
