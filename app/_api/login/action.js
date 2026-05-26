@@ -23,7 +23,7 @@ export async function loginAgentApi(email, password) {
 }
 
 
-export async function loginApi(email, password) {
+export async function loginApi(email, password, resendVerification = false) {
   const response = await fetch(`${process.env.API_HOST}login`, {
     method: 'POST',
     cache:'no-cache',
@@ -31,6 +31,7 @@ export async function loginApi(email, password) {
     body: JSON.stringify({
       email: email,
       password: password,
+      ...(resendVerification ? { resendVerification: true } : {}),
     })
   })
 
