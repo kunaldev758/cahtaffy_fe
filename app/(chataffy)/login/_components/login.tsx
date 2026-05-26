@@ -18,6 +18,26 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+const VERIFICATION_EMAIL_COOLDOWN_MS = 2 * 60 * 1000;
+
+const verificationEmailCooldownKey = (emailAddress: string) =>
+  `verificationEmailSentAt:${emailAddress.trim().toLowerCase()}`;
+
+const getVerificationEmailCooldownRemaining = (emailAddress: string) => {
+  if (typeof window === 'undefined') return 0;
+  const raw = sessionStorage.getItem(verificationEmailCooldownKey(emailAddress));
+  if (!raw) return 0;
+  const sentAt = Number(raw);
+  if (!Number.isFinite(sentAt)) return 0;
+  return Math.max(0, VERIFICATION_EMAIL_COOLDOWN_MS - (Date.now() - sentAt));
+};
+
+const markVerificationEmailSent = (emailAddress: string) => {
+  sessionStorage.setItem(
+    verificationEmailCooldownKey(emailAddress),
+    String(Date.now())
+  );
+};
 
 interface Response {
   status_code: number;
@@ -82,7 +102,7 @@ export function LoginForm({ response }: { response?: Response }) {
         response?.requires_email_verification ||
         response?.message === 'Please verify your email address'
       ) {
-        setVerificationEmailSent(false)
+        setVerificationEmailSent(getVerificationEmailCooldownRemaining(email) > 0)
         setShowVerifyModal(true)
       } else {
         toast.error(response.message)
@@ -159,9 +179,18 @@ export function LoginForm({ response }: { response?: Response }) {
 
   const handleResendVerification = async () => {
     if (!email.trim() || !password.trim()) return
+
+    const trimmedEmail = email.trim()
+    if (getVerificationEmailCooldownRemaining(trimmedEmail) > 0) {
+      toast.info(
+        'We already sent a verification email to your inbox. Please check your mail. If you did not receive it, try again after some time.'
+      )
+      return
+    }
+
     setResendLoading(true)
     try {
-      const response = await loginApi(email.trim(), password.trim(), true)
+      const response = await loginApi(trimmedEmail, password.trim(), true)
       if (response?.status_code === 200) {
          setShowVerifyModal(false)
         toast.success('Email is already verified. You can sign in now.')
@@ -171,7 +200,8 @@ export function LoginForm({ response }: { response?: Response }) {
         response?.verification_email_sent ||
         response?.message?.includes('Verification email sent')
       ) {
-        setShowVerifyModal(false)
+        markVerificationEmailSent(trimmedEmail)
+        setVerificationEmailSent(true)
         toast.success(
           response.message || 'Verification email sent. Please check your inbox.'
         )
