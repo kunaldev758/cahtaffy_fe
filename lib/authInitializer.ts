@@ -136,16 +136,46 @@ export const initializeAuthSession = async (
   }
 };
 
+const isLocalRuntime = () => {
+  if (typeof window === 'undefined') return true;
+  const host = window.location.hostname.toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local');
+};
+
+const getBackendValidateTokenUrl = () => {
+  const rawBase = process.env.NEXT_PUBLIC_API_HOST?.trim();
+  if (!rawBase) return null;
+
+  const base = rawBase.replace(/\/+$/, '');
+  return base.endsWith('/api') ? `${base}/validate-token` : `${base}/api/validate-token`;
+};
+
 // Helper to validate token with backend
 const validateTokenWithBackend = async (portal: AuthRole): Promise<TokenValidation> => {
   try {
-    const response = await fetch(`/api/auth/validate?portal=${portal}`, {
-      method: 'GET',
-      credentials: 'include', // Include cookies
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = isLocalRuntime()
+      ? await fetch(`/api/auth/validate?portal=${portal}`, {
+          method: 'GET',
+          credentials: 'include', // Include cookies
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+      : await (async () => {
+          const validateUrl = getBackendValidateTokenUrl();
+          if (!validateUrl) return null;
+
+          return fetch(validateUrl, {
+            method: 'POST',
+            credentials: 'include', // Send .chataffy.com auth cookies to API host.
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ portal }),
+          });
+        })();
+
+    if (!response) return { valid: false };
 
     if (!response.ok) return { valid: false };
 

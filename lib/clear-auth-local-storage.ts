@@ -16,7 +16,7 @@ export function clearAuthLocalStorage() {
   if (typeof window === "undefined") return;
   try {
     for (const key of AUTH_STORAGE_KEYS) {
-      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
     }
   } catch {
     /* ignore */
