@@ -382,9 +382,10 @@ export async function middleware(request: NextRequest) {
 
     effectivePortal === "agent" &&
 
-    publicRoutes.includes(pathname) &&
-
-    pathname !== "/agent-accept-invite"
+    // If an agent is already logged in, send them to the inbox when they hit the agent login.
+    // Critical: do NOT redirect when they're already on `/agent-inbox`, or the browser can get
+    // stuck in a redirect loop.
+    pathname === "/agent-login"
 
   ) {
 
