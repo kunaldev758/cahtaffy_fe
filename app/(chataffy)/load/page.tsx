@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { dispatchAuthStorageSync, useSocket } from "../../socketContext";
 import axios from "axios";
+import { bcAuthLoadApi, sfAuthLoadApi } from "@/app/_api/login/action";
 
 // Extend window type for App Bridge
 declare global {
@@ -57,11 +58,13 @@ function LoadPageContent() {
 
         // ── BigCommerce (unchanged) ──────────────────────────────────────
         if (signedPayload) {
-          const res = await axios.get(`${apiBase}/api/bigcommerce/auth/load`, {
-            params: { signed_payload_jwt: signedPayload },
-            withCredentials: true,
-          });
-          const result = res.data;
+          // const res = await axios.get(`${apiBase}/api/bigcommerce/auth/load`, {
+          //   params: { signed_payload_jwt: signedPayload },
+          //   withCredentials: true,
+          // });
+          const res = await bcAuthLoadApi(signedPayload);
+          console.log(res, "this is the response bigcommerce!");
+          const result = res;
           if (result.status) {
             const { userId, isOnboarded, agents, bigcommerceStoreHash } =
               result;
@@ -104,12 +107,13 @@ function LoadPageContent() {
             //   : allParams; // Post-install flow (install_token)
             const params = allParams;
 
-            const res = await axios.get(`${apiBase}/api/shopify/auth/load`, {
-              params,
-              withCredentials: true,
-            });
-
-            const result = res.data;
+            // const res = await axios.get(`${apiBase}/api/shopify/auth/load`, {
+            //   params,
+            //   withCredentials: true,
+            // });
+            const res = await sfAuthLoadApi(params);
+            console.log(res, "this is the response shopify!");
+            const result = res;
             if (result.status) {
               const { userId, isOnboarded, agents, shopifyShop } = result;
               sessionStorage.setItem("userId", userId);

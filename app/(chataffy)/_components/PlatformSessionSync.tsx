@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { usePathname } from 'next/navigation';
+import { bcAuthLoadApi, setPlatformCookie, sfAuthLoadApi } from '@/app/_api/login/action';
 
 // declare global {
 //   interface Window {
@@ -39,11 +40,12 @@ export default function PlatformSessionSync() {
        // window.self === window.top it means the user is on the web tab not in the embedded tab
       if (window.self === window.top) {
         syncingRef.current = true;
-        await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/setWebAuthCookies`, {
-          method: 'POST',
-          credentials: 'include',
-          body: JSON.stringify({ platform: 'local' }),
-        });
+        // await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/setWebAuthCookies`, {
+        //   method: 'POST',
+        //   credentials: 'include',
+        //   body: JSON.stringify({ platform: 'local' }),
+        // });
+        await setPlatformCookie();
         syncingRef.current = false;
         return;
       };
@@ -77,10 +79,11 @@ export default function PlatformSessionSync() {
           const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt');
           if (!signedPayloadJwt) return;
 
-          await axios.get(`${apiBase}/api/bigcommerce/auth/load`, {
-            params: { signed_payload_jwt: signedPayloadJwt },
-            withCredentials: true,
-          });
+          // await axios.get(`${apiBase}/api/bigcommerce/auth/load`, {
+          //   params: { signed_payload_jwt: signedPayloadJwt },
+          //   withCredentials: true,
+          // });
+          await bcAuthLoadApi(signedPayloadJwt);
         } else {
           const shop = sessionStorage.getItem('shopifyShop');
           const sfParams = sessionStorage.getItem('sf_params');
@@ -100,10 +103,11 @@ export default function PlatformSessionSync() {
             }
           }
 
-          await axios.get(`${apiBase}/api/shopify/auth/load`, {
-            params,
-            withCredentials: true,
-          });
+          // await axios.get(`${apiBase}/api/shopify/auth/load`, {
+          //   params,
+          //   withCredentials: true,
+          // });
+          await sfAuthLoadApi(params);
         }
 
         dispatchAuthStorageSync();

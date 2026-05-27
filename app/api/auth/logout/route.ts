@@ -21,7 +21,7 @@ export async function POST() {
   const opts = serverAuthCookieOpts();
 
   for (const name of AUTH_COOKIE_NAMES) {
-    response.cookies.set(name, "", { ...opts, maxAge: 0 });
+    response.cookies.set(name, "", { ...opts, maxAge: 0, sameSite: "none" as "none" | "lax" | "strict", secure: true });
   }
 
   return response;

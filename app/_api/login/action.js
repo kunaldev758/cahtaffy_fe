@@ -358,3 +358,80 @@ export async function completeOnboardingApi() {
 
 }
 
+export async function bcAuthLoadApi(signedPayloadJwt) {
+
+  const response = await fetch(`${process.env.API_HOST}bigcommerce/auth/load?signed_payload_jwt=${signedPayloadJwt}`, {
+
+    method: 'GET',
+
+    cache: 'no-cache',
+
+    headers: {
+
+      'Content-Type': 'application/json',
+
+    },
+
+  })
+
+  const result = await response.json()
+  console.log(result, "this is the response shopify!");
+  const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
+  console.log(token, "this is the token bigcommerce!");
+  if(result.status) {
+    cookies().set({ name: 'platform', value: 'bigcommerce', ...cookieOpts() })
+    cookies().set({ name: 'bc_token', value: token, ...cookieOpts() })
+  }
+  return result;
+
+}
+
+export async function sfAuthLoadApi(params) {
+  const response = await fetch(`${process.env.API_HOST}shopify/auth/load?${new URLSearchParams(params).toString()}`, {
+
+    method: 'GET',
+
+    cache: 'no-cache',
+
+    headers: {
+
+      'Content-Type': 'application/json',
+    },
+
+  })
+
+
+  const result = await response.json()
+//  getting the token from set-cookie   `Set-Cookie` header
+  const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
+  if(result.status) {
+    cookies().set({ name: 'platform', value: 'shopify', ...cookieOpts() })
+    cookies().set({ name: 'sf_token', value: token, ...cookieOpts() })
+  }
+  return result;
+
+}
+
+export async function setPlatformCookie() {
+  const options = cookieOpts()
+  cookies().set({ name: 'platform', value: 'local', ...options })
+  return { status: true }
+}
+
+export async function platformRedirectionLogin(userId) {
+  const response = await fetch(`${process.env.API_HOST}platform-redirection-login/${userId}`, {
+    method: 'GET',
+    cache: 'no-cache',
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  const result = await response.json()
+//  getting the token from set-cookie   `Set-Cookie` header
+  const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
+  if(result.status) {
+    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
+    cookies().set({ name: 'CLIENT_TOKEN', value: token, ...cookieOpts() })
+  }
+  return result;
+
+}

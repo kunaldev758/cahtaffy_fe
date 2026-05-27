@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { directClientLoginApi } from "../../../_api/login/action";
+import { directClientLoginApi, platformRedirectionLogin } from "../../../_api/login/action";
 import { dispatchAuthStorageSync } from "../../../socketContext";
 
 const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
@@ -26,10 +26,12 @@ export function PlatformRedirectionLoginClient() {
       }
 
       try {
-        const result = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/platform-redirection-login/${userId}`,{
-          credentials: 'include',
-        });
-        const data = await result.json();
+        // const result = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/platform-redirection-login/${userId}`,{
+        //   credentials: 'include',
+        // });
+        // const data = await result.json();
+        const result = await platformRedirectionLogin(userId);
+        const data = result;
         if (data?.status_code !== 200 || !data?.token) {
           router.replace(`${appUrl}login`);
           return;

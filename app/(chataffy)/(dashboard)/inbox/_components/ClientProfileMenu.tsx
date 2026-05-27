@@ -312,15 +312,15 @@ export default function ClientProfileMenu({
 
   const handleLogout = async () => {
     try {
-      // await logoutApi();
-      await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
-        credentials: 'include',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
+      await logoutApi();
+      // await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
+      //   credentials: 'include',
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify({}),
+      // });
     } catch { }
     clearWebAuthStorage();
     clearSocketToken('client');

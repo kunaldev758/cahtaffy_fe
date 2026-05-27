@@ -27,8 +27,8 @@ export function serverAuthCookieOpts() {
   return {
     httpOnly: true,
     maxAge: SEVEN_DAYS_IN_SECONDS,
-    sameSite: (secure && domain ? "none" : "lax") as "none" | "lax",
-    secure,
+    sameSite: "none",
+    secure:true,
     path: "/",
     ...(domain ? { domain } : {}),
   };
