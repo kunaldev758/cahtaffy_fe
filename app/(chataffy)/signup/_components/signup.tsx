@@ -44,6 +44,7 @@ export function RegistrationForm() {
           toast.success('Signed up with Google')
           if (response.token) setSocketToken('client', response.token);
           if (response.userId) {
+            sessionStorage.setItem('role', 'client')
             sessionStorage.setItem('userId', response.userId)
           }
           if (response.agents) {

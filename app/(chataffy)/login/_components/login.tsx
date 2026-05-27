@@ -325,6 +325,7 @@ export function LoginForm({ response }: { response?: Response }) {
   // Helper function to set session data after successful login
   const setSessionDataAfterLogin = (loginResponse: any) => {
     if (loginResponse.token) setSocketToken('client', loginResponse.token);
+    sessionStorage.setItem('role', 'client');
     sessionStorage.setItem('userId', loginResponse.userId);
     
     // ✅ FIX: Set agents and humanAgentId (AI Agent _id) 

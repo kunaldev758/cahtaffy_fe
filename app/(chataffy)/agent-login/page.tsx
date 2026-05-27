@@ -51,6 +51,7 @@ export default function AgentLogin() {
         "";
 
       setSocketToken("agent", res.token);
+      sessionStorage.setItem("role", "agent");
       sessionStorage.setItem("agent", JSON.stringify({ ...humanAgent, _id: humanAgentId }));
       sessionStorage.setItem("userId", userId);
       sessionStorage.setItem("humanAgentId", humanAgentId);

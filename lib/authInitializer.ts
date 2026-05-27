@@ -3,8 +3,6 @@
 import { dispatchAuthStorageSync } from "@/app/socketContext";
 import { storage } from "@/lib/sessionStorageHelper";
 
-import { cookies } from 'next/headers';
-
 type AuthRole = "client" | "agent";
 
 type TokenValidation = {
@@ -21,11 +19,11 @@ type InitializeAuthSessionResult =
   | { restored: true; role: AuthRole | string }
   | { restored: false; role: null; action?: undefined; loginPath?: undefined }
   | {
-    restored: false;
-    role: null;
-    action: 'redirect-to-login';
-    loginPath: string;
-  };
+      restored: false;
+      role: null;
+      action: 'redirect-to-login';
+      loginPath: string;
+    };
 
 const PUBLIC_AUTH_BYPASS_PREFIXES = [
   '/openai/widget',
@@ -64,12 +62,12 @@ export const initializeAuthSession = async (
 
   // Determine if current path is agent or client
   const isAgentPath = currentPath.startsWith('/agent');
-
+  
   // Check if session already exists in sessionStorage
   const sessionRole = storage.getSession('role');
   const sessionAgent = storage.getSession('agent');
   const sessionUserId = storage.getSession('userId');
-
+  
   // If session exists and matches current path, all good
   if (sessionRole) {
     const isSessionAgent = sessionRole === 'agent';
@@ -82,16 +80,16 @@ export const initializeAuthSession = async (
 
   // Session missing or mismatched - need to restore or clear
   console.log('⚠️ Session mismatch or missing - path is agent?', isAgentPath);
-
+  
   // Clear old session data to prevent auto-login as wrong user
   storage.clearAllSession();
-
+  
   // Try to validate cookies match current path
   try {
     const tokenValidation = await validateTokenWithBackend(
       isAgentPath ? 'agent' : 'client',
     );
-
+    
     if (!tokenValidation.valid) {
       // No valid token - redirect to appropriate login
       return {
@@ -104,7 +102,7 @@ export const initializeAuthSession = async (
 
     // Token is valid - restore session based on token type
     const role = tokenValidation.role === 'agent' ? 'agent' : 'client';
-
+    
     // Verify token role matches path
     if ((role === 'agent') !== isAgentPath) {
       console.warn('🔴 Token role mismatch! Clearing and redirecting to login');
@@ -138,56 +136,16 @@ export const initializeAuthSession = async (
   }
 };
 
-const isLocalRuntime = () => {
-  if (typeof window === 'undefined') return true;
-  const host = window.location.hostname.toLowerCase();
-  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local');
-};
-
-const getBackendValidateTokenUrl = () => {
-  const rawBase = process.env.NEXT_PUBLIC_API_HOST?.trim();
-  if (!rawBase) return null;
-
-  const base = rawBase.replace(/\/+$/, '');
-  return base.endsWith('/api') ? `${base}/validate-token` : `${base}/api/validate-token`;
-};
-
-// Helper to validate token with backend
+// Validate via Next BFF: reads HttpOnly cookies server-side and forwards Bearer token to backend.
 const validateTokenWithBackend = async (portal: AuthRole): Promise<TokenValidation> => {
-
-  const cookieStore = await cookies();
-
-  const token =
-    portal === 'agent'
-      ? cookieStore.get('AGENT_TOKEN')?.value
-      : cookieStore.get('CLIENT_TOKEN')?.value;
-
-  console.log('Validating token for portal:', portal, 'Token found:', !!token);
-
   try {
-    const response = isLocalRuntime()
-      ? await fetch(`/api/auth/validate?portal=${portal}`, {
-        method: 'GET',
-        credentials: 'include', // Include cookies
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }) : await (async () => {
-        const validateUrl = getBackendValidateTokenUrl();
-
-        if (!validateUrl) return null;
-
-        return fetch(validateUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ portal }),
-        });
-      })();
-
-    if (!response) return { valid: false };
+    const response = await fetch(`/api/auth/validate?portal=${portal}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) return { valid: false };
 
@@ -248,5 +206,5 @@ export const clearAuthData = async () => {
       method: 'POST',
       credentials: 'include',
     });
-  } catch { }
+  } catch {}
 };

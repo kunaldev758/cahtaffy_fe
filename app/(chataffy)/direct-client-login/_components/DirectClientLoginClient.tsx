@@ -36,6 +36,7 @@ export function DirectClientLoginClient() {
         }
 
         setSocketToken("client", result.token);
+        sessionStorage.setItem("role", "client");
         if (result.userId != null) {
           sessionStorage.setItem("userId", String(result.userId));
         }

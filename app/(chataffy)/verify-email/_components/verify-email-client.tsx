@@ -50,6 +50,7 @@ export function VerifyEmailClient() {
           }
           toast.success(response.message || 'Email verified successfully', { toastId: TOAST_ID })
           setSocketToken('client', sessionToken)
+          sessionStorage.setItem('role', 'client')
           if (response.userId) sessionStorage.setItem('userId', String(response.userId))
           if (response.agents?.length) {
             sessionStorage.setItem('agents', JSON.stringify(response.agents))
