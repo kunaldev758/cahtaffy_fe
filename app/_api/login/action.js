@@ -375,7 +375,6 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
   })
 
   const result = await response.json()
-  console.log(result, "this is the response shopify!");
   const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
   console.log(token, "this is the token bigcommerce!");
   if(result.status) {
@@ -408,7 +407,7 @@ export async function sfAuthLoadApi(params) {
     cookies().set({ name: 'platform', value: 'shopify', ...cookieOpts() })
     cookies().set({ name: 'sf_token', value: token, ...cookieOpts() })
   }
-  return result;
+  return { ...result, httpStatus: response.status };
 
 }
 

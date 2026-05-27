@@ -3,8 +3,24 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { dispatchAuthStorageSync, useSocket } from "../../socketContext";
-import axios from "axios";
 import { bcAuthLoadApi, sfAuthLoadApi } from "@/app/_api/login/action";
+
+function getHttpStatusFromLoadResult(result: unknown): number | undefined {
+  if (result && typeof result === "object" && "httpStatus" in result) {
+    const status = (result as { httpStatus?: unknown }).httpStatus;
+    return typeof status === "number" ? status : undefined;
+  }
+  return undefined;
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return "Authentication failed";
+}
 
 // Extend window type for App Bridge
 declare global {
@@ -112,7 +128,6 @@ function LoadPageContent() {
             //   withCredentials: true,
             // });
             const res = await sfAuthLoadApi(params);
-            console.log(res, "this is the response shopify!");
             const result = res;
             if (result.status) {
               const { userId, isOnboarded, agents, shopifyShop } = result;
@@ -127,26 +142,30 @@ function LoadPageContent() {
               dispatchAuthStorageSync();
               handleSocketEvent(result.userId);
               router.replace(isOnboarded ? "/dashboard" : "/onboarding");
+              return;
             }
-          } catch (shopifyErr) {
-            if (axios.isAxiosError(shopifyErr)) {
-              const status = shopifyErr.response?.status;
 
-              // Not installed or uninstalled → trigger OAuth
-              if (status === 400 || status === 401 || status === 403) {
-                if (shop) {
-                  const installUrl = new URL(
-                    `${process.env.NEXT_PUBLIC_API_HOST}/api/shopify/auth/install`
-                  );
-                  installUrl.searchParams.set("shop", shop);
-                  if (host) installUrl.searchParams.set("host", host);
-          
-                  redirectToInstall(installUrl.toString());
-                  return;
-                }
-              }
+            const httpStatus = getHttpStatusFromLoadResult(result);
+            // Not installed or uninstalled → trigger OAuth
+            if (
+              httpStatus === 400 ||
+              httpStatus === 401 ||
+              httpStatus === 403
+            ) {
+              const installUrl = new URL(
+                `${process.env.NEXT_PUBLIC_API_HOST}/api/shopify/auth/install`,
+              );
+              installUrl.searchParams.set("shop", shop);
+              if (host) installUrl.searchParams.set("host", host);
+              redirectToInstall(installUrl.toString());
+              return;
             }
-            throw shopifyErr;
+
+            setError(
+              String(result.message || "Shopify authentication failed"),
+            );
+          } catch (shopifyErr) {
+            setError(getErrorMessage(shopifyErr));
           }
           return;
         }
@@ -155,14 +174,7 @@ function LoadPageContent() {
           "Authentication Failed."
         );
       } catch (e) {
-        const message = axios.isAxiosError(e)
-          ? String(
-              e.response?.data?.message || e.response?.data?.error || e.message,
-            )
-          : e instanceof Error
-            ? e.message
-            : "Authentication failed";
-        setError(String(message || "Authentication failed"));
+        setError(getErrorMessage(e));
       }
     };
 
