@@ -469,8 +469,7 @@ export function LoginForm({ response }: { response?: Response }) {
       toast.info(
         'We already sent a verification email to your inbox. Please check your mail. If you did not receive it, try again after some time.'
       )
-      setShowVerifyModal(false)
-     
+      setShowVerifyModal(false)     
       return
     }
 
