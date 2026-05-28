@@ -465,9 +465,12 @@ export function LoginForm({ response }: { response?: Response }) {
 
     const trimmedEmail = email.trim()
     if (getVerificationEmailCooldownRemaining(trimmedEmail) > 0) {
+    
       toast.info(
         'We already sent a verification email to your inbox. Please check your mail. If you did not receive it, try again after some time.'
       )
+      setShowVerifyModal(false)
+     
       return
     }
 
@@ -484,6 +487,7 @@ export function LoginForm({ response }: { response?: Response }) {
         response?.message?.includes('Verification email sent')
       ) {
         markVerificationEmailSent(trimmedEmail)
+        setShowVerifyModal(false)
         setVerificationEmailSent(true)
         toast.success(
           response.message || 'Verification email sent. Please check your inbox.'
