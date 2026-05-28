@@ -14,7 +14,7 @@ export default function AgentLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // const [isLoading,setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -44,11 +44,13 @@ export default function AgentLogin() {
         setError(res.message || "Login failed");
         return;
       }
+
+
       const humanAgent = res.humanAgent;
       if (!humanAgent || !res.token) {
         setError("Invalid login response");
         toast.error("Invalid login response");
-        setIsLoading(false);
+        setLoading(false);
         return;
       }
       const humanAgentId = humanAgent.id?.toString?.() || humanAgent.id;
@@ -66,7 +68,9 @@ export default function AgentLogin() {
       sessionStorage.setItem("currentAgentId", currentAgentId);
       dispatchAuthStorageSync();
       redirectAfterAgentLogin();
-    } catch(error:any){
+
+      toast.success("Login successful");
+    } catch (error: any) {
 
       console.log("Login error:", error);
       setError("Login failed. Please try again.");
@@ -74,6 +78,7 @@ export default function AgentLogin() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -120,10 +125,10 @@ export default function AgentLogin() {
         </div>
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={loading}
           className="w-full flex justify-center items-center bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? (
+          {loading ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               Logging in...

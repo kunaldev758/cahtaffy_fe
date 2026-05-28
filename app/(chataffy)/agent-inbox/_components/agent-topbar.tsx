@@ -10,7 +10,8 @@ import { dispatchAuthStorageSync } from '@/app/socketContext'
 import NotificationBell from '@/app/(chataffy)/(dashboard)/_components/NotificationBell'
 import AgentEditProfileModal, { type AgentEditProfileAgent } from './AgentEditProfileModal'
 import defaultImageImport from '@/images/default-image.png'
-import { publicAsset } from '@/lib/publicAsset'
+import { publicAsset } from '@/lib/publicAsset';
+import { toast } from 'react-toastify';
 
 const defaultImage = (defaultImageImport as any).src || defaultImageImport
 
@@ -162,7 +163,7 @@ export default function AgentTopBar() {
       try {
         const raw = sessionStorage.getItem('agent')
         if (raw) setHumanAgent(JSON.parse(raw))
-      } catch {}
+      } catch { }
       void fetchAgents()
     }
 
@@ -233,9 +234,12 @@ export default function AgentTopBar() {
 
   const handleProfileLogout = async () => {
     if (isLoggingOut) return
+
+    toast.success("Agent Logout successfuly");
     setIsLoggingOut(true)
     try {
-      await logoutAgentApi()
+      await logoutAgentApi();
+
     } catch { /* ignore */ }
     clearSocketToken('agent')
     sessionStorage.clear()
@@ -301,9 +305,8 @@ export default function AgentTopBar() {
                 <div className="flex flex-col gap-[4px]">
                   <span className="text-[10px] leading-[12px] text-[#64748B] font-semibold">Status</span>
                   <p
-                    className={`text-[12px] leading-[10px] font-bold ${
-                      humanAgent.isActive ? 'text-green-500' : 'text-[#FF6D6D]'
-                    }`}
+                    className={`text-[12px] leading-[10px] font-bold ${humanAgent.isActive ? 'text-green-500' : 'text-[#FF6D6D]'
+                      }`}
                   >
                     {humanAgent.isActive ? 'Online' : 'Offline'}
                   </p>
@@ -458,6 +461,7 @@ export default function AgentTopBar() {
                       type="button"
                       disabled={isLoggingOut}
                       onClick={() => {
+
                         setIsProfileMenuOpen(false)
                         void handleProfileLogout()
                       }}
