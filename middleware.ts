@@ -309,21 +309,8 @@ export async function middleware(request: NextRequest) {
 
 
   const directClientLoginPrefix = "/direct-client-login";
-
-  const publicRoutes = [
-
-    "/login",
-
-    "/signup",
-
-    "/agent-login",
-
-    "/agent-accept-invite",
-
-    "/load",
-
-  ];
-
+  const publicRoutes = ["/login", "/signup", "/forget-password", "/reset-password", "/verify-email", "/agent-login", "/agent-accept-invite", "/load"];
+  /** Logged-in clients may visit any route except these auth pages */
   const clientLoginSignupRoutes = ["/login", "/signup"];
 
   const agentRoutes = ["/agent-inbox", "/agent-login", "/agent-accept-invite"];

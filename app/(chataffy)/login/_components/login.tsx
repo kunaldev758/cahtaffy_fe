@@ -284,9 +284,39 @@ import { redirectAfterClientLogin } from '@/lib/postLoginRedirect'
 import { setSocketToken } from '@/lib/socketSession'
 import { toast } from 'react-toastify'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
-import { EyeIcon, EyeOffIcon } from 'lucide-react'
+import { EyeIcon, EyeOffIcon, MailIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useGoogleLogin } from '@react-oauth/google'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+const VERIFICATION_EMAIL_COOLDOWN_MS = 2 * 60 * 1000;
+
+const verificationEmailCooldownKey = (emailAddress: string) =>
+  `verificationEmailSentAt:${emailAddress.trim().toLowerCase()}`;
+
+const getVerificationEmailCooldownRemaining = (emailAddress: string) => {
+  if (typeof window === 'undefined') return 0;
+  const raw = sessionStorage.getItem(verificationEmailCooldownKey(emailAddress));
+  if (!raw) return 0;
+  const sentAt = Number(raw);
+  if (!Number.isFinite(sentAt)) return 0;
+  return Math.max(0, VERIFICATION_EMAIL_COOLDOWN_MS - (Date.now() - sentAt));
+};
+
+const markVerificationEmailSent = (emailAddress: string) => {
+  sessionStorage.setItem(
+    verificationEmailCooldownKey(emailAddress),
+    String(Date.now())
+  );
+};
+
 interface Response {
   status_code: number;
   status: boolean;
@@ -305,6 +335,9 @@ export function LoginForm({ response }: { response?: Response }) {
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [verificationEmailSent, setVerificationEmailSent] = useState(false)
 
   useEffect(() => {
     if (response) {
@@ -352,7 +385,13 @@ export function LoginForm({ response }: { response?: Response }) {
         dispatchAuthStorageSync()
         handleSocketEvent(response.userId)
         redirectAfterClientLogin(!!response.isOnboarded)
-        return
+        return;
+      } else if (
+        response?.requires_email_verification ||
+        response?.message === 'Please verify your email address'
+      ) {
+        setVerificationEmailSent(getVerificationEmailCooldownRemaining(email) > 0)
+        setShowVerifyModal(true)
       } else {
         toast.error(response.message)
       }
@@ -421,7 +460,104 @@ export function LoginForm({ response }: { response?: Response }) {
     flow: 'implicit',
   })
 
+  const handleResendVerification = async () => {
+    if (!email.trim() || !password.trim()) return
+
+    const trimmedEmail = email.trim()
+    if (getVerificationEmailCooldownRemaining(trimmedEmail) > 0) {
+      toast.info(
+        'We already sent a verification email to your inbox. Please check your mail. If you did not receive it, try again after some time.'
+      )
+      return
+    }
+
+    setResendLoading(true)
+    try {
+      const response = await loginUserApi(trimmedEmail, password.trim(), true)
+      if (response?.status_code === 200) {
+         setShowVerifyModal(false)
+        toast.success('Email is already verified. You can sign in now.')
+        return
+      }
+      if (
+        response?.verification_email_sent ||
+        response?.message?.includes('Verification email sent')
+      ) {
+        markVerificationEmailSent(trimmedEmail)
+        setVerificationEmailSent(true)
+        toast.success(
+          response.message || 'Verification email sent. Please check your inbox.'
+        )
+      } else if (
+        response?.requires_email_verification ||
+        response?.message === 'Please verify your email address'
+      ) {
+        toast.error('Could not send verification email. Please try again.')
+      } else {
+        toast.error(response?.message || 'Failed to send verification email')
+      }
+    } catch {
+      toast.error('Failed to send verification email')
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
+  const handleCloseVerifyModal = () => {
+    setShowVerifyModal(false)
+  }
+
   return (
+    <>
+    <Dialog
+      open={showVerifyModal}
+      onOpenChange={(open) => {
+        if (!open) handleCloseVerifyModal()
+        else setShowVerifyModal(true)
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="text-center sm:text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+            <MailIcon className="h-6 w-6 text-blue-600" />
+          </div>
+          <DialogTitle>Verify your email</DialogTitle>
+          <DialogDescription className="text-center pt-2">
+            {verificationEmailSent ? (
+              <>
+                We sent a verification link to{' '}
+                <span className="font-medium text-gray-900">{email}</span>.
+                Please open your inbox and click the link to verify your account.
+              </>
+            ) : (
+              <>
+                Your email is not verified yet. Click below to send a new verification link to{' '}
+                <span className="font-medium text-gray-900">{email}</span>.
+              </>
+            )}
+           
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <button
+            type="button"
+            onClick={handleResendVerification}
+            disabled={resendLoading}
+            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {resendLoading ? 'Sending…' : verificationEmailSent ? 'Resend verification email' : 'Send verification email'}
+          </button>
+          <button
+            type="button"
+            onClick={handleCloseVerifyModal}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Close
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
@@ -535,18 +671,21 @@ export function LoginForm({ response }: { response?: Response }) {
             </button>
 
             {/* Additional Links */}
-            <div className="flex items-center justify-center">
-
+            <div className="flex items-center justify-between">
               <div className="text-sm">
                 <span className="text-gray-600">Don't have an account? </span>
                 <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
                   Sign up
                 </Link>
               </div>
+              <Link href="/forget-password" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                Forgot password?
+              </Link>
             </div>
           </form>
         </div>
       </div>
     </div>
+    </>
   )
 }

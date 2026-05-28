@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { usePlanContext } from '@/app/planContext';
 import { countBillableHumanAgents } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const checkboxUiClass =
   'h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none ' +
@@ -596,7 +597,42 @@ export default function HumanAgentPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-slate-100">
-                  {filteredAgents.length === 0 ? (
+                  {loading ? (
+                    Array.from({ length: 7 }).map((_, i) => (
+                      <TableRow key={i} className="min-h-[50px] hover:bg-[#F8FAFC]">
+                        <TableCell className="w-[60px] !px-[20px] text-left">
+                          <Skeleton className="h-5 w-5 rounded-[8px]" />
+                        </TableCell>
+                        <TableCell className="px-[20px] !pl-0 !pr-[20px] py-[10px]">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+                            <div className="flex-1 space-y-1.5">
+                              <Skeleton className="h-4 w-32 rounded" />
+                              <Skeleton className="h-3 w-40 rounded" />
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="w-[130px] px-[20px] py-[10px]">
+                          <Skeleton className="h-6 w-16 rounded-full" />
+                        </TableCell>
+                        <TableCell className="w-[130px] px-[20px] py-[10px]">
+                          <Skeleton className="h-6 w-20 rounded-full" />
+                        </TableCell>
+                        <TableCell className="w-[130px] px-[20px] py-[10px]">
+                          <Skeleton className="h-6 w-10 rounded-full" />
+                        </TableCell>
+                        <TableCell className="px-[20px] py-[10px]">
+                          <Skeleton className="h-6 w-24 rounded-md" />
+                        </TableCell>
+                        <TableCell className="w-[108px] px-[20px] py-[10px] text-right">
+                          <div className="flex justify-end gap-2">
+                            <Skeleton className="h-8 w-8 rounded-lg" />
+                            <Skeleton className="h-8 w-8 rounded-lg" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredAgents.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-16">
                         <div className="flex flex-col items-center gap-3 py-[50px]">

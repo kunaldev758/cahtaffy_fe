@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   Edit3,
+  Loader2,
 } from "lucide-react";
 import { toggleActiveStatus, logoutAgentApi } from "@/app/_api/dashboard/action";
 import AgentEditProfileModal, { type AgentEditProfileAgent } from "./AgentEditProfileModal";
@@ -17,6 +18,8 @@ import { clearSocketToken } from "@/lib/socketSession";
 import { useSocket } from "@/app/socketContext";
 import Image from "next/image";
 import defaultImageImport from '@/images/default-image.png';
+
+import toast from "react-hot-toast";
 
 const defaultImage = (defaultImageImport as any).src || defaultImageImport;
 
@@ -33,6 +36,7 @@ export default function AgentSidebar() {
   const { socket } = useSocket();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   const router = useRouter();
 
@@ -54,7 +58,7 @@ export default function AgentSidebar() {
     return () => window.removeEventListener('agent-status-updated', refreshAgentFromStorage);
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = async (options?: { silent?: boolean }) => {
     try {
       // Remove all agent-related sessionStorage items
       sessionStorage.removeItem('token');
@@ -74,11 +78,13 @@ export default function AgentSidebar() {
       try {
         await logoutAgentApi();
       } catch (cookieError) {
-        // Even if logoutApi fails, cookies deletion might have succeeded
         console.error('Logout API error:', cookieError);
       }
 
       dispatchAuthStorageSync();
+      if (!options?.silent) {
+        toast.success('Logout successful');
+      }
       router.push('/agent-login');
     } catch (error) {
       console.error('Logout error:', error);
@@ -90,18 +96,24 @@ export default function AgentSidebar() {
       sessionStorage.removeItem('humanAgentId');
       sessionStorage.removeItem('currentAgentId');
       dispatchAuthStorageSync();
-      router.push('/agent-login');
+      if (!options?.silent) {
+        toast.error('Logout failed. Please try again.');
+        setIsLoggingOut(false);
+      } else {
+        router.push('/agent-login');
+      }
     }
   };
 
-  useEffect(()=>{
-    console.log("agent deleted")
-    socket?.on('agent-deleted-success',handleLogout)
-    
+  useEffect(() => {
+    const onAgentDeleted = () => {
+      void handleLogout({ silent: true });
+    };
+    socket?.on('agent-deleted-success', onAgentDeleted);
     return () => {
-      socket?.off('agent-deleted-success', handleLogout)
-    }
-  },[socket])
+      socket?.off('agent-deleted-success', onAgentDeleted);
+    };
+  }, [socket]);
 
   const toggleAgentStatus = async () => {
     if (!agent) return;
@@ -237,12 +249,22 @@ export default function AgentSidebar() {
           </div>
 
           <button
-            onClick={handleLogout}
-            className="w-full flex items-center space-x-3 p-3 hover:bg-red-600 rounded-lg transition-colors text-gray-300 hover:text-white"
+            onClick={() => handleLogout()}
+            disabled={isLoggingOut}
+            className="w-full flex items-center space-x-3 p-3 hover:bg-red-600 rounded-lg transition-colors text-gray-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             title={isCollapsed ? "Logout" : undefined}
           >
-            <LogOut size={20} />
-            {!isCollapsed && <span>Logout</span>}
+            {isLoggingOut ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                {!isCollapsed && <span>Logging out...</span>}
+              </>
+            ) : (
+              <>
+                <LogOut size={20} />
+                {!isCollapsed && <span>Logout</span>}
+              </>
+            )}
           </button>
         </div>
       </div>
