@@ -686,6 +686,30 @@ export const useSocketManager = ({
     });
   }, []);
 
+  // Marks every notification tied to this conversation as seen for the current human agent.
+  // Called when the agent opens a chat so the unread badge clears across the UI.
+  const emitMarkConversationNotificationsSeen = useCallback(
+    (conversationId: string, callback?: (response: any) => void) => {
+      const socket = socketRef.current;
+      if (!socket || !conversationId) return;
+
+      socket.emit(
+        "mark-conversation-notifications-seen",
+        { conversationId },
+        (response: any) => {
+          if (response && !response.success) {
+            console.error(
+              "Failed to mark conversation notifications as seen:",
+              response?.error || "Unknown error"
+            );
+          }
+          callback?.(response);
+        }
+      );
+    },
+    []
+  );
+
   const emitSendMessage = useCallback((messageData: { message: string; visitorId: string; replyTo?: string | null }, callback?: (response: any) => void) => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -1011,5 +1035,6 @@ export const useSocketManager = ({
     emitMarkMessagesSeen,
     emitGetConversationsList,
     emitCheckPendingAgentRequest,
+    emitMarkConversationNotificationsSeen,
   };
 };

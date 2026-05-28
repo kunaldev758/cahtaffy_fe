@@ -377,6 +377,7 @@ export default function Inbox(Props: any) {
     emitCloseAIResponse,
     emitMarkMessagesSeen,
     emitCheckPendingAgentRequest,
+    emitMarkConversationNotificationsSeen,
   } = useSocketManager({
     setConversationMessages,
     setConversationsList,
@@ -574,6 +575,10 @@ export default function Inbox(Props: any) {
             sessionStorage.removeItem(`agentConnectionDismissed:${String(conversationId)}`);
           }
         });
+
+        // Mark all notifications tied to this conversation as read for the current agent.
+        // Backend will also broadcast `conversation-notifications-seen` so the bell updates instantly.
+        emitMarkConversationNotificationsSeen(conversationId);
 
         // Update conversation list to mark as read (only if there were new messages)
         if (hasNewMessages) {
@@ -838,6 +843,8 @@ export default function Inbox(Props: any) {
 
   // Handler functions for child components
   const handleConversationClick = async (conversation: any, visitorName: string, index: number) => {
+
+    console.log(conversation, "conversation get clciked here");
     await openConversation(conversation, visitorName, index);
   };
 

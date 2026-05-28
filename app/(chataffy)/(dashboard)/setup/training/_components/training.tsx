@@ -434,6 +434,9 @@ export default function EnhancedTrainingPage() {
     const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress }: any) => {
       if (progress) {
         setScrapingProgress(progress)
+        if (progress.stoppedReason === 'storage_limit_exceeded' && message) {
+          toast.error(message, { toastId: 'training-storage-limit' })
+        }
         if (!progress.isProcessing && progress.percentage === 100 && !progress.error && !progress.stoppedReason) {
           setTimeout(() => setScrapingProgress(null), 5000)
         }
@@ -457,8 +460,14 @@ export default function EnhancedTrainingPage() {
           prevStatus !== 0 &&
           prevStatus != null
         ) {
-          setScrapingProgress(null)
-          if (message) { toast.error(message) } else { toast.success('Training completed successfully!') }
+          if (!progress?.stoppedReason) {
+            setScrapingProgress(null)
+          }
+          if (message && progress?.stoppedReason !== 'storage_limit_exceeded') {
+            toast.error(message)
+          } else if (!message && !progress?.stoppedReason) {
+            toast.success('Training completed successfully!')
+          }
         }
         setAgentData(agent)
         agentDataRef.current = agent
@@ -503,6 +512,12 @@ export default function EnhancedTrainingPage() {
   }, [agentData])
 
   useEffect(() => {
+    if (scrapingProgress?.stoppedReason !== 'storage_limit_exceeded') return
+    const t = setTimeout(() => setScrapingProgress(null), 20000)
+    return () => clearTimeout(t)
+  }, [scrapingProgress?.stoppedReason])
+
+  useEffect(() => {
     if (!socket) return
 
     if (prevDebouncedSearchRef.current !== debouncedSearch) {
@@ -534,7 +549,12 @@ export default function EnhancedTrainingPage() {
   const headerCheckboxUiClass =
     `${checkboxUiClass} data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]`
 
-  const isTrainingActive = agentData?.dataTrainingStatus === 1 || (scrapingProgress?.isProcessing ?? false)
+  const showStorageStoppedCard =
+    scrapingProgress?.stoppedReason === 'storage_limit_exceeded'
+  const isTrainingActive =
+    agentData?.dataTrainingStatus === 1 ||
+    (scrapingProgress?.isProcessing ?? false) ||
+    showStorageStoppedCard
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -549,12 +569,12 @@ export default function EnhancedTrainingPage() {
       <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6 h-[calc(100%-89px)]">
 
         {/* ── Alerts ── */}
-        {/* {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+        {clientData?.upgradePlanStatus?.storageLimitExceeded && (
           <Alert className="border-orange-200 bg-orange-50 mb-4">
             <Zap className="h-4 w-4" />
             <AlertDescription>Storage limit exceeded. Upgrade your plan to continue training.</AlertDescription>
           </Alert>
-        )} */}
+        )}
 
         {/* {showContinueScrapping && (
           <Alert className="border-orange-200 bg-orange-50 mb-4">
@@ -694,14 +714,41 @@ export default function EnhancedTrainingPage() {
 
             <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
               {/* Add Content */}
-              <button
+              {/* <button
                 onClick={() => setShowModal(true)}
                 disabled={isTrainingActive || clientData?.upgradePlanStatus?.storageLimitExceeded}
                 className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Content
-              </button>
+              </button> */}
+
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <button
+                        onClick={() => setShowModal(true)}
+                        disabled={
+                          isTrainingActive ||
+                          clientData?.upgradePlanStatus?.storageLimitExceeded
+                        }
+                        className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Content
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+
+                  {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+                    <TooltipContent>
+                      <p>Storage limit exceeded. Upgrade your plan to add more content.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Source filter */}
               <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
@@ -857,7 +904,15 @@ export default function EnhancedTrainingPage() {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <button
-                                    onClick={() => handleRetrain([item._id])}
+                                    onClick={() => {
+
+                                      if (clientData?.upgradePlanStatus?.storageLimitExceeded) {
+                                        toast.error('Storage limit exceeded. Upgrade your plan to continue.')
+                                        return
+                                      }
+
+                                      handleRetrain([item._id])
+                                    }}
                                     disabled={isRetraining}
                                     className="w-8 h-8 flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#111827] hover:bg-[#F1F5F9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                   >
@@ -971,13 +1026,24 @@ export default function EnhancedTrainingPage() {
                       Estimated time: {scrapingProgress.estimatedTimeRemaining}
                     </p>
                   )}
+                  {showStorageStoppedCard && (
+                    <p className="text-[12px] text-[#C2410C] font-medium mt-0.5">
+                      Storage limit reached — scraping stopped. Upgrade your plan to continue.
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="text-[12px] text-[#64748B]">Preparing training job...</p>
               )}
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#16A34A] mt-0.5">
-                <span className="w-1.5 h-1.5 bg-[#16A34A] rounded-full animate-pulse" />
-                Running
+              <span
+                className={`inline-flex items-center gap-1.5 text-[11px] font-medium mt-0.5 ${showStorageStoppedCard ? 'text-[#C2410C]' : 'text-[#16A34A]'
+                  }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${showStorageStoppedCard ? 'bg-[#C2410C]' : 'bg-[#16A34A] animate-pulse'
+                    }`}
+                />
+                {showStorageStoppedCard ? 'Stopped (storage)' : 'Running'}
               </span>
             </div>
           </div>
@@ -1018,6 +1084,7 @@ export default function EnhancedTrainingPage() {
 
         {selectedItemId && (
           <ContentDetailsModal
+            clientData={clientData ?? null}
             show={showContentModal}
             onHide={() => { setShowContentModal(false); setSelectedItemId(null) }}
             itemId={selectedItemId}
