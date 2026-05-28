@@ -296,10 +296,13 @@ export default function OnboardingPage() {
                 toast.error('Enter a title for the snippet')
                 return
             }
-            if (!snippetContent.trim()) {
-                toast.error('Enter content for the snippet')
-                return
-            }
+            const trimmedSnippetContent = snippetContent.trim()
+      if (!trimmedSnippetContent) { toast.error('Enter content for the snippet'); return }
+      if (trimmedSnippetContent.length < 10) {
+        toast.error('Content must be at least 10 characters')
+        return
+      }
+      
             formData.append('title', snippetTitle)
             formData.append('content', snippetContent)
         }

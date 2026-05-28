@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { FileUpload } from './fileUpload';
 import { openaiCreateSnippet } from '@/app/_api/dashboard/action';
@@ -13,6 +13,18 @@ export default function AddContentModal({ showModal, onHide, agentId, onBack }: 
   const [content, setContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [buttonLoading, setButtonLoading] = useState(false);
+  const [fileUploadKey, setFileUploadKey] = useState(0);
+
+  useEffect(() => {
+    if (!showModal) {
+      setTitle('');
+      setContent('');
+      setFile(null);
+      setToggle(false);
+      setButtonLoading(false);
+      setFileUploadKey((k) => k + 1);
+    }
+  }, [showModal]);
 
   const handleButtonOnClick = async () => {
     if (toggle && title.trim().length === 0) {
@@ -64,7 +76,7 @@ export default function AddContentModal({ showModal, onHide, agentId, onBack }: 
 
         <div>
           <div className="flex flex-col gap-[20px] px-[20px]">
-            <FileUpload onFileChange={setFile} />
+            <FileUpload key={fileUploadKey} onFileChange={setFile} />
 
             <div className="bg-[#F9FBFD] rounded-[20px] border border-[#E8E8E8]">
               <div className="flex items-center justify-between gap-1 py-[20px] px-[20px]">
@@ -81,12 +93,12 @@ export default function AddContentModal({ showModal, onHide, agentId, onBack }: 
                 <>
                   <div className='flex flex-col gap-[20px] p-[20px] border-t border-[#E8E8E8]'>
                     <div className='flex flex-col'>
-                      <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Title</label>
+                      <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Title <span className="text-red-500">*</span></label>
                       <input type="text" placeholder="Enter a title" className="h-[40px] w-full rounded-[8px] border bg-white px-[14px] text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] focus:border-[#4686FE] border-[#E2E8F0]" value={title} onChange={(event) => setTitle(event.target.value)} />
                     </div>
 
                     <div className='flex flex-col'>
-                      <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Content</label>
+                      <label className="mb-[6px] block text-[12px] font-medium leading-5 text-[#64748B]">Content <span className="text-red-500">*</span></label>
                       <textarea className="w-full resize-none rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] py-3 text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] focus:border-[#4686FE]" placeholder="Start writing your content..." value={content} onChange={(event) => setContent(event.target.value)}></textarea>
                     </div>
                   </div>
