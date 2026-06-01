@@ -1,5 +1,6 @@
 'use server'
 import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import {
   AGENT_TOKEN,
   CLIENT_TOKEN,
@@ -7,8 +8,81 @@ import {
   portalFromHostname,
   serverAuthCookieOpts,
 } from '@/lib/authCookies';
+import {
+  AUTH_API_ERROR,
+  isUnauthorizedResponse,
+  loginPathForPortal,
+  SESSION_EXPIRED_QUERY,
+} from '@/lib/apiAuth';
 
 const cookieOpts = () => serverAuthCookieOpts();
+
+function clearClientAuthCookies() {
+  cookies().delete(CLIENT_TOKEN);
+  cookies().delete(LEGACY_TOKEN);
+  cookies().delete('role');
+  cookies().delete('sf_token');
+  cookies().delete('bc_token');
+}
+
+function clearAgentAuthCookies() {
+  cookies().delete(AGENT_TOKEN);
+  cookies().delete(LEGACY_TOKEN);
+  cookies().delete('role');
+}
+
+async function handleUnauthorized() {
+  const portal = resolveAuthPortal();
+  if (portal === 'agent') {
+    await logoutAgentApi();
+    redirect(
+      `${loginPathForPortal('agent')}?${SESSION_EXPIRED_QUERY}=1`,
+    );
+  }
+  await logoutApi();
+  redirect(
+    `${loginPathForPortal('client')}?${SESSION_EXPIRED_QUERY}=1`,
+  );
+}
+
+async function parseApiJson(response) {
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (isUnauthorizedResponse(response, data)) {
+    await handleUnauthorized();
+  }
+  if (
+    data &&
+    typeof data === 'object' &&
+    !response.ok &&
+    data.status_code == null
+  ) {
+    data.status_code = response.status;
+    if (data.status == null) data.status = false;
+  }
+  return data;
+}
+
+export async function logoutApi() {
+  const authHeader = getAuthorizationHeader();
+  clearClientAuthCookies();
+  try {
+    await fetch(`${process.env.API_HOST}logout`, {
+      method: 'POST',
+      cache: 'no-cache',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: authHeader,
+      },
+    });
+  } catch {
+    /* cookie clear is enough for UI */
+  }
+}
 
 function getPlatformCookieName() {
   const platform = cookies().get('platform')?.value || 'local';
@@ -31,6 +105,8 @@ export const getClientToken = async () => {
     null
   );
 };
+
+
 
 export const getAgentToken = async () => {
   return (
@@ -150,10 +226,7 @@ async function fetchData(endpoint, requestData = {}) {
     },
     body: JSON.stringify(requestData)
   });
-  const data = await response.json();
-  if (data.status_code == 401) {
-    return 'error';
-  }
+  const data = await parseApiJson(response);
   const setCookie = response.headers.get('set-cookie');
   syncTokenFromSetCookieHeader(setCookie);
   return data
@@ -167,11 +240,7 @@ async function fetchDatawithoutToken(endpoint, requestData = {}) {
     },
     body: JSON.stringify(requestData)
   });
-  const data = await response.json();
-  if (data.status_code == 401) {
-    return 'error';
-  }
-  return data
+  return await parseApiJson(response);
 }
 
 
@@ -183,10 +252,7 @@ async function uploadData(endpoint, formData, userId) {
       Authorization: getAuthorizationHeader()
     },
   });
-  const data = await response.json();
-  if (data.status_code == 401) {
-    return 'error';
-  }
+  const data = await parseApiJson(response);
   const setCookie = response.headers.get('set-cookie');
   syncTokenFromSetCookieHeader(setCookie);
   return data
@@ -215,13 +281,9 @@ async function getFetchData(endpoint, params = null) {
       },
     });
   }
-  const data = await response.json();
+  const data = await parseApiJson(response);
 
   console.log(`Received response from ${endpoint}:`, data);
-  if (data?.status_code == 401) {
-    // cookies().delete('token')
-    return 'error'
-  }
   const setCookie = response.headers.get('set-cookie');
   syncTokenFromSetCookieHeader(setCookie);
   return data
@@ -269,10 +331,7 @@ export async function openaiCreateSnippet(formData, agentId) {
     },
     body: formData
   });
-  const data = await response.json();
-  if (data.status_code == 401) {
-    return 'error'
-  }
+  const data = await parseApiJson(response);
   const setCookie = response.headers.get('set-cookie');
   syncTokenFromSetCookieHeader(setCookie);
   return data
@@ -380,17 +439,9 @@ export async function updateOnboardingStepApi(agentId, step, websiteUrl, extract
 }
 
 
-export async function logoutApi() {
-  cookies().delete(CLIENT_TOKEN);
-  cookies().delete(LEGACY_TOKEN);
-  cookies().delete('role');
-  return await fetchData('logout');
-}
 
 export async function logoutAgentApi() {
-  cookies().delete(AGENT_TOKEN);
-  cookies().delete(LEGACY_TOKEN);
-  cookies().delete('role');
+  clearAgentAuthCookies();
   try {
     await fetch(`${process.env.API_HOST}agents/logout`, {
       method: 'POST',
@@ -410,7 +461,7 @@ export async function getAllHumanAgents() {
 // AI Agents (websites) - for assignedAgents dropdown
 export async function getAIAgents() {
   const data = await getFetchData('ai-agents');
-  if (data === 'error') return [];
+  if (data === AUTH_API_ERROR) return [];
   return Array.isArray(data?.agents) ? data.agents : (Array.isArray(data) ? data : []);
 }
 
@@ -452,6 +503,15 @@ export async function deleteAgent(id) {
   return await fetchData(`agents/delete/${id}`);
 }
 
+export async function resendMailToAgent(id){
+
+  if (!id) {
+    console.error('Resend mail to agent called without an ID');
+    throw new Error('Agent ID is required');
+  }
+  return await fetchData(`agents/resend-mail/${id}`);
+}
+
 
 export async function updateAgentStatus(id, isActive) {
   return await fetchData(`agents/${id}/status`, { isActive });
@@ -469,10 +529,7 @@ export async function uploadAgentAvatar(formData, agentId) {
       Authorization: getAuthorizationHeader()
     },
   });
-  const data = await response.json();
-  if (data.status_code == 401) {
-    return 'error'
-  }
+  const data = await parseApiJson(response);
   const setCookie = response.headers.get('set-cookie');
   syncTokenFromSetCookieHeader(setCookie);
   return data
@@ -498,7 +555,7 @@ export async function getPlans() {
 
 export async function getClientData() {
   const data = await fetchData('client');
-  if (!data || data === 'error') return data;
+  if (!data || data === AUTH_API_ERROR) return data;
   // HumanAgent (isClient) holds inbox status; Client doc is billing/plan only.
   const clientAgent = data.clientAgent ?? data.client;
   if (clientAgent) {

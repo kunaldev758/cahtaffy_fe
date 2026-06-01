@@ -2,10 +2,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'react-toastify/dist/ReactToastify.css';
 import '@/app/fonts.css'
 import '@/app/globals.css'
+import { Suspense } from 'react';
 import { SocketProvider } from '../socketContext';
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import PlanProvider from '../planContext';
 import PlatformSessionSync from './_components/PlatformSessionSync';
+import SessionExpiredCleanup from './_components/SessionExpiredCleanup';
 
 // import { Inter } from 'next/font/google'
 
@@ -28,6 +30,9 @@ export default function DashboardLayout({
     <>
     {/* <div className={inter.className}> */}
     <PlatformSessionSync />
+    <Suspense fallback={null}>
+      <SessionExpiredCleanup />
+    </Suspense>
     <SocketProvider>
       <PlanProvider>
       {googleClientId ? (

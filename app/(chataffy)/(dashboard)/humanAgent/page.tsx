@@ -11,7 +11,8 @@ import {
   createHumanAgent,
   updateHumanAgent,
   deleteAgent,
-  updateAgentStatus
+  updateAgentStatus,
+  resendMailToAgent
 } from '@/app/_api/dashboard/action'
 import React from 'react';
 import TopHead from '../_components/TopHead'
@@ -25,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { usePlanContext } from '@/app/planContext';
 import { countBillableHumanAgents } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { isApiSuccess, isAuthApiError } from '@/lib/apiAuth';
 
 const checkboxUiClass =
   'h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none ' +
@@ -137,9 +139,12 @@ export default function HumanAgentPage() {
     assignedAgents: []
   });
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [resendMailId, setResendMailId] = useState<string | null>(null);
+  const [resendMailLoading, setResendMailLoading] = useState(false);
+  const [resendMailPopup, setResendMailPopup] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const {effectiveLimits} = usePlanContext()
+  const { effectiveLimits } = usePlanContext()
 
   // Fetch human agents
   const fetchAgents = async () => {
@@ -194,8 +199,8 @@ export default function HumanAgentPage() {
             updatedAgent.assignedAgents != null
               ? Array.isArray(updatedAgent.assignedAgents)
                 ? updatedAgent.assignedAgents.map((x: any) =>
-                    typeof x === 'string' ? x : String(x?._id ?? x?.id ?? x ?? '')
-                  )
+                  typeof x === 'string' ? x : String(x?._id ?? x?.id ?? x ?? '')
+                )
                 : agent.assignedAgents
               : agent.assignedAgents;
           return {
@@ -336,6 +341,42 @@ export default function HumanAgentPage() {
       fetchAgents();
     } catch (error: any) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete human agent');
+    }
+  };
+
+  const handleResendMailToAgent = async (id: string): Promise<boolean> => {
+    if (!id) {
+      toast.error('Invalid agent ID');
+      return false;
+    }
+    setResendMailLoading(true);
+    try {
+      const result = await resendMailToAgent(id);
+      if (isAuthApiError(result)) {
+        toast.error('Session expired. Please sign in again.');
+        return false;
+      }
+      if (!isApiSuccess(result)) {
+        const message =
+          result && typeof result === 'object' && 'message' in result
+            ? String((result as { message?: string }).message)
+            : 'Failed to resend invitation email';
+        toast.error(message);
+        return false;
+      }
+      toast.success(
+        (result as { message?: string }).message ||
+          'Invitation email resent successfully',
+      );
+      fetchAgents();
+      return true;
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to resend mail to agent',
+      );
+      return false;
+    } finally {
+      setResendMailLoading(false);
     }
   };
 
@@ -504,6 +545,8 @@ export default function HumanAgentPage() {
       .includes(editWebsiteSearch.toLowerCase())
   );
 
+
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen w-full bg-[#F8F9FA]">
@@ -650,19 +693,20 @@ export default function HumanAgentPage() {
                       const statusUi = getAccountStatusPresentation(agent);
                       const avatarUrl = resolveHumanAgentAvatarUrl(agent.avatar);
                       const isClientRow = Boolean(agent.isClient);
+
                       return (
                         <TableRow key={rowId} className="min-h-[50px] transition-colors hover:bg-[#F8FAFC]">
-                            <TableCell className="w-[60px] !px-[20px] text-left">
-                              {isClientRow ? (
-                                <span className="inline-block h-[20px] w-[20px]" aria-hidden />
-                              ) : (
-                                <Checkbox
-                                  className={checkboxUiClass}
-                                  checked={selectedRowIds.includes(rowId)}
-                                  onCheckedChange={() => toggleRowSelected(agent)}
-                                />
-                              )}
-                            </TableCell>
+                          <TableCell className="w-[60px] !px-[20px] text-left">
+                            {isClientRow ? (
+                              <span className="inline-block h-[20px] w-[20px]" aria-hidden />
+                            ) : (
+                              <Checkbox
+                                className={checkboxUiClass}
+                                checked={selectedRowIds.includes(rowId)}
+                                onCheckedChange={() => toggleRowSelected(agent)}
+                              />
+                            )}
+                          </TableCell>
                           <TableCell className="px-[20px] !pl-0 !pr-[20px] py-[10px]">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-100 flex items-center justify-center">
@@ -709,7 +753,7 @@ export default function HumanAgentPage() {
                                 className="toggle-checkbox"
                                 type="checkbox"
                                 checked={agent.isActive}
-                                onChange={() => handleStatusToggle(rowId, agent.isActive)}          
+                                onChange={() => handleStatusToggle(rowId, agent.isActive)}
                               />
                               <div className="toggle-switch" />
                             </label>
@@ -754,26 +798,54 @@ export default function HumanAgentPage() {
                           </TableCell>
                           <TableCell className="px-[20px] !pl-0 !pr-[20px] py-[10px]">
                             <div className="flex items-center justify-end gap-0.5">
-                                {isClientRow ? (
-                                  <span className="inline-block h-8 w-8 shrink-0" aria-hidden />
-                                ) : (
+
+                              {
+
+                                !isClientRow && agent.status !== "approved" && (
+
                                   <TooltipProvider delayDuration={0}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <button
                                           type="button"
-                                          onClick={() => openEditModal(agent)}
-                                          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#111827]"
+                                          onClick={() => {
+                                            setResendMailId(agent._id);
+                                            setResendMailPopup(true);
+                                          }}
+                                          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-red-50 hover:text-red-500"
                                         >
                                           <span className="material-symbols-outlined text-[#94A3B8] !text-[20px]">
-                                            edit
+                                            refresh
                                           </span>
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Edit</TooltipContent>
+                                      <TooltipContent>Resend Mail</TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
-                                )}
+
+                                )
+                              }
+
+                              {isClientRow ? (
+                                <span className="inline-block h-8 w-8 shrink-0" aria-hidden />
+                              ) : (
+                                <TooltipProvider delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => openEditModal(agent)}
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#111827]"
+                                      >
+                                        <span className="material-symbols-outlined text-[#94A3B8] !text-[20px]">
+                                          edit
+                                        </span>
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Edit</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
 
                               {isClientRow ? (
                                 <span className="inline-block h-8 w-8 shrink-0" aria-hidden />
@@ -1164,6 +1236,90 @@ export default function HumanAgentPage() {
           </div>
         )}
 
+        {/* Resend mail Popup */}
+        {resendMailPopup && (
+          <Dialog open={resendMailPopup} onOpenChange={setResendMailPopup}>
+            <DialogContent className="w-full max-w-[420px] gap-0 overflow-hidden border border-[#E2E8F0] bg-white p-0">
+
+              {/* Header */}
+              <div className="flex items-center gap-3 border-b border-[#E5E7EB] bg-[#F8FAFC] px-5 py-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+                  <span className="material-symbols-outlined text-blue-600">
+                    outgoing_mail
+                  </span>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-semibold text-[#111827]">
+                    Resend Invitation Mail
+                  </h2>
+                  <p className="text-xs text-[#64748B]">
+                    Send a new invitation email to this agent.
+                  </p>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-5">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                  <div className="flex gap-3">
+                    <span className="material-symbols-outlined text-blue-600">
+                      info
+                    </span>
+
+                    <div>
+                      <p className="text-sm font-medium text-[#111827]">
+                        Confirm resend
+                      </p>
+
+                      <p className="mt-1 text-sm text-[#64748B]">
+                        The agent will receive a fresh invitation email with a new
+                        verification link.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setResendMailPopup(false)}
+                    className="h-10 rounded-lg border border-[#E2E8F0] bg-white px-4 text-sm font-medium text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={resendMailLoading}
+                    onClick={async () => {
+                      if (!resendMailId) return;
+                      const ok = await handleResendMailToAgent(resendMailId);
+                      if (ok) setResendMailPopup(false);
+                    }}
+                    className="inline-flex h-10 min-w-[140px] items-center justify-center gap-2 rounded-lg bg-[#111827] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#1F2937] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
+                  >
+                    {resendMailLoading ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Resending...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined !text-[18px]">
+                          outgoing_mail
+                        </span>
+                        Resend Mail
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+            </DialogContent>
+          </Dialog>
+        )}
+
         {bulkDeleteOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scaleIn">
@@ -1226,7 +1382,10 @@ export default function HumanAgentPage() {
             to { opacity: 1; transform: scale(1); }
           }
         `}</style>
+
+
       </div>
-    </ErrorBoundary>
+
+    </ErrorBoundary >
   );
 }

@@ -6,7 +6,7 @@ import { useSocket } from "@/app/socketContext";
 import { useRouter, usePathname } from "next/navigation";
 import { getToken, getAgentToken } from "@/app/_api/dashboard/action";
 import { isAgentPath } from "@/lib/portalUrls";
-
+import { handleSessionExpired } from "@/lib/sessionExpired";
 interface NotificationItem {
   _id: string;
   message: string;
@@ -141,6 +141,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     }
   }, [isAgentLogin]);
 
+
+  
+
   // Fetch notifications from REST API and merge with any existing optimistic entries.
   // If the API returns an empty array we deliberately keep the current state so that
   // real-time optimistic entries (added via socket events) are never wiped out.
@@ -224,7 +227,12 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         { headers: { Authorization: token } }
       );
       if (!res.ok) {
-        console.error("Failed to fetch more notifications:", res.status);
+        console.error("Failed to fetch more notifications data:", res.status);
+
+        if (res?.status === 401) {
+          await handleSessionExpired(pathname);
+          return;
+        }
         return;
       }
 
