@@ -21,9 +21,9 @@ const cookieOpts = () => serverAuthCookieOpts();
 function clearClientAuthCookies() {
   cookies().delete(CLIENT_TOKEN);
   cookies().delete(LEGACY_TOKEN);
-  cookies().delete('role');
-  cookies().delete('sf_token');
-  cookies().delete('bc_token');
+  // cookies().delete('role');
+  // cookies().delete('sf_token');
+  // cookies().delete('bc_token');
 }
 
 function clearAgentAuthCookies() {
