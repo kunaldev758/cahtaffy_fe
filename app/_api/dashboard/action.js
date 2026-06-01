@@ -6,6 +6,7 @@ import {
   CLIENT_TOKEN,
   LEGACY_TOKEN,
   portalFromHostname,
+  selectClientAuthToken,
   serverAuthCookieOpts,
 } from '@/lib/authCookies';
 import {
@@ -92,18 +93,7 @@ function getPlatformCookieName() {
 }
 
 export const getClientToken = async () => {
-  const platform = cookies().get('platform')?.value || 'local';
-  if (platform === 'shopify') {
-    return cookies().get('sf_token')?.value || null;
-  }
-  if (platform === 'bigcommerce') {
-    return cookies().get('bc_token')?.value || null;
-  }
-  return (
-    cookies().get(CLIENT_TOKEN)?.value ||
-    cookies().get(LEGACY_TOKEN)?.value ||
-    null
-  );
+  return selectClientAuthToken(cookies());
 };
 
 
@@ -187,18 +177,7 @@ function getAuthorizationHeader() {
     );
   }
 
-  const platform = cookies().get('platform')?.value || 'local';
-  if (platform === 'shopify') {
-    return cookies().get('sf_token')?.value || '';
-  }
-  if (platform === 'bigcommerce') {
-    return cookies().get('bc_token')?.value || '';
-  }
-  return (
-    cookies().get(CLIENT_TOKEN)?.value ||
-    cookies().get(LEGACY_TOKEN)?.value ||
-    ''
-  );
+  return selectClientAuthToken(cookies()) || '';
 }
 
 function syncTokenFromSetCookieHeader(setCookieHeader) {

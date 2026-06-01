@@ -12,6 +12,8 @@ import {
 
   LEGACY_TOKEN,
 
+  selectClientAuthToken,
+
   serverAuthCookieOpts,
 
 } from '@/lib/authCookies'
@@ -25,23 +27,7 @@ const cookieOpts = () => serverAuthCookieOpts();
 /** Client session token (local / Shopify / BigCommerce). */
 
 function getClientSessionToken() {
-
-  const platform = cookies().get('platform')?.value || 'local';
-
-  if (platform === 'shopify') return cookies().get('sf_token')?.value || null;
-
-  if (platform === 'bigcommerce') return cookies().get('bc_token')?.value || null;
-
-  return (
-
-    cookies().get(CLIENT_TOKEN)?.value ||
-
-    cookies().get(LEGACY_TOKEN)?.value ||
-
-    null
-
-  );
-
+  return selectClientAuthToken(cookies());
 }
 
 

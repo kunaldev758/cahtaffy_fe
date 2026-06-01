@@ -12,9 +12,9 @@ import {
 
   AGENT_TOKEN,
 
-  CLIENT_TOKEN,
-
   LEGACY_TOKEN,
+
+  selectClientAuthToken,
 
 } from "./lib/authCookies";
 
@@ -57,29 +57,7 @@ function portalForPath(pathname: string): Portal {
 
 
 function clientSessionToken(request: NextRequest): string | undefined {
-
-  const platform = request.cookies.get("platform")?.value;
-
-  if (platform === "shopify") {
-
-    return request.cookies.get("sf_token")?.value;
-
-  }
-
-  if (platform === "bigcommerce") {
-
-    return request.cookies.get("bc_token")?.value;
-
-  }
-
-  return (
-
-    request.cookies.get(CLIENT_TOKEN)?.value ||
-
-    request.cookies.get(LEGACY_TOKEN)?.value
-
-  );
-
+  return selectClientAuthToken(request.cookies) ?? undefined;
 }
 
 

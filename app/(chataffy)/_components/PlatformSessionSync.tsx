@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import axios from 'axios';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { usePathname } from 'next/navigation';
-import { bcAuthLoadApi, setPlatformCookie, sfAuthLoadApi } from '@/app/_api/login/action';
+import { bcAuthLoadApi, sfAuthLoadApi } from '@/app/_api/login/action';
 
 // declare global {
 //   interface Window {
@@ -20,8 +19,8 @@ import { bcAuthLoadApi, setPlatformCookie, sfAuthLoadApi } from '@/app/_api/logi
 // }
 
 
-//  Re-applies Shopify/BigCommerce cookies when the embedded tab regains focus.
-//  Shared cookies are overwritten when the user opens the standalone web app in another tab.
+// Re-applies Shopify/BigCommerce cookies when the embedded iframe regains focus.
+// Web login sets platform=local on sign-in only — do not flip platform on standalone tab focus.
 export default function PlatformSessionSync() {
   const syncingRef = useRef(false);
   const pathname = usePathname();
@@ -37,18 +36,8 @@ export default function PlatformSessionSync() {
     const syncPlatformSession = async () => {
       if (syncingRef.current) return;
 
-       // window.self === window.top it means the user is on the web tab not in the embedded tab
-      if (window.self === window.top) {
-        syncingRef.current = true;
-        // await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/setWebAuthCookies`, {
-        //   method: 'POST',
-        //   credentials: 'include',
-        //   body: JSON.stringify({ platform: 'local' }),
-        // });
-        await setPlatformCookie();
-        syncingRef.current = false;
-        return;
-      };
+      // Standalone web: platform=local is set at login, not on tab focus (avoids breaking BC/Shopify tabs).
+      if (window.self === window.top) return;
 
       // do not sync platform session for load page
       if (pathnameRef.current === "/load") return;

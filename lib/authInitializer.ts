@@ -78,20 +78,16 @@ export const initializeAuthSession = async (
     }
   }
 
-  // Session missing or mismatched - need to restore or clear
+  // Session missing or mismatched — validate cookies before clearing UI session (avoids logged-out flash).
   console.log('⚠️ Session mismatch or missing - path is agent?', isAgentPath);
-  
-  // Clear old session data to prevent auto-login as wrong user
-  storage.clearAllSession();
-  
-  // Try to validate cookies match current path
+
   try {
     const tokenValidation = await validateTokenWithBackend(
       isAgentPath ? 'agent' : 'client',
     );
     
     if (!tokenValidation.valid) {
-      // No valid token - redirect to appropriate login
+      storage.clearAllSession();
       return {
         restored: false,
         role: null,
@@ -100,13 +96,10 @@ export const initializeAuthSession = async (
       };
     }
 
-    // Token is valid - restore session based on token type
     const role = tokenValidation.role === 'agent' ? 'agent' : 'client';
     
-    // Verify token role matches path
     if ((role === 'agent') !== isAgentPath) {
       console.warn('🔴 Token role mismatch! Clearing and redirecting to login');
-      // Token is for wrong user type - logout
       await clearAuthData();
       return {
         restored: false,
@@ -116,7 +109,7 @@ export const initializeAuthSession = async (
       };
     }
 
-    // Restore session with validated data
+    storage.clearAllSession();
     restoreValidatedSession({ ...tokenValidation, role });
     dispatchAuthStorageSync();
 
