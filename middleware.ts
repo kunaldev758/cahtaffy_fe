@@ -60,6 +60,8 @@ function clientSessionToken(request: NextRequest): string | undefined {
 
   const platform = request.cookies.get("platform")?.value;
 
+  console.log("client session token check, platform cookie value: ", platform);
+
   if (platform === "shopify") {
 
     return request.cookies.get("sf_token")?.value;
@@ -129,6 +131,8 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") || "";
 
   const portal = getPortalFromHost(host);
+
+  console.log(`[Middleware] Incoming request for ${request.url} on portal "${portal}" with host "${host}"`);
 
   const rawPathname = new URL(request.url).pathname;
 
@@ -306,6 +310,8 @@ export async function middleware(request: NextRequest) {
 
   const hasToken = !!sessionTokenForRequest(request, portal, pathname);
 
+
+  console.log(`[Middleware] Effective portal: "${effectivePortal}". Session token present: ${hasToken}`);
 
 
   const directClientLoginPrefix = "/direct-client-login";
