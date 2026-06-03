@@ -2,46 +2,100 @@
 
 
 
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 import {
 
   AGENT_TOKEN,
 
+  AUTH_SURFACE_COOKIE,
+
+  VIEW_MODE_COOKIE,
+
+  BC_TOKEN,
+
   CLIENT_TOKEN,
 
+  EMBEDDED_PROVIDER_COOKIE,
+
   LEGACY_TOKEN,
+
+  SF_TOKEN,
 
   serverAuthCookieOpts,
 
 } from '@/lib/authCookies'
 
+import { resolveClientSessionToken } from '@/lib/clientAuthContext'
+
 
 
 const cookieOpts = () => serverAuthCookieOpts();
 
+/** Readable from JS so embedded tabs can set surface before async auth sync. */
+const authSurfaceCookieOpts = () => ({ ...cookieOpts(), httpOnly: false });
+
+
+
+function extractCookieFromSetCookieHeader(setCookieHeader, cookieName) {
+  if (!setCookieHeader) return null
+  const match = setCookieHeader.match(
+    new RegExp(`(?:^|,\\s*)${cookieName}=([^;]+)`),
+  )
+  return match?.[1] || null
+}
+
+
+
+function setWebSessionCookies(token) {
+  const opts = cookieOpts()
+  cookies().set({ name: CLIENT_TOKEN, value: token, ...opts })
+  cookies().set({ name: 'platform', value: 'local', ...opts })
+  cookies().set({ name: AUTH_SURFACE_COOKIE, value: 'web', ...authSurfaceCookieOpts() })
+  cookies().set({ name: VIEW_MODE_COOKIE, value: 'standalone', ...authSurfaceCookieOpts() })
+}
+
+
+
+function setEmbeddedSessionCookies(surface, token) {
+  const opts = cookieOpts()
+  if (surface === 'shopify') {
+    cookies().set({ name: 'platform', value: 'shopify', ...opts })
+    cookies().set({ name: SF_TOKEN, value: token, ...opts })
+    cookies().set({ name: EMBEDDED_PROVIDER_COOKIE, value: 'shopify', ...opts })
+    cookies().set({ name: AUTH_SURFACE_COOKIE, value: 'shopify', ...authSurfaceCookieOpts() })
+    cookies().set({ name: VIEW_MODE_COOKIE, value: 'embedded', ...authSurfaceCookieOpts() })
+  } else if (surface === 'bigcommerce') {
+    cookies().set({ name: 'platform', value: 'bigcommerce', ...opts })
+    cookies().set({ name: BC_TOKEN, value: token, ...opts })
+    cookies().set({ name: EMBEDDED_PROVIDER_COOKIE, value: 'bigcommerce', ...opts })
+    cookies().set({ name: AUTH_SURFACE_COOKIE, value: 'bigcommerce', ...authSurfaceCookieOpts() })
+    cookies().set({ name: VIEW_MODE_COOKIE, value: 'embedded', ...authSurfaceCookieOpts() })
+  }
+}
+
 
 
 /** Client session token (local / Shopify / BigCommerce). */
-
 function getClientSessionToken() {
-
-  const platform = cookies().get('platform')?.value || 'local';
-
-  if (platform === 'shopify') return cookies().get('sf_token')?.value || null;
-
-  if (platform === 'bigcommerce') return cookies().get('bc_token')?.value || null;
-
   return (
+    resolveClientSessionToken({
+      cookies: cookies(),
+      referer: headers().get('referer'),
+      secFetchDest: headers().get('sec-fetch-dest'),
+    }) ?? null
+  )
+}
 
-    cookies().get(CLIENT_TOKEN)?.value ||
 
-    cookies().get(LEGACY_TOKEN)?.value ||
 
-    null
-
-  );
-
+/** Server Action: set active auth surface before embedded session sync. */
+export async function setAuthSurface(surface) {
+  if (surface !== 'web' && surface !== 'shopify' && surface !== 'bigcommerce') {
+    return { status: false }
+  }
+  cookies().set({ name: AUTH_SURFACE_COOKIE, value: surface, ...authSurfaceCookieOpts() })
+  return { status: true }
 }
 
 
@@ -95,11 +149,7 @@ export async function loginApi(email, password, resendVerification = false) {
   const result = await response.json()
 
   if (result.status_code == 200 && result.token) {
-
-    cookies().set({ name: CLIENT_TOKEN, value: result.token, ...cookieOpts() })
-
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
-
+    setWebSessionCookies(result.token)
   }
 
   return result
@@ -123,11 +173,7 @@ export async function directClientLoginApi(token) {
   const result = await response.json()
 
   if (result?.status_code === 200 && result?.token) {
-
-    cookies().set({ name: CLIENT_TOKEN, value: result.token, ...cookieOpts() })
-
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
-
+    setWebSessionCookies(result.token)
   }
 
   return result
@@ -177,11 +223,7 @@ export async function googleOAuthExchange(googleToken) {
   const result = await response.json()
 
   if (result?.status_code === 200 && result?.token) {
-
-    cookies().set({ name: CLIENT_TOKEN, value: result.token, ...cookieOpts() })
-
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
-
+    setWebSessionCookies(result.token)
   }
 
   return result
@@ -250,11 +292,7 @@ export async function resetPasswordApi(token, newPassword, confirmPassword) {
 
 /** Call from client only (e.g. after verify-email). Cookies cannot be set when other server actions run during RSC render. */
 export async function setClientSessionCookies(token) {
-
-  cookies().set({ name: CLIENT_TOKEN, value: token, ...cookieOpts() })
-
-  cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
-
+  setWebSessionCookies(token)
 }
 
 
@@ -404,11 +442,12 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
   })
 
   const result = await response.json()
-  const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
-  console.log(token, "this is the token bigcommerce!");
-  if(result.status) {
-    cookies().set({ name: 'platform', value: 'bigcommerce', ...cookieOpts() })
-    cookies().set({ name: 'bc_token', value: token, ...cookieOpts() })
+  const setCookieHeader = response.headers.get('set-cookie')
+  const token =
+    extractCookieFromSetCookieHeader(setCookieHeader, BC_TOKEN) ||
+    extractCookieFromSetCookieHeader(setCookieHeader, 'bc_token')
+  if (result.status && token) {
+    setEmbeddedSessionCookies('bigcommerce', token)
   }
   return result;
 
@@ -430,11 +469,12 @@ export async function sfAuthLoadApi(params) {
 
 
   const result = await response.json()
-//  getting the token from set-cookie   `Set-Cookie` header
-  const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
-  if(result.status) {
-    cookies().set({ name: 'platform', value: 'shopify', ...cookieOpts() })
-    cookies().set({ name: 'sf_token', value: token, ...cookieOpts() })
+  const setCookieHeader = response.headers.get('set-cookie')
+  const token =
+    extractCookieFromSetCookieHeader(setCookieHeader, SF_TOKEN) ||
+    extractCookieFromSetCookieHeader(setCookieHeader, 'sf_token')
+  if (result.status && token) {
+    setEmbeddedSessionCookies('shopify', token)
   }
   return { ...result, httpStatus: response.status };
 
@@ -456,9 +496,8 @@ export async function platformRedirectionLogin(userId) {
   const result = await response.json()
 //  getting the token from set-cookie   `Set-Cookie` header
   const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
-  if(result.status) {
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
-    cookies().set({ name: 'CLIENT_TOKEN', value: token, ...cookieOpts() })
+  if (result.status && token) {
+    setWebSessionCookies(token)
   }
   return result;
 

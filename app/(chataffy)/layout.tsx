@@ -7,6 +7,7 @@ import { SocketProvider } from '../socketContext';
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import PlanProvider from '../planContext';
 import PlatformSessionSync from './_components/PlatformSessionSync';
+import WebViewModeSync from './_components/WebViewModeSync';
 import SessionExpiredCleanup from './_components/SessionExpiredCleanup';
 
 // import { Inter } from 'next/font/google'
@@ -29,6 +30,7 @@ export default function DashboardLayout({
   return (
     <>
     {/* <div className={inter.className}> */}
+    <WebViewModeSync />
     <PlatformSessionSync />
     <Suspense fallback={null}>
       <SessionExpiredCleanup />

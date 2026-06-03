@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AGENT_TOKEN, CLIENT_TOKEN, LEGACY_TOKEN } from "@/lib/authCookies";
+import { AGENT_TOKEN, LEGACY_TOKEN } from "@/lib/authCookies";
+import { resolveClientSessionToken } from "@/lib/clientAuthContext";
 
 type Portal = "client" | "agent";
 
@@ -20,14 +21,14 @@ function selectToken(request: NextRequest, portal: Portal) {
     );
   }
 
-  const platform = request.cookies.get("platform")?.value || "local";
-  if (platform === "shopify") return request.cookies.get("sf_token")?.value || null;
-  if (platform === "bigcommerce") return request.cookies.get("bc_token")?.value || null;
-
   return (
-    request.cookies.get(CLIENT_TOKEN)?.value ||
-    request.cookies.get(LEGACY_TOKEN)?.value ||
-    null
+    resolveClientSessionToken({
+      cookies: request.cookies,
+      referer: request.headers.get("referer"),
+      secFetchDest: request.headers.get("sec-fetch-dest"),
+      pathname: request.nextUrl.pathname,
+      searchParams: request.nextUrl.searchParams,
+    }) ?? null
   );
 }
 

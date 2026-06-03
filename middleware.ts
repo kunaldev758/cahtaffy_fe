@@ -12,11 +12,11 @@ import {
 
   AGENT_TOKEN,
 
-  CLIENT_TOKEN,
-
   LEGACY_TOKEN,
 
 } from "./lib/authCookies";
+
+import { resolveClientSessionToken } from "./lib/clientAuthContext";
 
 import {
 
@@ -57,31 +57,13 @@ function portalForPath(pathname: string): Portal {
 
 
 function clientSessionToken(request: NextRequest): string | undefined {
-
-  const platform = request.cookies.get("platform")?.value;
-
-  console.log("client session token check, platform cookie value: ", platform);
-
-  if (platform === "shopify") {
-
-    return request.cookies.get("sf_token")?.value;
-
-  }
-
-  if (platform === "bigcommerce") {
-
-    return request.cookies.get("bc_token")?.value;
-
-  }
-
-  return (
-
-    request.cookies.get(CLIENT_TOKEN)?.value ||
-
-    request.cookies.get(LEGACY_TOKEN)?.value
-
-  );
-
+  return resolveClientSessionToken({
+    cookies: request.cookies,
+    referer: request.headers.get("referer"),
+    secFetchDest: request.headers.get("sec-fetch-dest"),
+    pathname: request.nextUrl.pathname,
+    searchParams: request.nextUrl.searchParams,
+  });
 }
 
 
@@ -309,9 +291,6 @@ export async function middleware(request: NextRequest) {
     portal === "all" ? portalForPath(pathname) : portal;
 
   const hasToken = !!sessionTokenForRequest(request, portal, pathname);
-
-
-  console.log(`[Middleware] Effective portal: "${effectivePortal}". Session token present: ${hasToken}`);
 
 
   const directClientLoginPrefix = "/direct-client-login";

@@ -3,11 +3,14 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import {
   AGENT_TOKEN,
+  AUTH_SURFACE_COOKIE,
+  VIEW_MODE_COOKIE,
   CLIENT_TOKEN,
   LEGACY_TOKEN,
   portalFromHostname,
   serverAuthCookieOpts,
 } from '@/lib/authCookies';
+import { getServerClientSessionToken } from '@/lib/clientAuthContext.server';
 import {
   AUTH_API_ERROR,
   isUnauthorizedResponse,
@@ -16,6 +19,7 @@ import {
 } from '@/lib/apiAuth';
 
 const cookieOpts = () => serverAuthCookieOpts();
+const authSurfaceCookieOpts = () => ({ ...cookieOpts(), httpOnly: false });
 
 function clearClientAuthCookies() {
   cookies().delete(CLIENT_TOKEN);
@@ -88,7 +92,9 @@ export async function logoutApi() {
   const authHeader = getAuthorizationHeader();
   // Web logout only: clear local client session cookies.
   clearClientAuthCookies();
-  // Reset platform so top-level web is treated as local/anonymous.
+  // Mark active surface as web (do not clear embedded tokens or embedded_provider).
+  cookies().set({ name: AUTH_SURFACE_COOKIE, value: 'web', ...authSurfaceCookieOpts() });
+  cookies().set({ name: VIEW_MODE_COOKIE, value: 'standalone', ...authSurfaceCookieOpts() });
   cookies().delete("platform");
 
   try {
@@ -114,20 +120,7 @@ function getPlatformCookieName() {
   return CLIENT_TOKEN;
 }
 
-export const getClientToken = async () => {
-  const platform = cookies().get('platform')?.value || 'local';
-  if (platform === 'shopify') {
-    return cookies().get('sf_token')?.value || null;
-  }
-  if (platform === 'bigcommerce') {
-    return cookies().get('bc_token')?.value || null;
-  }
-  return (
-    cookies().get(CLIENT_TOKEN)?.value ||
-    cookies().get(LEGACY_TOKEN)?.value ||
-    null
-  );
-};
+export const getClientToken = async () => getServerClientSessionToken();
 
 
 
@@ -210,18 +203,7 @@ function getAuthorizationHeader() {
     );
   }
 
-  const platform = cookies().get('platform')?.value || 'local';
-  if (platform === 'shopify') {
-    return cookies().get('sf_token')?.value || '';
-  }
-  if (platform === 'bigcommerce') {
-    return cookies().get('bc_token')?.value || '';
-  }
-  return (
-    cookies().get(CLIENT_TOKEN)?.value ||
-    cookies().get(LEGACY_TOKEN)?.value ||
-    ''
-  );
+  return getServerClientSessionToken() || '';
 }
 
 function syncTokenFromSetCookieHeader(setCookieHeader) {

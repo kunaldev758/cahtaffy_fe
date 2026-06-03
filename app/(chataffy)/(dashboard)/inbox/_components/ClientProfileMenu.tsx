@@ -6,6 +6,7 @@ import { getToken, logoutApi } from '@/app/_api/dashboard/action';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { clearSocketToken } from '@/lib/socketSession';
 import { clearWebAuthStorage } from '@/app/(chataffy)/_lib/embeddedSession';
+import { setClientAuthSurfaceCookie, setClientViewModeCookie } from '@/lib/clientAuthContext';
 import { useRouter } from 'next/navigation';
 import { updateClientStatus } from '@/app/_api/dashboard/action';
 import { useSocket } from '@/app/socketContext';
@@ -312,6 +313,8 @@ export default function ClientProfileMenu({
 
   const handleLogout = async () => {
     try {
+      setClientViewModeCookie('standalone');
+      setClientAuthSurfaceCookie('web');
       await logoutApi();
       // await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/logout`, {
       //   credentials: 'include',

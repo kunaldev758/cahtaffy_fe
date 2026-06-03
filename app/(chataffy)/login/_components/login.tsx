@@ -295,6 +295,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+
+import { useRouter } from 'next/navigation';
+
 const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 const VERIFICATION_EMAIL_COOLDOWN_MS = 2 * 60 * 1000;
 
@@ -337,9 +340,14 @@ export function LoginForm({ response }: { response?: Response }) {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
-  const [verificationEmailSent, setVerificationEmailSent] = useState(false)
+  const [verificationEmailSent, setVerificationEmailSent] = useState(false);
+
+  const router = useRouter();
 
   useEffect(() => {
+
+    console.log("checking window at login : ", window);
+
     if (response) {
       console.log(response, "response verify email");
       const hasShown = sessionStorage.getItem("hasShownToast");
@@ -353,6 +361,14 @@ export function LoginForm({ response }: { response?: Response }) {
       }
 
     }
+
+    if (window.self !== window.top) {
+
+      router.push("/dashboard");
+
+    }
+
+    // check first here is if we are on the shopify or bigC move him to 
   }, [response])
 
   // Helper function to set session data after successful login
@@ -360,7 +376,7 @@ export function LoginForm({ response }: { response?: Response }) {
     if (loginResponse.token) setSocketToken('client', loginResponse.token);
     sessionStorage.setItem('role', 'client');
     sessionStorage.setItem('userId', loginResponse.userId);
-    
+
     // ✅ FIX: Set agents and humanAgentId (AI Agent _id) 
     if (loginResponse.agents && Array.isArray(loginResponse.agents)) {
       sessionStorage.setItem('agents', JSON.stringify(loginResponse.agents));
@@ -407,8 +423,8 @@ export function LoginForm({ response }: { response?: Response }) {
   }
 
   const handleEmailOnChange = (event: any) => {
-    setEmail(event.target.value.trim())
-    blankValidation(event.target.value.trim(), password)
+    setEmail(event.target.value.trim());
+    blankValidation(event.target.value.trim(), password);
   }
 
   const handlePasswordOnChange = (event: any) => {
@@ -465,11 +481,11 @@ export function LoginForm({ response }: { response?: Response }) {
 
     const trimmedEmail = email.trim()
     if (getVerificationEmailCooldownRemaining(trimmedEmail) > 0) {
-    
+
       toast.info(
         'We already sent a verification email to your inbox. Please check your mail. If you did not receive it, try again after some time.'
       )
-      setShowVerifyModal(false)     
+      setShowVerifyModal(false)
       return
     }
 
@@ -477,7 +493,7 @@ export function LoginForm({ response }: { response?: Response }) {
     try {
       const response = await loginUserApi(trimmedEmail, password.trim(), true)
       if (response?.status_code === 200) {
-         setShowVerifyModal(false)
+        setShowVerifyModal(false)
         toast.success('Email is already verified. You can sign in now.')
         return
       }
@@ -512,184 +528,183 @@ export function LoginForm({ response }: { response?: Response }) {
 
   return (
     <>
-    <Dialog
-      open={showVerifyModal}
-      onOpenChange={(open) => {
-        if (!open) handleCloseVerifyModal()
-        else setShowVerifyModal(true)
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="text-center sm:text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-            <MailIcon className="h-6 w-6 text-blue-600" />
-          </div>
-          <DialogTitle>Verify your email</DialogTitle>
-          <DialogDescription className="text-center pt-2">
-            {verificationEmailSent ? (
-              <>
-                We sent a verification link to{' '}
-                <span className="font-medium text-gray-900">{email}</span>.
-                Please open your inbox and click the link to verify your account.
-              </>
-            ) : (
-              <>
-                Your email is not verified yet. Click below to send a new verification link to{' '}
-                <span className="font-medium text-gray-900">{email}</span>.
-              </>
-            )}
-           
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="flex-col gap-2 sm:flex-col">
-          <button
-            type="button"
-            onClick={handleResendVerification}
-            disabled={resendLoading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {resendLoading ? 'Sending…' : verificationEmailSent ? 'Resend verification email' : 'Send verification email'}
-          </button>
-          <button
-            type="button"
-            onClick={handleCloseVerifyModal}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Close
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-xl flex items-center justify-center">
-            <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">Welcome back</h2>
-          <p className="mt-2 text-sm text-gray-600">Sign in to your account</p>
-        </div>
-
-        {/* Form */}
-        <div className="bg-white py-8 px-6 shadow-xl rounded-2xl">
-          {/* Social auth */}
-          <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => {
-                if (!googleClientId) {
-                  toast.error('Google Client ID not configured')
-                  return
-                }
-                if (!googleLoading) googleLogin()
-              }}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
-              disabled={googleLoading}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5">
-                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12   c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.64,6.053,29.082,4,24,4C12.955,4,4,12.955,4,24   c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
-                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,13,24,13c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657   C33.64,6.053,29.082,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
-                <path fill="#4CAF50" d="M24,44c5.164,0,9.86-1.977,13.409-5.197l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946   l-6.522,5.026C9.5,39.556,16.227,44,24,44z" />
-                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.793,2.238-2.231,4.166-4.094,5.565c0,0,0.001,0,0.001,0l6.19,5.238   c-0.438,0.4,6.6-4.826,6.6-14.803C44,22.659,43.862,21.35,43.611,20.083z" />
-              </svg>
-              {googleLoading ? 'Connecting…' : 'Continue with Google'}
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="h-px bg-gray-200 w-full" />
-              <span className="text-xs text-gray-500">or</span>
-              <div className="h-px bg-gray-200 w-full" />
+      <Dialog
+        open={showVerifyModal}
+        onOpenChange={(open) => {
+          if (!open) handleCloseVerifyModal()
+          else setShowVerifyModal(true)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+              <MailIcon className="h-6 w-6 text-blue-600" />
             </div>
-          </div>
-
-          <form onSubmit={handleOnSubmit} className="space-y-6">
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={email}
-                onChange={handleEmailOnChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"
-                placeholder="Enter your email"
-              />
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={handlePasswordOnChange}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? (
-                    <EyeOffIcon className="h-5 w-5" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={buttonStatus.disabled || buttonStatus.loading}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            >
-              {buttonStatus.loading ? (
+            <DialogTitle>Verify your email</DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              {verificationEmailSent ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Signing in...
+                  We sent a verification link to{' '}
+                  <span className="font-medium text-gray-900">{email}</span>.
+                  Please open your inbox and click the link to verify your account.
                 </>
               ) : (
-                'Sign in'
+                <>
+                  Your email is not verified yet. Click below to send a new verification link to{' '}
+                  <span className="font-medium text-gray-900">{email}</span>.
+                </>
               )}
-            </button>
 
-            {/* Additional Links */}
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <span className="text-gray-600">Don't have an account? </span>
-                <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-                  Sign up
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resendLoading}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {resendLoading ? 'Sending…' : verificationEmailSent ? 'Resend verification email' : 'Send verification email'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseVerifyModal}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          {/* Header */}
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 bg-blue-600 rounded-xl flex items-center justify-center">
+              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 className="mt-6 text-3xl font-bold text-gray-900">Welcome back</h2>
+            <p className="mt-2 text-sm text-gray-600">Sign in to your account</p>
+          </div>
+
+          {/* Form */}
+          <div className="bg-white py-8 px-6 shadow-xl rounded-2xl">
+            {/* Social auth */}
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!googleClientId) {
+                    toast.error('Google Client ID not configured')
+                    return
+                  }
+                  if (!googleLoading) googleLogin()
+                }}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
+                disabled={googleLoading}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5">
+                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12   c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.64,6.053,29.082,4,24,4C12.955,4,4,12.955,4,24   c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,13,24,13c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657   C33.64,6.053,29.082,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                  <path fill="#4CAF50" d="M24,44c5.164,0,9.86-1.977,13.409-5.197l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946   l-6.522,5.026C9.5,39.556,16.227,44,24,44z" />
+                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.793,2.238-2.231,4.166-4.094,5.565c0,0,0.001,0,0.001,0l6.19,5.238   c-0.438,0.4,6.6-4.826,6.6-14.803C44,22.659,43.862,21.35,43.611,20.083z" />
+                </svg>
+                {googleLoading ? 'Connecting…' : 'Continue with Google'}
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px bg-gray-200 w-full" />
+                <span className="text-xs text-gray-500">or</span>
+                <div className="h-px bg-gray-200 w-full" />
+              </div>
+            </div>
+
+            <form onSubmit={handleOnSubmit} className="space-y-6">
+              {/* Email Field */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={handleEmailOnChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"
+                  placeholder="Enter your email"
+                />
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={handlePasswordOnChange}
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? (
+                      <EyeOffIcon className="h-5 w-5" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={buttonStatus.disabled || buttonStatus.loading}
+                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                {buttonStatus.loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign in'
+                )}
+              </button>
+
+              {/* Additional Links */}
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  <span className="text-gray-600">Don't have an account? </span>
+                  <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+                    Sign up
+                  </Link>
+                </div>
+                <Link href="/forget-password" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                  Forgot password?
                 </Link>
               </div>
-              <Link href="/forget-password" className="text-sm font-medium text-blue-600 hover:text-blue-500">
-                Forgot password?
-              </Link>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
     </>
   )
 }
-  

@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import axios from 'axios';
 import { dispatchAuthStorageSync } from '@/app/socketContext';
 import { usePathname } from 'next/navigation';
-import { bcAuthLoadApi, setPlatformCookie, sfAuthLoadApi } from '@/app/_api/login/action';
+import { bcAuthLoadApi, setAuthSurface, sfAuthLoadApi } from '@/app/_api/login/action';
+import { setClientAuthSurfaceCookie, setClientViewModeCookie } from '@/lib/clientAuthContext';
 
 // declare global {
 //   interface Window {
@@ -49,14 +49,7 @@ export default function PlatformSessionSync() {
       console.log("window top and self check : ", window.self === window.top);
 
       if (window.self === window.top) {
-        syncingRef.current = true;
-        // await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/setWebAuthCookies`, {
-        //   method: 'POST',
-        //   credentials: 'include',
-        //   body: JSON.stringify({ platform: 'local' }),
-        // });
-        await setPlatformCookie();
-        syncingRef.current = false;
+        // Do not mutate shared auth cookies on standalone tab focus.
         return;
       };
 
@@ -86,6 +79,11 @@ export default function PlatformSessionSync() {
 
       const apiBase = process.env.NEXT_PUBLIC_API_HOST;
       if (!apiBase) return;
+
+      // Set view mode + surface before async sync so middleware uses embedded tokens only.
+      setClientViewModeCookie('embedded');
+      setClientAuthSurfaceCookie(provider);
+      void setAuthSurface(provider);
 
       syncingRef.current = true;
       try {
