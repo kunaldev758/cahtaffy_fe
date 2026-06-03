@@ -21,8 +21,8 @@ function clearClientAuthCookies() {
   cookies().delete(CLIENT_TOKEN);
   cookies().delete(LEGACY_TOKEN);
   cookies().delete('role');
-  // cookies().delete('sf_token');
-  // cookies().delete('bc_token');
+  // Important: do NOT clear sf_token / bc_token here.
+  // Web logout should not log the user out from embedded Shopify/BigCommerce tabs.
 }
 
 function clearAgentAuthCookies() {
@@ -67,20 +67,43 @@ async function parseApiJson(response) {
   return data;
 }
 
+// export async function logoutApi() {
+//   const authHeader = getAuthorizationHeader();
+//   clearClientAuthCookies();
+//   try {
+//     await fetch(`${process.env.API_HOST}logout`, {
+//       method: 'POST',
+//       cache: 'no-cache',
+//       headers: {
+//         'Content-Type': 'application/json',
+//         Authorization: authHeader,
+//       },
+//     });
+//   } catch {
+//     /* cookie clear is enough for UI */
+//   }
+// }
+
 export async function logoutApi() {
   const authHeader = getAuthorizationHeader();
+  // Web logout only: clear local client session cookies.
   clearClientAuthCookies();
+  // Reset platform so top-level web is treated as local/anonymous.
+  cookies().delete("platform");
+
   try {
     await fetch(`${process.env.API_HOST}logout`, {
-      method: 'POST',
-      cache: 'no-cache',
+      method: "POST",
+      cache: "no-cache",
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: authHeader,
+        "Content-Type": "application/json",
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
+      body: JSON.stringify({}),
     });
-  } catch {
-    /* cookie clear is enough for UI */
+  } catch (error) {
+    console.error("Logout API failed:", error);
+    // Cookie clear is enough for UI
   }
 }
 

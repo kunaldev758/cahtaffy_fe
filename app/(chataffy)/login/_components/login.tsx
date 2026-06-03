@@ -393,7 +393,7 @@ export function LoginForm({ response }: { response?: Response }) {
         setVerificationEmailSent(getVerificationEmailCooldownRemaining(email) > 0)
         setShowVerifyModal(true)
       } else {
-        toast.error(response.message)
+        toast.error(response?.message)
       }
     }
   }

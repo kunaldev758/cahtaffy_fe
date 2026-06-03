@@ -32,6 +32,9 @@ export default function PlatformSessionSync() {
   }, [pathname]);
 
   useEffect(() => {
+
+    console.log("use effect check : ",window);
+    
     if (typeof window === 'undefined') return;
 
     const setClientPlatformCookie = (value: string) => {
@@ -42,9 +45,16 @@ export default function PlatformSessionSync() {
     };
    
     const syncPlatformSession = async () => {
+
+      console.log('[PlatformSessionSync] Attempting to sync platform session...');
+
       if (syncingRef.current) return;
 
-       // window.self === window.top it means the user is on the web tab not in the embedded tab
+      console.log('[PlatformSessionSync] Attempting to sync platform session check 2...');
+      // window.self === window.top it means the user is on the web tab not in the embedded tab
+
+      console.log("window top and self check : ", window.self === window.top);
+
       if (window.self === window.top) {
         syncingRef.current = true;
         setClientPlatformCookie('local');
@@ -58,20 +68,24 @@ export default function PlatformSessionSync() {
 
 
       // const provider = sessionStorage.getItem('provider');
-    // 2. We are in an iframe. Grab URL params to identify the platform.
+      // 2. We are in an iframe. Grab URL params to identify the platform.
       const urlParams = new URLSearchParams(window.location.search);
-      const shopUrl = urlParams.get('shop'); 
+      const shopUrl = urlParams.get('shop');
 
       // 3. Detect provider using URL params or existing sessionStorage keys
       let provider = 'local';
-      
+
       if (shopUrl || sessionStorage.getItem('shopifyShop') || sessionStorage.getItem('sf_params')) {
         provider = 'shopify';
       } else if (sessionStorage.getItem('signedPayloadJwt') || urlParams.has('signed_payload_jwt')) {
         provider = 'bigcommerce';
       }
 
+      console.log(`[PlatformSessionSync] Detected provider check1: ${provider}`);
+
       if (provider !== 'shopify' && provider !== 'bigcommerce') return;
+
+      console.log(`[PlatformSessionSync] Detected provider check2 : ${provider}`);
 
       const apiBase = process.env.NEXT_PUBLIC_API_HOST;
       if (!apiBase) return;
