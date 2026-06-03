@@ -14,11 +14,15 @@ import {
 
   serverAuthCookieOpts,
 
+  serverPlatformCookieOpts,
+
 } from '@/lib/authCookies'
 
 
 
 const cookieOpts = () => serverAuthCookieOpts();
+
+const platformCookieOpts = () => serverPlatformCookieOpts();
 
 
 
@@ -98,7 +102,7 @@ export async function loginApi(email, password, resendVerification = false) {
 
     cookies().set({ name: CLIENT_TOKEN, value: result.token, ...cookieOpts() })
 
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
+    cookies().set({ name: 'platform', value: 'local', ...platformCookieOpts() })
 
   }
 
@@ -126,7 +130,7 @@ export async function directClientLoginApi(token) {
 
     cookies().set({ name: CLIENT_TOKEN, value: result.token, ...cookieOpts() })
 
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
+    cookies().set({ name: 'platform', value: 'local', ...platformCookieOpts() })
 
   }
 
@@ -180,7 +184,7 @@ export async function googleOAuthExchange(googleToken) {
 
     cookies().set({ name: CLIENT_TOKEN, value: result.token, ...cookieOpts() })
 
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
+    cookies().set({ name: 'platform', value: 'local', ...platformCookieOpts() })
 
   }
 
@@ -253,7 +257,7 @@ export async function setClientSessionCookies(token) {
 
   cookies().set({ name: CLIENT_TOKEN, value: token, ...cookieOpts() })
 
-  cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
+  cookies().set({ name: 'platform', value: 'local', ...platformCookieOpts() })
 
 }
 
@@ -408,7 +412,7 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
   const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
   console.log(token, "this is the token bigcommerce!");
   if(result.status) {
-    cookies().set({ name: 'platform', value: 'bigcommerce', ...cookieOpts() })
+    cookies().set({ name: 'platform', value: 'bigcommerce', ...platformCookieOpts() })
     cookies().set({ name: 'bc_token', value: token, ...cookieOpts() })
   }
   return result;
@@ -434,7 +438,7 @@ export async function sfAuthLoadApi(params) {
 //  getting the token from set-cookie   `Set-Cookie` header
   const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
   if(result.status) {
-    cookies().set({ name: 'platform', value: 'shopify', ...cookieOpts() })
+    cookies().set({ name: 'platform', value: 'shopify', ...platformCookieOpts() })
     cookies().set({ name: 'sf_token', value: token, ...cookieOpts() })
   }
   return result;
@@ -442,7 +446,7 @@ export async function sfAuthLoadApi(params) {
 }
 
 export async function setPlatformCookie() {
-  const options = cookieOpts()
+  const options = platformCookieOpts()
   cookies().set({ name: 'platform', value: 'local', ...options })
   return { status: true }
 }
@@ -458,7 +462,7 @@ export async function platformRedirectionLogin(userId) {
 //  getting the token from set-cookie   `Set-Cookie` header
   const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
   if(result.status) {
-    cookies().set({ name: 'platform', value: 'local', ...cookieOpts() })
+    cookies().set({ name: 'platform', value: 'local', ...platformCookieOpts() })
     cookies().set({ name: 'CLIENT_TOKEN', value: token, ...cookieOpts() })
   }
   return result;

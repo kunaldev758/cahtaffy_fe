@@ -20,15 +20,31 @@ const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
 
 /** Options for Next.js `cookies().set` on auth session cookies. */
 export function serverAuthCookieOpts() {
-  const domain = process.env.AUTH_COOKIE_DOMAIN?.trim();
+  const domain = (process.env.AUTH_COOKIE_DOMAIN || process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN)?.trim();
   const secure =
     process.env.APP_ENV === "production" ||
     process.env.NEXT_PUBLIC_APP_ENV === "production";
   return {
     httpOnly: true,
     maxAge: SEVEN_DAYS_IN_SECONDS,
-    sameSite: "none",
-    secure:true,
+    sameSite: "none" as const,
+    secure: true,
+    path: "/",
+    ...(domain ? { domain } : {}),
+  };
+}
+
+/** Options for Next.js `cookies().set` on platform routing cookies (not httpOnly so JS can access). */
+export function serverPlatformCookieOpts() {
+  const domain = (process.env.AUTH_COOKIE_DOMAIN || process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN)?.trim();
+  const secure =
+    process.env.APP_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production";
+  return {
+    httpOnly: false,
+    maxAge: SEVEN_DAYS_IN_SECONDS,
+    sameSite: "none" as const,
+    secure: true,
     path: "/",
     ...(domain ? { domain } : {}),
   };

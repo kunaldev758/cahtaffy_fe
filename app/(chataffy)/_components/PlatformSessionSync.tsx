@@ -33,6 +33,13 @@ export default function PlatformSessionSync() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    const setClientPlatformCookie = (value: string) => {
+      const domain = process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN?.trim();
+      const domainAttr = domain ? `; domain=${domain}` : '';
+      const maxAgeAttr = `; max-age=${7 * 24 * 60 * 60}`;
+      document.cookie = `platform=${value}${domainAttr}${maxAgeAttr}; path=/; SameSite=None; Secure`;
+    };
    
     const syncPlatformSession = async () => {
       if (syncingRef.current) return;
@@ -40,11 +47,7 @@ export default function PlatformSessionSync() {
        // window.self === window.top it means the user is on the web tab not in the embedded tab
       if (window.self === window.top) {
         syncingRef.current = true;
-        // await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/setWebAuthCookies`, {
-        //   method: 'POST',
-        //   credentials: 'include',
-        //   body: JSON.stringify({ platform: 'local' }),
-        // });
+        setClientPlatformCookie('local');
         await setPlatformCookie();
         syncingRef.current = false;
         return;
@@ -79,10 +82,7 @@ export default function PlatformSessionSync() {
           const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt');
           if (!signedPayloadJwt) return;
 
-          // await axios.get(`${apiBase}/api/bigcommerce/auth/load`, {
-          //   params: { signed_payload_jwt: signedPayloadJwt },
-          //   withCredentials: true,
-          // });
+          setClientPlatformCookie('bigcommerce');
           await bcAuthLoadApi(signedPayloadJwt);
         } else {
           const shop = sessionStorage.getItem('shopifyShop');
@@ -103,10 +103,7 @@ export default function PlatformSessionSync() {
             }
           }
 
-          // await axios.get(`${apiBase}/api/shopify/auth/load`, {
-          //   params,
-          //   withCredentials: true,
-          // });
+          setClientPlatformCookie('shopify');
           await sfAuthLoadApi(params);
         }
 
