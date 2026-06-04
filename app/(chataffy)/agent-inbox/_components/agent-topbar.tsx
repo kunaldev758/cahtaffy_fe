@@ -137,7 +137,9 @@ export default function AgentTopBar() {
   useEffect(() => {
     // Read human agent from sessionStorage
     try {
-      const raw = sessionStorage.getItem('agent')
+      const raw = sessionStorage.getItem('agent');
+
+      console.log('raw agent from sessionStorage:', raw);
       if (raw) setHumanAgent(JSON.parse(raw))
     } catch { }
 

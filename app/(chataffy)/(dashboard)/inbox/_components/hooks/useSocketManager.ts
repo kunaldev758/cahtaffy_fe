@@ -1,21 +1,13 @@
 // hooks/useSocketManager.ts
-import { getClientToken } from "@/app/_api/dashboard/action";
-import {
-  getSocketTokenFromSession,
-  resolveHumanAgentIdForSocket,
-} from "@/lib/socketSession";
 import { useRef, useEffect, useCallback, useState } from "react";
-import { io, Socket } from 'socket.io-client';
-import { isAgentPath } from "@/lib/portalUrls";
-
-import {initializeAuthSession} from "@/lib/authInitializer";
+import { Socket } from "socket.io-client";
+import { useSocket } from "@/app/socketContext";
+import { initializeAuthSession } from "@/lib/authInitializer";
 
 // Dedup guard – prevents processing the same agent-connection-notification twice
 // when the socket receives it due to backend room membership overlap.
 const recentNotificationIds = new Set<string>();
 const NOTIF_DEDUP_TTL_MS = 3000;
-
-// import { useSocket } from "@/app/socketContext"
 
 interface SocketManagerProps {
   // State setters
@@ -63,183 +55,86 @@ export const useSocketManager = ({
   openVisitorIp,
   isAIChat,
 }: SocketManagerProps) => {
-
-  console.log("use socket manager ke andar : ",)
-  // const { socket } = useSocket();
+  const { socket } = useSocket();
   const socketRef = useRef<Socket | null>(null);
-  const isInitializingRef = useRef(false);
-  // Incremented every time the socket is re-created (e.g. on agent switch)
-  // so that dependent effects re-run with the new socket instance.
+  socketRef.current = socket;
+
+  const openConversationIdRef = useRef(openConversationId);
+  openConversationIdRef.current = openConversationId;
+
+  const lastSocketInstanceRef = useRef<Socket | null>(null);
   const [socketVersion, setSocketVersion] = useState(0);
   const [socketConnected, setSocketConnected] = useState(false);
 
-  // Socket initialization
-  const initializeSocket = useCallback(async () => {
-
-    if (isInitializingRef.current) {
-      return;
-    }
-
-    if (socketRef.current && socketRef.current.connected) {
-      console.log("Socket already connected, skipping reinitialization");
-      return;
-    }
-
-    if (socketRef.current) {
-      console.log("Disconnecting existing socket before reinitialization");
-      socketRef.current.removeAllListeners();
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-
-    isInitializingRef.current = true;
-
-    try {
-
-          // ✅ NEW: Initialize auth session on app startup
-    const authStatus = await initializeAuthSession(window.location.pathname);
-
-        if (!authStatus.restored && authStatus.action === 'redirect-to-login') {
-      console.log('🔄 Redirecting to login:', authStatus.loginPath);
-      isInitializingRef.current = false;
-      window.location.href = authStatus.loginPath;
-      return;
-    }
-
-    // ✅ Now read from sessionStorage (guaranteed to be set)
-    const agentData = sessionStorage.getItem('agent');
-    const isAgentLogin = isAgentPath(window.location.pathname) || 
-      (agentData && agentData !== 'null' && agentData !== 'undefined');
-
-      let token = "";
-      let humanAgentId:any = "";
-      let agentId: string | undefined;
-
-      if (isAgentLogin) {
-        // AGENT PATH: Get agent token from action.js
-        const { getAgentToken } = await import("@/app/_api/dashboard/action");
-        token = (await getAgentToken()) || getSocketTokenFromSession("agent") || "";
-        humanAgentId = resolveHumanAgentIdForSocket("agent");
-
-        // const currentAgentId = sessionStorage.getItem('currentAgentId');
-
-              const currentAgentId = sessionStorage.getItem('currentAgentId');
-        agentId = currentAgentId || undefined;
-
-        if (!agentId && agentData) {
-          try {
-            const parsedAgent = JSON.parse(agentData);
-            const firstAssigned = parsedAgent?.assignedAgents?.[0];
-            agentId = firstAssigned?.toString?.() || firstAssigned;
-          } catch { }
+  // Auth check on inbox mount (socket connection is owned by SocketProvider)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const authStatus = await initializeAuthSession(window.location.pathname);
+        if (
+          !cancelled &&
+          !authStatus.restored &&
+          authStatus.action === "redirect-to-login"
+        ) {
+          window.location.href = authStatus.loginPath;
         }
-      } else {
-        // CLIENT PATH: Keep existing logic
-        token = (await getClientToken()) || getSocketTokenFromSession("client") || "";
-        humanAgentId = resolveHumanAgentIdForSocket("client");
-        const currentAgentId = sessionStorage.getItem('currentAgentId');
-        agentId = currentAgentId || undefined;
-
-        if (!agentId && agentData) {
-          try {
-            const parsedAgent = JSON.parse(agentData);
-            const firstAssigned = parsedAgent?.assignedAgents?.[0];
-            agentId = firstAssigned?.toString?.() || firstAssigned;
-          } catch { }
-        }
-
-        if (!agentId) {
-          const agents = sessionStorage.getItem('agents');
-          if (agents) {
-            const parsedAgents = JSON.parse(agents);
-            agentId = parsedAgents[0]?._id;
-          }
-        }
+      } catch (error) {
+        console.error("Error initializing auth session:", error);
       }
-
-      if (!token) {
-        console.warn("No authentication token available for socket connection");
-        isInitializingRef.current = false;
-        return;
-      }
-
-      const query: Record<string, string> = { token };
-      if (humanAgentId) query.humanAgentId = humanAgentId;
-      if (agentId) query.agentId = String(agentId);
-
-      console.log("Initializing socket with query:", { humanAgentId, agentId, isAgentLogin });
-
-      const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-        query,
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-        forceNew: false,
-      });
-
-      socketInstance.on("connect", () => {
-        console.log("Socket connected successfully");
-        isInitializingRef.current = false;
-        setSocketConnected(true);
-      });
-
-      socketInstance.on("connect_error", (error) => {
-        console.error("Socket connection error:", error);
-        isInitializingRef.current = false;
-      });
-
-      socketInstance.on("disconnect", (reason) => {
-        console.log("Socket disconnected:", reason);
-        setSocketConnected(false);
-        // Only reconnect if it wasn't a manual disconnect
-        if (reason === "io server disconnect") {
-          // Server disconnected, reconnect manually
-          socketInstance.connect();
-        } else if (reason === "io client disconnect") {
-          // Client disconnected manually, don't reconnect
-          console.log("Client manually disconnected, not reconnecting");
-        }
-      });
-
-      socketInstance.on("reconnect", (attemptNumber) => {
-        console.log("Socket reconnected after", attemptNumber, "attempts");
-        // Re-join conversation room if we have an open conversation
-        // The event handlers should persist, but we need to re-join rooms
-        setTimeout(() => {
-          if (socketRef.current && socketRef.current.connected && openConversationId) {
-            socketRef.current.emit("set-conversation-id", { conversationId: openConversationId }, (response: any) => {
-              if (response && response.success) {
-                console.log("Rejoined conversation room after reconnect:", openConversationId);
-              }
-            });
-          }
-        }, 100);
-      });
-
-      socketInstance.on("reconnect_attempt", (attemptNumber) => {
-        console.log("Socket reconnection attempt", attemptNumber);
-      });
-
-      socketInstance.on("reconnect_error", (error) => {
-        console.error("Socket reconnection error:", error);
-      });
-
-      socketInstance.on("reconnect_failed", () => {
-        console.error("Socket reconnection failed after all attempts");
-        isInitializingRef.current = false;
-      });
-
-      socketRef.current = socketInstance;
-      // Notify effects/callbacks that a new socket instance now exists.
-      setSocketVersion((v) => v + 1);
-    } catch (error) {
-      console.error("Error initializing socket:", error);
-      isInitializingRef.current = false;
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Track connection state and re-join conversation room after reconnect
+  useEffect(() => {
+    if (!socket) {
+      setSocketConnected(false);
+      return;
+    }
+
+    setSocketConnected(socket.connected);
+
+    const onConnect = () => setSocketConnected(true);
+    const onDisconnect = () => setSocketConnected(false);
+    const onReconnect = () => {
+      const convId = openConversationIdRef.current;
+      if (!convId || !socket.connected) return;
+      setTimeout(() => {
+        socket.emit(
+          "set-conversation-id",
+          { conversationId: convId },
+          (response: { success?: boolean }) => {
+            if (response?.success) {
+              console.log("Rejoined conversation room after reconnect:", convId);
+            }
+          }
+        );
+      }, 100);
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("reconnect", onReconnect);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("reconnect", onReconnect);
+    };
+  }, [socket]);
+
+  // Re-run inbox handlers when SocketProvider creates a new socket instance
+  useEffect(() => {
+    if (socket !== lastSocketInstanceRef.current) {
+      lastSocketInstanceRef.current = socket;
+      if (socket) {
+        setSocketVersion((v) => v + 1);
+      }
+    }
+  }, [socket]);
 
   // Socket event handlers
   const setupMessageHandlers = useCallback(() => {
@@ -541,10 +436,11 @@ export const useSocketManager = ({
     socket.on("agent-connection-timeout", handleAgentConnectionTimeout);
     socket.on("agent-connection-accepted", handleAgentConnectionAccepted);
 
-    // ✅ NO CLEANUP - These listeners persist for the socket lifetime
     return () => {
-      console.log("⚠️ Skipping cleanup of agent-connection handlers (persistent listeners)");
-      // Intentionally NOT removing these listeners
+      socket.off("agent-connection-notification", handleAgentConnectionNotification);
+      socket.off("agent-connection-cancelled", handleAgentConnectionCancelled);
+      socket.off("agent-connection-timeout", handleAgentConnectionTimeout);
+      socket.off("agent-connection-accepted", handleAgentConnectionAccepted);
     };
   }, []);
 
@@ -884,51 +780,18 @@ export const useSocketManager = ({
     });
   }, []);
 
-  // Initialize socket on mount - only once
-  useEffect(() => {
-    // Only initialize if socket doesn't exist or isn't connected
-
-    console.log("useSocketManager mount - initializing socket if needed. Current socket:", socketRef.current, "Connected:", socketConnected);
-    if (!socketRef.current || !socketRef.current.connected) {
-      initializeSocket();
-    }
-
-    return () => {
-      // Only disconnect on unmount, not on re-renders
-      if (socketRef.current) {
-        console.log("Cleaning up socket on unmount");
-        socketRef.current.removeAllListeners();
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      isInitializingRef.current = false;
-    };
-  }, []); // Empty dependency array - only run on mount/unmount
-
-  // Re-initialize socket when the active agent changes so the inbox
-  // is connected to the correct agent room and fetches its conversations.
+  // When agent changes, SocketProvider reconnects; refresh inbox handlers and list
   useEffect(() => {
     const handleAgentChanged = () => {
-      // Force disconnect existing socket so initializeSocket will reconnect fresh
-      if (socketRef.current) {
-        socketRef.current.removeAllListeners();
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      isInitializingRef.current = false;
-      initializeSocket();
-      // Bump version so handlers-setup and conversations-fetch effects re-run
-      // with the new socket after it connects.
       setSocketVersion((v) => v + 1);
     };
 
     window.addEventListener("agent-changed", handleAgentChanged);
     return () => window.removeEventListener("agent-changed", handleAgentChanged);
-  }, [initializeSocket]);
+  }, []);
 
-  // Setup event handlers - only when socket is available and connected
+  // Setup event handlers - only when shared socket is available
   useEffect(() => {
-    const socket = socketRef.current;
     if (!socket) {
       return;
     }
@@ -940,7 +803,7 @@ export const useSocketManager = ({
       cleanupFunctions.forEach(cleanup => cleanup?.());
       cleanupFunctions = [];
 
-      if (socketRef.current && socketRef.current.connected) {
+      if (socket.connected) {
         const cleanup1 = setupMessageHandlers();
         const cleanup2 = setupConversationListHandlers();
         const cleanup3 = setupTagsHandler();
@@ -948,11 +811,9 @@ export const useSocketManager = ({
       }
     };
 
-    // If socket is already connected, set up handlers immediately
     if (socket.connected) {
       setupHandlers();
     } else {
-      // Wait for socket to connect before setting up handlers
       const onConnect = () => {
         setupHandlers();
       };
@@ -960,41 +821,42 @@ export const useSocketManager = ({
 
       return () => {
         socket.off("connect", onConnect);
-        cleanupFunctions.forEach(cleanup => cleanup?.());
+        cleanupFunctions.forEach((cleanup) => cleanup?.());
       };
     }
 
-    // Return cleanup function
     return () => {
-      cleanupFunctions.forEach(cleanup => cleanup?.());
+      cleanupFunctions.forEach((cleanup) => cleanup?.());
     };
-  }, [setupMessageHandlers, setupConversationListHandlers, setupTagsHandler, socketVersion]);
+  }, [socket, setupMessageHandlers, setupConversationListHandlers, setupTagsHandler, socketVersion]);
 
-  // ✅ NEW: Setup persistent agent-connection handlers separately
   useEffect(() => {
-    const socket = socketRef.current;
     if (!socket) {
       return;
     }
 
-    const setupHandlers = () => {
-      if (socketRef.current && socketRef.current.connected) {
-        setupAgentConnectionHandlers();
-      }
+    let cleanupAgentHandlers: (() => void) | undefined;
+
+    const attachAgentHandlers = () => {
+      cleanupAgentHandlers?.();
+      cleanupAgentHandlers = setupAgentConnectionHandlers();
     };
 
     if (socket.connected) {
-      setupHandlers();
+      attachAgentHandlers();
     } else {
-      const onConnect = () => {
-        setupHandlers();
-      };
+      const onConnect = () => attachAgentHandlers();
       socket.once("connect", onConnect);
       return () => {
         socket.off("connect", onConnect);
+        cleanupAgentHandlers?.();
       };
     }
-  }, [setupAgentConnectionHandlers, socketVersion]);
+
+    return () => {
+      cleanupAgentHandlers?.();
+    };
+  }, [socket, setupAgentConnectionHandlers, socketVersion]);
 
   // Auto-fetch conversations list when filters change or socket is re-created
   useEffect(() => {
