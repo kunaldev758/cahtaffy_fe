@@ -58,6 +58,17 @@ export default function OnboardingPage() {
     useEffect(() => {
         if (typeof window !== 'undefined') {
             setAgentId(sessionStorage.getItem('currentAgentId'))
+
+            // Auto-fill the website URL for platform users so they don't have to type it
+            const shopifyShop = sessionStorage.getItem('shopifyShop')
+            const bcStoreUrl  = sessionStorage.getItem('bcStoreUrl')
+
+            if (shopifyShop) {
+                const url = shopifyShop.startsWith('http') ? shopifyShop : `https://${shopifyShop}`
+                setWebsiteUrl(url)
+            } else if (bcStoreUrl) {
+                setWebsiteUrl(bcStoreUrl)
+            }
         }
     }, [])
 

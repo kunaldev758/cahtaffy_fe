@@ -292,13 +292,14 @@ function LoadPageContent() {
           console.log(res, "this is the response bigcommerce!");
           const result = res;
           if (result.status) {
-            const { userId, isOnboarded, agents, bigcommerceStoreHash } =
+            const { userId, isOnboarded, agents, bigcommerceStoreHash, bigcommerceStoreUrl } =
               result;
             sessionStorage.setItem("userId", userId);
             sessionStorage.setItem("agents", JSON.stringify(agents));
             sessionStorage.setItem("currentAgentId", agents[0]?._id ?? "");
             sessionStorage.setItem("provider", "bigcommerce");
             sessionStorage.setItem("bcStoreHash", bigcommerceStoreHash || "");
+            sessionStorage.setItem("bcStoreUrl", bigcommerceStoreUrl || "");
             sessionStorage.setItem("signedPayloadJwt", signedPayload || "");
             sessionStorage.removeItem("sf_params");
             sessionStorage.removeItem("shopifyShop");
@@ -349,6 +350,7 @@ function LoadPageContent() {
               sessionStorage.setItem("sf_params", searchParams?.toString() || "");
               sessionStorage.removeItem("signedPayloadJwt");
               sessionStorage.removeItem("bcStoreHash");
+              sessionStorage.removeItem("bcStoreUrl");
               dispatchAuthStorageSync();
               handleSocketEvent(result.userId);
               router.replace(isOnboarded ? "/dashboard" : "/onboarding");

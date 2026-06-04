@@ -3,6 +3,7 @@ export const EMBEDDED_SESSION_KEYS = [
   'provider',
   'signedPayloadJwt',
   'bcStoreHash',
+  'bcStoreUrl',
   'shopifyShop',
   'sf_params',
   'userId',

@@ -97,7 +97,7 @@ export default function PlatformSessionSync() {
           if (!signedPayloadJwt) return;
 
           setClientPlatformCookie('bigcommerce');
-          await bcAuthLoadApi(signedPayloadJwt);
+          // await bcAuthLoadApi(signedPayloadJwt);
         } else {
           const shop = sessionStorage.getItem('shopifyShop');
           const sfParams = sessionStorage.getItem('sf_params');
@@ -118,7 +118,7 @@ export default function PlatformSessionSync() {
           }
 
           setClientPlatformCookie('shopify');
-          await sfAuthLoadApi(params);
+          // await sfAuthLoadApi(params);
         }
 
         dispatchAuthStorageSync();
