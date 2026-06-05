@@ -367,8 +367,14 @@ export function LoginForm({ response }: { response?: Response }) {
       const firstAgentId = loginResponse.agents[0]?._id ?? '';
       sessionStorage.setItem('currentAgentId', firstAgentId);
       // ✅ NEW: Store humanAgentId (this is the AI Agent ID needed for socket)
-      if (firstAgentId) {
-        sessionStorage.setItem('humanAgentId', firstAgentId);
+      // if (firstAgentId) {
+      //   sessionStorage.setItem('humanAgentId', firstAgentId);
+      // }
+
+      // store new human agent  id ---> 
+      if(loginResponse.humanAgentId) {
+
+        sessionStorage.setItem('humanAgentId', loginResponse.humanAgentId);
       }
     }
   }
