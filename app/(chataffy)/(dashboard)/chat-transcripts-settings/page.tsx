@@ -38,7 +38,7 @@ function ChatTranscriptsPage() {
 
   const getInitialCountryCode = (): string => {
     if (typeof window === "undefined") return "IN";
-    return window.localStorage.getItem("userCountry") || "IN";
+    return window.sessionStorage.getItem("userCountry") || "IN";
   };
 
   const [salesPhoneCountryCode, setSalesPhoneCountryCode] =

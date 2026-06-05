@@ -637,7 +637,23 @@ export async function updateChatTranscriptSettings(payload) {
 }
 
 export async function getVisitorLocation() {
-  const response = await fetch(process.env.IPINFO_URL, {
+  const h = await headers();
+  const clientIp =
+    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    h.get('x-real-ip') ||
+    h.get('cf-connecting-ip') ||
+    null;
+
+  let url = process.env.IPINFO_URL;
+  if (clientIp && url) {
+    const tokenMatch = url.match(/token=([^&]+)/);
+    const token = tokenMatch?.[1];
+    if (token) {
+      url = `https://ipinfo.io/${encodeURIComponent(clientIp)}/json?token=${token}`;
+    }
+  }
+
+  const response = await fetch(url, {
     method: 'GET',
     cache: 'no-cache',
   });

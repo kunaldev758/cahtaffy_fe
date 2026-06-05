@@ -45,7 +45,7 @@ function PlanProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         try {
           const response = await getVisitorLocation();  
-          window.localStorage.setItem("userCountry", response.country);
+          window.sessionStorage.setItem("userCountry", response.country);
         } catch (error) {
         }
       })()

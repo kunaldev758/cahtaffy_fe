@@ -19,7 +19,6 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from "uuid";
-import { getVisitorLocation } from "@/app/_api/dashboard/action";
 import { FormField, validateField } from "./_components/FormField";
 import LimitExpiredComponent from "./_components/LimitExpiredComponent";
 
@@ -236,6 +235,16 @@ export default function EnhancedChatWidget({ params }: any) {
       socketInstance.on("connect", () => {
         hasSocketConnectedOnceRef.current = true;
         setSocketError(false);
+      });
+
+      socketInstance.on('visitor-geo-resolved', (payload: { ip?: string; country?: string }) => {
+        if (payload?.ip) setVisitorIp(payload.ip);
+        if (payload?.country) setVisitorLocation(payload.country);
+      });
+
+      socketInstance.on('visitor-is-blocked', () => {
+        setIsBlocked(true);
+        setConversationStatus('close');
       });
 
       socketInstance.on("connect_error", () => {
@@ -471,15 +480,6 @@ export default function EnhancedChatWidget({ params }: any) {
     };
   }, [widgetToken]);
 
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    socket.emit('visitor-ip', {
-      ip: visitorIp
-    })
-  }, [visitorIp]);
-
   const handleSubmitUnavailableContact = async () => {
     setUnavailableError('');
     if (!contactEmail || !/^([^\s@]+)@([^\s@]+)\.[^\s@]+$/.test(contactEmail)) {
@@ -509,32 +509,6 @@ export default function EnhancedChatWidget({ params }: any) {
       setIsSubmittingUnavailable(false);
     }
   };
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const fetchVisitorDetails = async () => {
-      try {
-        const response = await getVisitorLocation()
-        setVisitorLocation(response.country);
-        setVisitorIp(response.ip);
-        socket?.emit('save-visitor-details', { location: response.country, ip: response.ip });
-      } catch (error) {
-        console.error('Error fetching IP info:', (error as any).message);
-      }
-    };
-    fetchVisitorDetails();
-
-    socket.on("visitor-is-blocked", () => {
-      setIsBlocked(true);
-      setConversationStatus('close');
-    })
-
-    if (visitorLocation) {
-      socket?.emit('save-visitor-details', { location: visitorLocation, ip: visitorIp });
-    }
-  }, []);
 
   useEffect(() => {
     const initialFormData: any = {};
@@ -758,9 +732,7 @@ export default function EnhancedChatWidget({ params }: any) {
       if (!socket) return;
 
       socket.emit('save-visitor-details', {
-        location: visitorLocation,
-        ip: visitorIp,
-        visitorDetails: formData
+        visitorDetails: formData,
       });
 
       setVisitorExists(true);

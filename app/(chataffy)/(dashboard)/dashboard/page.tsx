@@ -98,7 +98,7 @@ export default function Dashboard2Page() {
   // Sync agentId from sessionStorage + header website switcher
   useEffect(() => {
     const storedId = sessionStorage.getItem('currentAgentId')
-    setCurrentAgentId(storedId)
+    setCurrentAgentId(storedId);
 
     const handleAgentChanged = (e: Event) => {
       const id = (e as CustomEvent).detail?.agentId ?? sessionStorage.getItem('currentAgentId')
