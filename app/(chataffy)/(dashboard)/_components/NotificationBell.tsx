@@ -110,7 +110,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     setIsAgentLogin(!!isAgent);
 
 
-    const stored = sessionStorage.getItem("humanAgentId");
+    const stored = sessionStorage.getItem("clientAgent")?._id;
+
+    console.log("stored data is : ", stored);
     if (stored) { setHumanAgentId(stored); return; }
     try {
       if (agentRaw) {
