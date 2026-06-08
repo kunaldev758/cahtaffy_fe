@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Bell, Bot } from "lucide-react";
 import { useSocket } from "@/app/socketContext";
 import { useRouter, usePathname } from "next/navigation";
@@ -64,6 +64,8 @@ type NotificationBellProps = {
   badgeStyle?: "count" | "dot";
 };
 
+const globalSeenDedup = new Set<string>();
+
 export default function NotificationBell({ badgeStyle = "count" }: NotificationBellProps) {
   const { socket } = useSocket();
   const router = useRouter();
@@ -84,8 +86,10 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   const hasMore = useRef(true);
   const page = useRef(1);
 
-  let unseen = notifications.filter((n) => !n.isSeen);
-  let unseenCount = unseen.length;
+  const unseenCount = useMemo(
+    () => notifications.filter((n) => !n.isSeen).length,
+    [notifications]
+  );
 
   // Resolve humanAgentId from sessionStorage and detect if agent or client login
   useEffect(() => {
@@ -282,39 +286,49 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
 
   // Listen for real-time agent connection notifications via socket
   useEffect(() => {
-
-    console.log("Setting up socket listener for agent-connection-notification, socket:", socket);
     if (!socket) return;
 
     const handleNew = (data: any) => {
+      const dedupKey =
+        data?.requestStartedAt?.toString() ||
+        data?.notificationId ||
+        data?.conversationId ||
+        "";
 
-      console.log("Received new notification via socket:", data);
-
-      const convId = data?.conversationId?.toString?.() || data?.conversationId || "";
-      if (convId && seenDedup.current.has(convId)) return;
-      if (convId) {
-        seenDedup.current.add(convId);
-        setTimeout(() => seenDedup.current.delete(convId), 3000);
+      if (dedupKey && globalSeenDedup.has(dedupKey)) return;
+      if (dedupKey) {
+        globalSeenDedup.add(dedupKey);
+        setTimeout(() => globalSeenDedup.delete(dedupKey), 20000);
       }
-      // Build an optimistic notification entry so it appears immediately
+
+      const convId = data?.conversationId?.toString?.() || "";
+
       const optimistic: NotificationItem = {
-        _id: data?.notificationId ? data?.notificationId : `tmp-${Date.now()}`,
+        _id: data?.notificationId ?? `tmp-${Date.now()}`,
         message: data?.message || "Visitor requested to connect to an agent",
         type: "agent-connection-request",
         isSeen: false,
         createdAt: new Date().toISOString(),
         conversationId: convId,
-        visitorId: data?.visitor ? { visitorDetails: data.visitor?.visitorDetails } : undefined,
+        visitorId: data?.visitor
+          ? { visitorDetails: data.visitor?.visitorDetails }
+          : undefined,
       };
-      setNotifications((prev) => [optimistic, ...prev]);
+
+      setNotifications((prev) => {
+        const alreadyExists = data?.notificationId
+          ? prev.some((n) => n._id === data.notificationId)
+          : false;
+        if (alreadyExists) return prev;
+        return [optimistic, ...prev];
+      });
     };
 
     socket.on("agent-connection-notification", handleNew);
     return () => {
       socket.off("agent-connection-notification", handleNew);
     };
-  }, [socket]);
-
+}, [socket]);
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -327,29 +341,22 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   }, []);
 
   const markAsSeen = async (id: string) => {
-    console.log("Marking notification as seen:", id);
-    setNotifications((prev) =>
-      prev.map((n) => (n._id === id ? { ...n, isSeen: true } : n))
-    );
-
+    if (id.startsWith("tmp-")) return; // skip optimistic entries
+    
     try {
       const token = await getCorrectToken();
-      if (!token) {
-        console.warn("No token available for marking notification as seen");
-        return;
-      }
-
-      const res = await fetch(
-        `${apiBase}notifications/${id}/seen`,
-        { method: "PUT", headers: { Authorization: token } }
-      );
-
-      if (!res.ok) {
-        console.error("Failed to mark notification as seen:", res.status);
-      }
+      await fetch(`${apiBase}notifications/${id}/seen`, {
+        method: "PUT",
+        headers: { Authorization: token }
+      });
     } catch (error) {
       console.error("Error marking notification as seen:", error);
     }
+  
+    // Update local state after API confirms
+    setNotifications((prev) =>
+      prev.map((n) => (n._id === id ? { ...n, isSeen: true } : n))
+    );
   };
 
   const markAllSeen = async () => {
@@ -397,8 +404,12 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     const inboxPath = getInboxPath(pathname || "");
 
     const targetUrl = `${inboxPath}?conversationId=${encodeURIComponent(convId)}`;
-    window.history.pushState(null, "", targetUrl);
-    router.replace(targetUrl)
+    if (!pathname?.includes(inboxPath)) {
+      router.replace(targetUrl);
+    } else {
+      // Already on inbox — just update URL silently without navigation
+      window.history.replaceState(null, "", targetUrl);
+    }
     // Open chat immediately on the inbox page (URL sync can lag behind router.push)
     const emitConversationNavigate = () =>
       window.dispatchEvent(
@@ -415,11 +426,11 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     }
   };
 
-  useEffect(() => {
-    console.log("Notifications updated:", notifications);
-    unseen = notifications.filter((n) => !n.isSeen);
-    unseenCount = unseen.length;
-  }, [notifications])
+  // useEffect(() => {
+  //   console.log("Notifications updated:", notifications);
+  //   unseen = notifications.filter((n) => !n.isSeen);
+  //   unseenCount = unseen.length;
+  // }, [notifications])
 
   return (
     <div className="relative shrink-0" ref={dropdownRef}>

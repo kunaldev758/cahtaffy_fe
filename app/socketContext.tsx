@@ -9,6 +9,7 @@ import {
   getSocketTokenFromSession,
   resolveHumanAgentIdForSocket,
 } from "@/lib/socketSession";
+import { usePathname } from "next/navigation";
 
 interface SocketContextProps {
   socket: Socket | null;
@@ -41,12 +42,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [humanAgentId, setHumanAgentId] = useState<string | null>(null);
   const lastHumanAgentProfileSocketKey = useRef<string>("");
 
+  const pathname = usePathname()
+
   const readAndSetIdentifiers = async () => {
     const portal: AuthPortal =
       typeof window !== "undefined"
         ? portalFromHostname(window.location.hostname) === "agent"
           ? "agent"
-          : "client"
+          : pathname.includes("agent")
+            ? "agent"
+            : "client"
         : "client";
 
     const storedToken = (await resolveSocketToken(portal)) || "";
