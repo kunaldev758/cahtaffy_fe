@@ -404,25 +404,41 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     const inboxPath = getInboxPath(pathname || "");
 
     const targetUrl = `${inboxPath}?conversationId=${encodeURIComponent(convId)}`;
-    if (!pathname?.includes(inboxPath)) {
+    const isAlreadyOnInbox = !!(pathname?.includes(inboxPath));
+
+    if (!isAlreadyOnInbox) {
       router.replace(targetUrl);
-    } else {
-      // Already on inbox — just update URL silently without navigation
-      window.history.replaceState(null, "", targetUrl);
-    }
-    // Open chat immediately on the inbox page (URL sync can lag behind router.push)
-    const emitConversationNavigate = () =>
-      window.dispatchEvent(
-        new CustomEvent("notification-navigate-to-conversation", {
-          detail: { conversationId: convId },
-        })
+      setTimeout(
+        () =>
+          window.dispatchEvent(
+            new CustomEvent("notification-navigate-to-conversation", {
+              detail: { conversationId: convId },
+            })
+          ),
+        didSwitchAgent ? 600 : 400
       );
-    // When switching agent, inbox resets and socket reconnects.
-    // Delay opening the conversation slightly to avoid racing that reset.
-    if (didSwitchAgent) {
-      setTimeout(emitConversationNavigate, 250);
     } else {
-      emitConversationNavigate();
+      // Already on inbox — use router.replace() so Next.js searchParams
+      // receives the update and the URL-based auto-open useEffect fires.
+      router.replace(targetUrl);
+
+      // Also fire the custom event so the existing handler in inbox.tsx
+      // can open the conversation immediately without waiting for a re-render.
+      const emitConversationNavigate = () =>
+        window.dispatchEvent(
+          new CustomEvent("notification-navigate-to-conversation", {
+            detail: { conversationId: convId },
+          })
+        );
+
+      // When switching agent, inbox resets and socket reconnects.
+      // Delay opening the conversation slightly to avoid racing that reset.
+      if (didSwitchAgent) {
+        setTimeout(emitConversationNavigate, 400);
+      } else {
+        // Small tick to let router.replace propagate before the event fires.
+        setTimeout(emitConversationNavigate, 50);
+      }
     }
   };
 
