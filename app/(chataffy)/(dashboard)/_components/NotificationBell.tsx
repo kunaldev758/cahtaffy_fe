@@ -313,6 +313,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         visitorId: data?.visitor
           ? { visitorDetails: data.visitor?.visitorDetails }
           : undefined,
+        agentId: data?.agentId
       };
 
       setNotifications((prev) => {
