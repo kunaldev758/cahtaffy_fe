@@ -49,13 +49,16 @@ export function PlatformRedirectionLoginClient() {
           );
         }
 
-        dispatchAuthStorageSync();
+        console.log("calling dispatchAuthStorageSync from redirection")
+        setTimeout(() => {
+          dispatchAuthStorageSync();
+          if (data.isOnboarded === false) {
+            router.replace(`${appUrl}onboarding`);
+          } else {
+            router.replace(`${appUrl}dashboard`);
+          }
+        }, 100)
 
-        if (data.isOnboarded === false) {
-          router.replace(`${appUrl}onboarding`);
-        } else {
-          router.replace(`${appUrl}dashboard`);
-        }
       } catch (error) {
         console.error("Platform redirection login failed:", error);
         router.replace(`${appUrl}login`);
