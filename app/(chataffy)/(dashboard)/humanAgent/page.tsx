@@ -366,7 +366,7 @@ export default function HumanAgentPage() {
       }
       toast.success(
         (result as { message?: string }).message ||
-          'Invitation email resent successfully',
+        'Invitation email resent successfully',
       );
       fetchAgents();
       return true;
@@ -393,8 +393,11 @@ export default function HumanAgentPage() {
   };
 
   const getAgentName = (agentId: string) => {
-    const ai = aiAgents.find((a) => a._id === agentId || a._id?.toString() === agentId);
-    return ai?.agentName || ai?.website_name || agentId;
+    const ai = aiAgents.find(
+      (a) => String(a._id) === String(agentId)
+    );
+
+    return ai?.agentName || ai?.website_name || '';
   };
 
   const websiteIdExists = (websiteId: string) =>
@@ -770,8 +773,12 @@ export default function HumanAgentPage() {
                                         ? aid
                                         : String((aid as any)?.toString?.() ?? aid)
                                     ) ?? [];
+                                  // const rowWebsiteIds =
+                                  //   aiAgents.length > 0 ? rawIds.filter((id) => id && websiteIdExists(id)) : rawIds;
                                   const rowWebsiteIds =
-                                    aiAgents.length > 0 ? rawIds.filter((id) => id && websiteIdExists(id)) : rawIds;
+                                    aiAgents.length > 0
+                                      ? rawIds.filter((id) => id && websiteIdExists(id))
+                                      : [];
                                   return rowWebsiteIds.length ? (
                                     rowWebsiteIds.map((aidStr) => (
                                       <span
@@ -1260,7 +1267,7 @@ export default function HumanAgentPage() {
               </div>
 
               {/* Body */}
-              <div className="p-5">
+              <div className="">
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
                   <div className="flex gap-3">
                     <span className="material-symbols-outlined text-blue-600">
@@ -1280,7 +1287,7 @@ export default function HumanAgentPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex justify-end gap-3">
+                <div className="mt-3 flex justify-between items-center gap-3 p-2">
                   <button
                     type="button"
                     onClick={() => setResendMailPopup(false)}
@@ -1297,19 +1304,20 @@ export default function HumanAgentPage() {
                       const ok = await handleResendMailToAgent(resendMailId);
                       if (ok) setResendMailPopup(false);
                     }}
-                    className="inline-flex h-10 min-w-[140px] items-center justify-center gap-2 rounded-lg bg-[#111827] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#1F2937] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
+                    className="inline-flex h-10 w-fit items-center justify-between gap-2 rounded-lg bg-[#111827] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#1F2937] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
                   >
                     {resendMailLoading ? (
-                      <>
+                      <div className="flex items-center gap-2">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Resending...
-                      </>
+                        <span>Resending...</span>
+                      </div>
                     ) : (
                       <>
                         <span className="material-symbols-outlined !text-[18px]">
                           outgoing_mail
                         </span>
-                        Resend Mail
+
+                        <span>Resend Mail</span>
                       </>
                     )}
                   </button>
