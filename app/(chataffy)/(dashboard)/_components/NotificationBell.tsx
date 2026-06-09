@@ -389,7 +389,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     // notification item when it renders right beneath the cursor.
     if (Date.now() - openedAtRef.current < 300) return;
 
-    await markAsSeen(notif._id);
+    if(!notif.isSeen) {
+      await markAsSeen(notif._id);
+    };
     const nextAgentId = notif.agentId;
     const currentAgentId = sessionStorage.getItem("currentAgentId");
     const didSwitchAgent = !!(nextAgentId && nextAgentId !== currentAgentId);
@@ -405,42 +407,43 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     const inboxPath = getInboxPath(pathname || "");
 
     const targetUrl = `${inboxPath}?conversationId=${encodeURIComponent(convId)}`;
-    const isAlreadyOnInbox = !!(pathname?.includes(inboxPath));
+    router.replace(targetUrl);
+    // const isAlreadyOnInbox = !!(pathname?.includes(inboxPath));
 
-    if (!isAlreadyOnInbox) {
-      router.replace(targetUrl);
-      setTimeout(
-        () =>
-          window.dispatchEvent(
-            new CustomEvent("notification-navigate-to-conversation", {
-              detail: { conversationId: convId },
-            })
-          ),
-        didSwitchAgent ? 600 : 400
-      );
-    } else {
+    // if (!isAlreadyOnInbox) {
+      // router.replace(targetUrl);
+      // setTimeout(
+      //   () =>
+      //     window.dispatchEvent(
+      //       new CustomEvent("notification-navigate-to-conversation", {
+      //         detail: { conversationId: convId },
+      //       })
+      //     ),
+      //   didSwitchAgent ? 600 : 400
+      // );
+    // } else {
       // Already on inbox — use router.replace() so Next.js searchParams
       // receives the update and the URL-based auto-open useEffect fires.
-      router.replace(targetUrl);
+      // router.replace(targetUrl);
 
       // Also fire the custom event so the existing handler in inbox.tsx
       // can open the conversation immediately without waiting for a re-render.
-      const emitConversationNavigate = () =>
-        window.dispatchEvent(
-          new CustomEvent("notification-navigate-to-conversation", {
-            detail: { conversationId: convId },
-          })
-        );
+      // const emitConversationNavigate = () =>
+      //   window.dispatchEvent(
+      //     new CustomEvent("notification-navigate-to-conversation", {
+      //       detail: { conversationId: convId },
+      //     })
+      //   );
 
       // When switching agent, inbox resets and socket reconnects.
       // Delay opening the conversation slightly to avoid racing that reset.
-      if (didSwitchAgent) {
-        setTimeout(emitConversationNavigate, 400);
-      } else {
-        // Small tick to let router.replace propagate before the event fires.
-        setTimeout(emitConversationNavigate, 50);
-      }
-    }
+      // if (didSwitchAgent) {
+      //   setTimeout(emitConversationNavigate, 400);
+      // } else {
+      //   // Small tick to let router.replace propagate before the event fires.
+      //   setTimeout(emitConversationNavigate, 50);
+      // }
+    // }
   };
 
   // useEffect(() => {

@@ -25,7 +25,7 @@ export default function Inbox(Props: any) {
 
   const initialLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  console.log("now we are inside agent inbox component, currentConversationId:", currentConversationId);
+  // console.log("now we are inside agent inbox component, currentConversationId:", currentConversationId);
 
   // State variables
   const [expandedSources, setExpandedSources] = useState<null | number>(null);
@@ -1041,8 +1041,7 @@ export default function Inbox(Props: any) {
 
   const showSkeleton = isInitialLoad || (!!openConversationId && conversationMessages.loading);
 
-  console.log("show skeleton: ", { showSkeleton, isInitialLoad, conversationMessagesLoading: conversationMessages.loading, openConversationId });
-
+  // console.log("show skeleton: ", { showSkeleton, isInitialLoad, conversationMessagesLoading: conversationMessages.loading, openConversationId });
   return (
     <>
       {showSkeleton && <InboxSkeleton />}

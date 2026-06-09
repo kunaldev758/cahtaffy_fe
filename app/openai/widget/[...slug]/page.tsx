@@ -592,7 +592,7 @@ export default function EnhancedChatWidget({ params }: any) {
       console.log('🤖 AI chat mode: Setting isTyping to true (waiting for bot response)');
       setTimeout(() => {
         setIsTyping(true);
-      }, 0);
+      }, 300);
     } else {
       console.log('👤 Agent chat mode: NOT setting isTyping (will be controlled by agent-typing socket events)');
     }
