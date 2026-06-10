@@ -402,7 +402,7 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
     headers: {
 
       'Content-Type': 'application/json',
-
+      Authorization: `Bearer ${getClientSessionToken()}`,
     },
 
   })
@@ -414,7 +414,7 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
     cookies().set({ name: 'platform', value: 'bigcommerce', ...platformCookieOpts() })
     cookies().set({ name: 'bc_token', value: token, ...cookieOpts() })
   }
-  return result;
+  return { ...result, token };
 
 }
 
@@ -428,6 +428,7 @@ export async function sfAuthLoadApi(params) {
     headers: {
 
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${getClientSessionToken()}`,
     },
 
   })
@@ -440,7 +441,7 @@ export async function sfAuthLoadApi(params) {
     cookies().set({ name: 'platform', value: 'shopify', ...platformCookieOpts() })
     cookies().set({ name: 'sf_token', value: token, ...cookieOpts() })
   }
-  return { ...result, httpStatus: response.status };
+  return { ...result, httpStatus: response.status, token };
 
 }
 
@@ -464,7 +465,7 @@ export async function platformRedirectionLogin(userId) {
     cookies().set({ name: 'platform', value: 'local', ...platformCookieOpts() })
     cookies().set({ name: 'CLIENT_TOKEN', value: token, ...cookieOpts() })
   }
-  return result;
+  return { ...result, token };
 
 }
 

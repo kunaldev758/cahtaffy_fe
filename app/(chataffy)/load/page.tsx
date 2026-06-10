@@ -214,6 +214,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { dispatchAuthStorageSync, useSocket } from "../../socketContext";
 import { bcAuthLoadApi, sfAuthLoadApi } from "@/app/_api/login/action";
+import { setSocketToken } from "@/lib/socketSession";
 
 function getHttpStatusFromLoadResult(result: unknown): number | undefined {
   if (result && typeof result === "object" && "httpStatus" in result) {
@@ -251,14 +252,13 @@ function LoadPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [error, setError] = useState("");
+  const [pendingJoinUserId, setPendingJoinUserId] = useState<string | null>(null);
 
-  const handleSocketEvent = (userId: any) => {
-    if (socket) {
-      socket.on("user-logged-in", () => {
-        socket.emit("join", userId);
-      });
-    }
-  };
+  useEffect(() => {
+    if (!socket || !pendingJoinUserId) return;
+    socket.emit("join", pendingJoinUserId);
+    setPendingJoinUserId(null);
+  }, [socket, pendingJoinUserId]);
 
   function redirectToInstall(url: string) {
     if (typeof window === "undefined") return;
@@ -292,8 +292,11 @@ function LoadPageContent() {
           console.log(res, "this is the response bigcommerce!");
           const result = res;
           if (result.status) {
-            const { userId, isOnboarded, agents, bigcommerceStoreHash, bigcommerceStoreUrl } =
+            const { userId, isOnboarded, agents, bigcommerceStoreHash, bigcommerceStoreUrl, token } =
               result;
+            if (token) {
+              setSocketToken("client", token);
+            }
             sessionStorage.setItem("userId", userId);
             sessionStorage.setItem("agents", JSON.stringify(agents));
             sessionStorage.setItem("currentAgentId", agents[0]?._id ?? "");
@@ -304,7 +307,7 @@ function LoadPageContent() {
             sessionStorage.removeItem("sf_params");
             sessionStorage.removeItem("shopifyShop");
             dispatchAuthStorageSync();
-            handleSocketEvent(result.userId);
+            setPendingJoinUserId(userId);
             router.replace(isOnboarded ? "/dashboard" : "/onboarding");
           }
           return;
@@ -341,7 +344,10 @@ function LoadPageContent() {
             const res = await sfAuthLoadApi(params);
             const result = res;
             if (result.status) {
-              const { userId, isOnboarded, agents, shopifyShop } = result;
+              const { userId, isOnboarded, agents, shopifyShop, token } = result;
+              if (token) {
+                setSocketToken("client", token);
+              }
               sessionStorage.setItem("userId", userId);
               sessionStorage.setItem("agents", JSON.stringify(agents));
               sessionStorage.setItem("currentAgentId", agents[0]?._id ?? "");
@@ -352,7 +358,7 @@ function LoadPageContent() {
               sessionStorage.removeItem("bcStoreHash");
               sessionStorage.removeItem("bcStoreUrl");
               dispatchAuthStorageSync();
-              handleSocketEvent(result.userId);
+              setPendingJoinUserId(userId);
               router.replace(isOnboarded ? "/dashboard" : "/onboarding");
               return;
             }

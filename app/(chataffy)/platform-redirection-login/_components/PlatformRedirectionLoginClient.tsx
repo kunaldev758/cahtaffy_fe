@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { directClientLoginApi, platformRedirectionLogin } from "../../../_api/login/action";
 import { dispatchAuthStorageSync } from "../../../socketContext";
+import { setSocketToken } from "@/lib/socketSession";
 
 const appUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || '/';
 
@@ -38,6 +39,8 @@ export function PlatformRedirectionLoginClient() {
         }
 
         sessionStorage.setItem("token", data.token);
+        // also persist token where the socket provider expects it
+        if (data.token) setSocketToken("client", data.token);
         if (data.userId != null) {
           sessionStorage.setItem("userId", String(data.userId));
         }
@@ -49,15 +52,16 @@ export function PlatformRedirectionLoginClient() {
           );
         }
 
-        console.log("calling dispatchAuthStorageSync from redirection")
-        setTimeout(() => {
+        // console.log("calling dispatchAuthStorageSync from redirection")
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        // setTimeout(() => {
           dispatchAuthStorageSync();
           if (data.isOnboarded === false) {
             router.replace(`${appUrl}onboarding`);
           } else {
             router.replace(`${appUrl}dashboard`);
           }
-        }, 300);
+        // }, 1000)
 
       } catch (error) {
         console.error("Platform redirection login failed:", error);
