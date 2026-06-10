@@ -25,10 +25,15 @@ export function getBrowserTimezone(): string {
   }
 }
 
+type IntlWithSupportedValuesOf = typeof Intl & {
+  supportedValuesOf(key: 'timeZone'): string[]
+}
+
 export function getAllTimezones(): string[] {
   try {
-    if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
-      return [...(Intl as Intl & { supportedValuesOf: (key: string) => string[] }).supportedValuesOf('timeZone')].sort()
+    const intl = Intl as IntlWithSupportedValuesOf
+    if (typeof intl.supportedValuesOf === 'function') {
+      return [...intl.supportedValuesOf('timeZone')].sort()
     }
   } catch {
     // fall through
