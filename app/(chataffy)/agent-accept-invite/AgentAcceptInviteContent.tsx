@@ -29,22 +29,27 @@ export default function AgentAcceptInviteContent() {
         const verifyToken = async () => {
             try {
                 const res = await agentAcceptInviteVerify(token)
-                if (cancelled) return
+                if (cancelled) return;
 
-                if (res === "error" || !res?.message) {
+                console.log("Verification response:", res)
+
+                if (res.status_code !== 200) {
                     setStatus("error")
                     const errorMessage =
                         typeof res === "object" && res?.message
                             ? res.message
                             : "Invitation could not be accepted."
-                    setMessage(errorMessage)
-                    toast.error(errorMessage)
-                    return
+                    setMessage(errorMessage);
+                    toast.error(errorMessage);
+                    // return
+                }else{
+
+                    setStatus("success")
+                    setMessage(res.message)
+                    toast.success(res.message)
+
                 }
 
-                setStatus("success")
-                setMessage(res.message)
-                toast.success(res.message)
                 setTimeout(() => {
                     router.push("/agent-login")
                 }, 2000)

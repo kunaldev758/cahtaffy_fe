@@ -57,7 +57,7 @@ export function PlatformRedirectionLoginClient() {
           } else {
             router.replace(`${appUrl}dashboard`);
           }
-        }, 100)
+        }, 300);
 
       } catch (error) {
         console.error("Platform redirection login failed:", error);
