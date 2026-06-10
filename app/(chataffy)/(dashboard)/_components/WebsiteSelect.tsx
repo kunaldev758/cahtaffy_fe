@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, ChevronDown, Globe, Loader2, Plus } from 'lucide-react'
 import { getAIAgents } from '@/app/_api/dashboard/action'
 import { createAIAgentApi } from '@/app/_api/login/action'
+import { getBrowserTimezone } from '@/lib/timezones'
 import { toast } from 'react-toastify'
 import { usePlanContext } from '@/app/planContext'
 
@@ -92,7 +93,7 @@ export default function WebsiteSelect() {
     setIsAgentDropdownOpen(false)
     setIsCreatingAgent(true)
     try {
-      const res = await createAIAgentApi()
+      const res = await createAIAgentApi(getBrowserTimezone())
       if (!res?.status || !res?.agent?._id) {
         toast.error(res?.message || 'Failed to create agent')
         return

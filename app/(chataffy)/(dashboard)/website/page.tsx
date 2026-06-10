@@ -7,6 +7,7 @@ import { toast } from 'react-toastify'
 import { getAIAgents } from '@/app/_api/dashboard/action'
 import { toggleWidgetStatusApi } from '@/app/_api/dashboard/action'
 import { deleteAIAgentApi, createAIAgentApi } from '@/app/_api/login/action'
+import { getBrowserTimezone } from '@/lib/timezones'
 import TopHead from '../_components/TopHead'
 import LottieAnimation from '../_components/LottieAnimation'
 import { usePlanContext } from '@/app/planContext'
@@ -145,7 +146,7 @@ export default function WebsitePage() {
     if (isCreatingAgent) return
     setIsCreatingAgent(true)
     try {
-      const res = await createAIAgentApi()
+      const res = await createAIAgentApi(getBrowserTimezone())
       if (!res?.status || !res?.agent?._id) {
         toast.error(res?.message || 'Failed to create agent')
         return

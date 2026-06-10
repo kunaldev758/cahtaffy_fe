@@ -80,11 +80,22 @@ export function groupTimezones(timezones: string[]): { region: string; zones: st
     .map(([region, zones]) => ({ region, zones }))
 }
 
+export function isWidgetTimezoneConfigured(
+  data?: {
+    timezoneConfigured?: boolean
+    settings?: { timezoneConfigured?: boolean }
+  } | null,
+): boolean {
+  return Boolean(data?.timezoneConfigured ?? data?.settings?.timezoneConfigured)
+}
+
 export function resolveWidgetTimezone(
   data?: {
     timezone?: string
+    timezoneConfigured?: boolean
     settings?: {
       timezone?: string
+      timezoneConfigured?: boolean
       workingHours?: { timezone?: string }
     }
   } | null,
@@ -94,6 +105,13 @@ export function resolveWidgetTimezone(
     data?.settings?.timezone ??
     data?.settings?.workingHours?.timezone
 
-  if (candidate && isValidTimezone(candidate)) return candidate
+  if (isWidgetTimezoneConfigured(data) && candidate && isValidTimezone(candidate)) {
+    return candidate
+  }
+
+  if (candidate && isValidTimezone(candidate) && candidate !== 'UTC') {
+    return candidate
+  }
+
   return getBrowserTimezone()
 }

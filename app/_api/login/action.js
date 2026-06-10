@@ -293,13 +293,16 @@ export async function getAgentsApi() {
 
 
 
-export async function createAIAgentApi() {
+export async function createAIAgentApi(timezone) {
 
   const token = getClientSessionToken()
 
   if (!token) return { status: false, message: 'Not authenticated' }
 
-
+  const payload = {}
+  if (timezone) {
+    payload.timezone = timezone
+  }
 
   const response = await fetch(`${process.env.API_HOST}ai-agents`, {
 
@@ -315,7 +318,7 @@ export async function createAIAgentApi() {
 
     },
 
-    body: JSON.stringify({}),
+    body: JSON.stringify(payload),
 
   })
 

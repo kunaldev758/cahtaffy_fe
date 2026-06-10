@@ -21,6 +21,8 @@ import {
   getAllTimezones,
   getBrowserTimezone,
   groupTimezones,
+  isWidgetTimezoneConfigured,
+  isValidTimezone,
   resolveWidgetTimezone,
 } from '@/lib/timezones'
 
@@ -323,9 +325,14 @@ function WidgetPreview({ widgetState, agentState, logoSrc }: { widgetState: Widg
 type WidgetSetupProps = {
   onFinish?: () => void
   isScrapingInProgress?: boolean
+  autoDetectTimezone?: boolean
 }
 
-export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSetupProps) {
+export default function WidgetSetup({
+  onFinish,
+  isScrapingInProgress,
+  autoDetectTimezone = false,
+}: WidgetSetupProps) {
   const [agentId, setAgentId] = useState<string | null>(null)
   const [widgetState, dispatchWidget] = useReducer(widgetReducer, widgetInitialState)
   const [agentData, setAgentData] = useState<AgentState>(agentInitialState)
@@ -383,13 +390,36 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
           if (widgetRes?.status_code === 200 && widgetRes.data) {
             const d = widgetRes.data
+            const shouldAutoDetect =
+              autoDetectTimezone && !isWidgetTimezoneConfigured(d)
+            const detectedTimezone = getBrowserTimezone()
+            const nextTimezone = shouldAutoDetect
+              ? (isValidTimezone(detectedTimezone) ? detectedTimezone : 'UTC')
+              : resolveWidgetTimezone(d)
+
             dispatchWidget({
               type: 'SET_ALL',
               payload: {
                 ...d,
-                timezone: resolveWidgetTimezone(d),
+                timezone: nextTimezone,
               },
             })
+
+            if (shouldAutoDetect && agentId) {
+              try {
+                await updateThemeSettings({
+                  agentId,
+                  themeSettings: {
+                    settings: {
+                      timezone: nextTimezone,
+                    },
+                  },
+                })
+              } catch {
+                // Non-blocking: user can still save manually on this step.
+              }
+            }
+
             if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
             const wid = d.widgetId || d._id
             if (wid) {

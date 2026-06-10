@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { ChevronDown, Globe, Check, Loader2, Plus } from 'lucide-react'
 import { getAIAgents } from '@/app/_api/dashboard/action'
 import { createAIAgentApi } from '@/app/_api/login/action'
+import { getBrowserTimezone } from '@/lib/timezones'
 import { toast } from 'react-toastify'
 import NotificationBell from './NotificationBell'
 
@@ -194,7 +195,7 @@ export default function AgentSwitcherBar() {
     setIsOpen(false)
     setIsCreating(true)
     try {
-      const res = await createAIAgentApi()
+      const res = await createAIAgentApi(getBrowserTimezone())
       if (!res?.status || !res?.agent?._id) {
         toast.error(res?.message || 'Failed to create agent')
         return
