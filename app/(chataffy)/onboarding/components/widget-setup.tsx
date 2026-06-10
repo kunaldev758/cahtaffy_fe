@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useReducer, useRef } from 'react'
+import React, { useEffect, useMemo, useState, useReducer, useRef } from 'react'
 import { GripVertical, ImagePlus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -16,6 +16,13 @@ import {
 import Image from 'next/image'
 import { publicAsset } from '@/lib/publicAsset'
 import { LOCKED_PRECHAT_FIELD_IDS, normalizePreChatFieldOrder } from '@/lib/preChatFields'
+import {
+  formatTimezoneLabel,
+  getAllTimezones,
+  getBrowserTimezone,
+  groupTimezones,
+  resolveWidgetTimezone,
+} from '@/lib/timezones'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -64,6 +71,7 @@ const widgetInitialState = {
   align: 'right' as 'left' | 'right',
   widgetType: 'bubble' as 'bubble' | 'bar',
   displayBarMessage: "We're Online! Chat Now!",
+  timezone: 'UTC',
 }
 
 type WidgetState = typeof widgetInitialState
@@ -334,6 +342,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
     `<script src="${appBaseUrl}widget-loader.js"></script>`,
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const timezoneGroups = useMemo(() => groupTimezones(getAllTimezones()), [])
 
   const checkboxUiClass = "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white [&_svg]:h-[14px] [&_svg]:w-[14px]"
 
@@ -374,7 +383,13 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
           if (widgetRes?.status_code === 200 && widgetRes.data) {
             const d = widgetRes.data
-            dispatchWidget({ type: 'SET_ALL', payload: d })
+            dispatchWidget({
+              type: 'SET_ALL',
+              payload: {
+                ...d,
+                timezone: resolveWidgetTimezone(d),
+              },
+            })
             if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
             const wid = d.widgetId || d._id
             if (wid) {
@@ -497,6 +512,9 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
             align: widgetState.align,
             widgetType: widgetState.widgetType,
             displayBarMessage: widgetState.displayBarMessage,
+            settings: {
+              timezone: widgetState.timezone,
+            },
           },
         }),
         updateAgentSettingsApi({
@@ -654,6 +672,44 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
                   }
                   <span className="text-[11px] text-[#94A3B8]">{agentData.fallbackMessage.length}/500</span>
                 </div>
+              </div>
+
+              {/* Timezone */}
+              <div>
+                <div className="mb-[6px] flex items-center justify-between gap-3">
+                  <label className="block text-[12px] font-medium leading-5 text-[#64748B]">
+                    Widget Timezone
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      dispatchWidget({ type: 'SET', field: 'timezone', value: getBrowserTimezone() })
+                    }
+                    className="text-[11px] font-medium text-[#4686FE] hover:text-[#3575e8]"
+                  >
+                    Use my timezone
+                  </button>
+                </div>
+                <select
+                  value={widgetState.timezone}
+                  onChange={(e) =>
+                    dispatchWidget({ type: 'SET', field: 'timezone', value: e.target.value })
+                  }
+                  className="h-[40px] w-full rounded-[8px] border border-[#E2E8F0] bg-white px-[14px] text-[13px] text-[#111827] outline-none focus:border-[#4686FE]"
+                >
+                  {timezoneGroups.map(({ region, zones }) => (
+                    <optgroup key={region} label={region.replace(/_/g, ' ')}>
+                      {zones.map((timezone) => (
+                        <option key={timezone} value={timezone}>
+                          {formatTimezoneLabel(timezone)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-[#94A3B8]">
+                  Chat transcript emails will show times in this timezone.
+                </p>
               </div>
 
               {/* Live Chat toggle */}
