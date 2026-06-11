@@ -19,9 +19,10 @@ export function PlatformRedirectionLoginClient() {
         ? params.userId[0]
         : params?.userId;
       const queryUserId = searchParams.get("userId");
+      const token = searchParams.get("token");
       const userId = routeUserId || queryUserId;
 
-      if (!userId) {
+      if (!userId || !token) {
         router.replace(`${appUrl}login`);
         return;
       }
@@ -31,7 +32,7 @@ export function PlatformRedirectionLoginClient() {
         //   credentials: 'include',
         // });
         // const data = await result.json();
-        const result = await platformRedirectionLogin(userId);
+        const result = await platformRedirectionLogin(userId,token);
         const data = result;
         if (data?.status_code !== 200 || !data?.token) {
           router.replace(`${appUrl}login`);

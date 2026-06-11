@@ -6,6 +6,7 @@ import { DatePickerWithRange } from '@/components/datepicker'
 import { type DateRange } from 'react-day-picker'
 import NotificationBell from './NotificationBell'
 import WebsiteSelect from './WebsiteSelect'
+import { generateShortLivedToken } from '@/app/_api/dashboard/action'
 
 type TopHeadProps = {
   dateRange?: DateRange
@@ -42,12 +43,17 @@ export default function TopHead({
     (provider === 'shopify' || provider === 'bigcommerce') && window.self !== window.top
 
     const handleOpenWebsite = async () => {
-      const shop = sessionStorage.getItem('shopifyShop')
-      const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt') 
-      const sf_params = sessionStorage.getItem('sf_params')
+      // const shop = sessionStorage.getItem('shopifyShop')
+      // const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt') 
+      // const sf_params = sessionStorage.getItem('sf_params')
+
+      const res = await generateShortLivedToken()
       const userId = sessionStorage.getItem('userId')
       const params = new URLSearchParams()
       
+      if(res.status && res.token) {
+        params.set('token', res.token)
+      }
       if (userId) {
         params.set('userId', userId)
       }

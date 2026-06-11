@@ -660,3 +660,9 @@ export async function getVisitorLocation() {
   const data = await response.json();
   return data;
 }
+
+export async function generateShortLivedToken() {
+  const response = fetchData('generate-short-lived-token',{platform: cookies().get('platform')?.value || 'local'});
+
+  return response;
+}

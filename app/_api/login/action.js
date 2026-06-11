@@ -24,9 +24,17 @@ const cookieOpts = () => serverAuthCookieOpts();
 
 const platformCookieOpts = () => serverPlatformCookieOpts();
 
-const getUserAgent = () => {
-  const h =  headers();
-  return h.get("user-agent");
+const getRequestMeta = () => {
+  const h = headers();
+  const userAgent = h.get("user-agent") || "unknown";
+  const xff = h.get("x-forwarded-for") || h.get("x-client-ip") || h.get("x-real-ip") || "";
+  const ip = xff ? xff.split(",").pop().trim() : "unknown";
+  return { userAgent, ip };
+};
+
+const makeFetchHeaders = (overrides = {}) => {
+  const { userAgent, ip } = getRequestMeta();
+  return { 'Content-Type': 'application/json', 'User-Agent': userAgent, 'X-Client-IP': ip, ...overrides };
 };
 
 
@@ -63,7 +71,7 @@ export async function loginAgentApi(email, password) {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
 
     body: JSON.stringify({ email, password }),
 
@@ -91,7 +99,7 @@ export async function loginApi(email, password, resendVerification = false) {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
     body: JSON.stringify({
       email: email,
       password: password,
@@ -123,7 +131,7 @@ export async function directClientLoginApi(token) {
 
     `${process.env.API_HOST}direct-client-login/${encodeURIComponent(token)}`,
 
-    { method: 'GET', cache: 'no-cache', headers: { 'User-Agent': getUserAgent() } },
+    { method: 'GET', cache: 'no-cache', headers: makeFetchHeaders() },
 
   )
 
@@ -153,7 +161,7 @@ export async function registrationApi(email, password, role = 'client') {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
 
     body: JSON.stringify({ email, password, role }),
 
@@ -175,7 +183,7 @@ export async function googleOAuthExchange(googleToken) {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
 
     body: JSON.stringify({ token: googleToken }),
 
@@ -207,7 +215,7 @@ export async function verifyEmailApi(token) {
 
     cache: 'no-store',
 
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
 
     body: JSON.stringify({ token }),
 
@@ -231,7 +239,7 @@ export async function forgotPasswordApi(email) {
   const response = await fetch(`${process.env.API_HOST}forgot-password`, {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
     body: JSON.stringify({ email }),
   })
   const text = await response.text()
@@ -246,7 +254,7 @@ export async function resetPasswordApi(token, newPassword, confirmPassword) {
   const response = await fetch(`${process.env.API_HOST}reset-password`, {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
     body: JSON.stringify({ token, newPassword, confirmPassword }),
   })
   const text = await response.text()
@@ -282,15 +290,7 @@ export async function getAgentsApi() {
 
     cache: 'no-cache',
 
-    headers: {
-
-      'Content-Type': 'application/json',
-
-      Authorization: token,
-
-      'User-Agent': getUserAgent(),
-
-    },
+    headers: makeFetchHeaders({ Authorization: token }),
 
   })
 
@@ -314,15 +314,7 @@ export async function createAIAgentApi() {
 
     cache: 'no-cache',
 
-    headers: {
-
-      'Content-Type': 'application/json',
-
-      Authorization: token,
-
-      'User-Agent': getUserAgent(),
-
-    },
+    headers: makeFetchHeaders({ Authorization: token }),
 
     body: JSON.stringify({}),
 
@@ -352,15 +344,7 @@ export async function deleteAIAgentApi(agentId) {
 
       cache: 'no-cache',
 
-      headers: {
-
-        'Content-Type': 'application/json',
-
-        Authorization: token,
-
-        'User-Agent': getUserAgent(),
-
-      },
+      headers: makeFetchHeaders({ Authorization: token }),
 
       body: JSON.stringify({}),
 
@@ -388,17 +372,10 @@ export async function completeOnboardingApi() {
 
     cache: 'no-cache',
 
-    headers: {
-
-      'Content-Type': 'application/json',
-
-      Authorization: token,
-
-      'User-Agent': getUserAgent(),
-
-    },
+    headers: makeFetchHeaders({ Authorization: token }),
 
   })
+  
 
   return await response.json()
 
@@ -413,12 +390,7 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
 
     cache: 'no-cache',
 
-    headers: {
-
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getClientSessionToken()}`,
-      'User-Agent': getUserAgent(),
-    },
+    headers: makeFetchHeaders({ Authorization: `Bearer ${getClientSessionToken()}` }),
 
   })
 
@@ -440,12 +412,7 @@ export async function sfAuthLoadApi(params) {
 
     cache: 'no-cache',
 
-    headers: {
-
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getClientSessionToken()}`,
-      'User-Agent': getUserAgent(),
-    },
+    headers: makeFetchHeaders({ Authorization: `Bearer ${getClientSessionToken()}` }),
 
   })
 
@@ -467,11 +434,11 @@ export async function setPlatformCookie() {
   return { status: true }
 }
 
-export async function platformRedirectionLogin(userId) {
-  const response = await fetch(`${process.env.API_HOST}platform-redirection-login/${userId}`, {
+export async function platformRedirectionLogin(userId,shortLivedToken) {
+  const response = await fetch(`${process.env.API_HOST}platform-redirection-login/${userId}/${shortLivedToken}`, {
     method: 'GET',
     cache: 'no-cache',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
+    headers: makeFetchHeaders(),
   })
 
   const result = await response.json()
