@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useEffect, useMemo, useState, useReducer, useRef } from 'react'
-import { GripVertical, ImagePlus } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useState, useReducer, useRef } from 'react'
+import { GripVertical, ImagePlus, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -21,6 +21,8 @@ import {
   getAllTimezones,
   getBrowserTimezone,
   groupTimezones,
+  isWidgetTimezoneConfigured,
+  isValidTimezone,
   resolveWidgetTimezone,
 } from '@/lib/timezones'
 
@@ -147,6 +149,30 @@ const agentInitialState = {
   liveAgentSupport: false,
 }
 type AgentState = typeof agentInitialState
+
+function resolveStoredAgentId(): string | null {
+  if (typeof window === 'undefined') return null
+  const stored = sessionStorage.getItem('currentAgentId')
+  if (stored) return stored
+  try {
+    const agents = JSON.parse(sessionStorage.getItem('agents') || '[]') as { _id?: string }[]
+    const firstId = agents[0]?._id
+    if (firstId) {
+      const id = String(firstId)
+      sessionStorage.setItem('currentAgentId', id)
+      return id
+    }
+  } catch {
+    // ignore malformed session cache
+  }
+  return null
+}
+
+function buildShortEmbedSnippet(appBaseUrl: string, wid?: string | null) {
+  const base = appBaseUrl.replace(/\/$/, '')
+  if (wid) return `<script src="${base}/widget-loader.js?wid=${wid}"></script>`
+  return `<script src="${base}/widget-loader.js"></script>`
+}
 
 // ─── File validation ──────────────────────────────────────────────────────────
 
@@ -323,9 +349,14 @@ function WidgetPreview({ widgetState, agentState, logoSrc }: { widgetState: Widg
 type WidgetSetupProps = {
   onFinish?: () => void
   isScrapingInProgress?: boolean
+  autoDetectTimezone?: boolean
 }
 
-export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSetupProps) {
+export default function WidgetSetup({
+  onFinish,
+  isScrapingInProgress,
+  autoDetectTimezone = false,
+}: WidgetSetupProps) {
   const [agentId, setAgentId] = useState<string | null>(null)
   const [widgetState, dispatchWidget] = useReducer(widgetReducer, widgetInitialState)
   const [agentData, setAgentData] = useState<AgentState>(agentInitialState)
@@ -337,11 +368,11 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
   const [isUploading, setIsUploading] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const [embedScript, setEmbedScript] = useState('')
+  const [settingsLoading, setSettingsLoading] = useState(true)
   const appBaseUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://dashboard.chataffy.com/'
-  const [shortEmbedSnippet, setShortEmbedSnippet] = useState(
-    `<script src="${appBaseUrl}widget-loader.js"></script>`,
-  )
+  const [shortEmbedSnippet, setShortEmbedSnippet] = useState(() => buildShortEmbedSnippet(appBaseUrl))
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const loadGenerationRef = useRef(0)
   const timezoneGroups = useMemo(() => groupTimezones(getAllTimezones()), [])
 
   const checkboxUiClass = "h-[20px] w-[20px] rounded-[8px] border border-[#CBD5E1] shadow-none data-[state=checked]:border-[#4686FE] data-[state=checked]:bg-[#4686FE] data-[state=checked]:text-white [&_svg]:h-[14px] [&_svg]:w-[14px]"
@@ -350,75 +381,146 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const syncFromStorage = () => setAgentId(sessionStorage.getItem('currentAgentId'))
+    const syncFromStorage = () => setAgentId(resolveStoredAgentId())
     syncFromStorage()
     const handleAgentChanged = (e: Event) => {
       const raw = (e as CustomEvent<{ agentId?: string | null }>).detail?.agentId
       const next =
         raw !== undefined && raw !== null && String(raw) !== ''
           ? String(raw)
-          : sessionStorage.getItem('currentAgentId')
+          : resolveStoredAgentId()
       setAgentId(next)
     }
     window.addEventListener('agent-changed', handleAgentChanged as EventListener)
     return () => window.removeEventListener('agent-changed', handleAgentChanged as EventListener)
   }, [])
 
-  // ── Fetch widget + agent data when agentId changes ────────────────────────
-  useEffect(() => {
-    if (!agentId) return
-      ; (async () => {
-        dispatchWidget({ type: 'SET_ALL', payload: { ...widgetInitialState } })
-        setAgentData({ ...agentInitialState })
-        setLogoSrc('/images/widget/human-avatar.png')
-        setFieldErrors({})
-        setLogoErrors([])
-        setEmbedScript('')
-        setShortEmbedSnippet(`<script src="${appBaseUrl}widget-loader.js"></script>`)
-        try {
-          const [widgetRes, agentRes] = await Promise.all([
-            getThemeSettings(agentId),
-            getAgentSettingsApi(agentId),
-          ])
+  const applyLoadedSettings = useCallback(
+    async (targetAgentId: string, widgetRes: any, agentRes: any) => {
+      if (widgetRes?.status_code === 200 && widgetRes.data) {
+        const d = widgetRes.data
+        const shouldAutoDetect =
+          autoDetectTimezone && !isWidgetTimezoneConfigured(d)
+        const detectedTimezone = getBrowserTimezone()
+        const nextTimezone = shouldAutoDetect
+          ? (isValidTimezone(detectedTimezone) ? detectedTimezone : 'UTC')
+          : resolveWidgetTimezone(d)
 
-          if (widgetRes?.status_code === 200 && widgetRes.data) {
-            const d = widgetRes.data
-            dispatchWidget({
-              type: 'SET_ALL',
-              payload: {
-                ...d,
-                timezone: resolveWidgetTimezone(d),
+        dispatchWidget({
+          type: 'SET_ALL',
+          payload: {
+            ...d,
+            timezone: nextTimezone,
+          },
+        })
+
+        if (shouldAutoDetect) {
+          try {
+            await updateThemeSettings({
+              agentId: targetAgentId,
+              themeSettings: {
+                settings: {
+                  timezone: nextTimezone,
+                },
               },
             })
-            if (d.logo) setLogoSrc(`${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`)
-            const wid = d.widgetId || d._id
-            if (wid) {
-              setShortEmbedSnippet(
-                `<script src="${appBaseUrl}wid=${wid}"></script>`,
-              )
-              setEmbedScript(`<script src="${appBaseUrl}widget-loader.js?wid=${wid}&token=${d.widgetToken}&agent=${agentId}"></script>`)
-            }
+          } catch {
+            // Non-blocking: user can still save manually on this step.
           }
-
-          if (agentRes?.status_code === 200 && agentRes.data) {
-            const a = agentRes.data
-            setAgentData({
-              agentName: a.agentName ?? '',
-              email: a.email ?? '',
-              phone: a.phone ?? '',
-              fallbackMessage: a.fallbackMessage ?? '',
-              liveAgentSupport: a.liveAgentSupport ?? false,
-            })
-            // Pre-fill widget titleBar from agentName if not already set
-            if (a.agentName) {
-              dispatchWidget({ type: 'SET', field: 'titleBar', value: a.agentName })
-            }
-          }
-        } catch {
-          toast.error('Failed to load settings')
         }
-      })()
-  }, [agentId])
+
+        setLogoSrc(
+          d.logo
+            ? `${process.env.NEXT_PUBLIC_FILE_HOST}${d.logo}`
+            : '/images/widget/human-avatar.png',
+        )
+        const wid = d.widgetId || d._id
+        const base = appBaseUrl.replace(/\/$/, '')
+        setShortEmbedSnippet(buildShortEmbedSnippet(appBaseUrl, wid))
+        if (wid) {
+          setEmbedScript(
+            `<script src="${base}/widget-loader.js?wid=${wid}&token=${d.widgetToken}&agent=${targetAgentId}"></script>`,
+          )
+        } else {
+          setEmbedScript('')
+        }
+      }
+
+      if (agentRes?.status_code === 200 && agentRes.data) {
+        const a = agentRes.data
+        setAgentData({
+          agentName: a.agentName ?? '',
+          email: a.email ?? '',
+          phone: a.phone ?? '',
+          fallbackMessage: a.fallbackMessage ?? '',
+          liveAgentSupport: a.liveAgentSupport ?? false,
+        })
+        if (a.agentName) {
+          dispatchWidget({ type: 'SET', field: 'titleBar', value: a.agentName })
+        }
+      }
+    },
+    [appBaseUrl, autoDetectTimezone],
+  )
+
+  // ── Fetch widget + agent data when agentId changes ────────────────────────
+  useEffect(() => {
+    if (!agentId) {
+      setSettingsLoading(false)
+      return
+    }
+
+    const generation = ++loadGenerationRef.current
+    setSettingsLoading(true)
+    dispatchWidget({ type: 'SET_ALL', payload: { ...widgetInitialState } })
+    setAgentData({ ...agentInitialState })
+    setLogoSrc('/images/widget/human-avatar.png')
+    setFieldErrors({})
+    setLogoErrors([])
+    setEmbedScript('')
+    setShortEmbedSnippet(buildShortEmbedSnippet(appBaseUrl))
+
+    const fetchSettings = async (attempt: number): Promise<boolean> => {
+      const [widgetRes, agentRes] = await Promise.all([
+        getThemeSettings(agentId),
+        getAgentSettingsApi(agentId),
+      ])
+
+      if (generation !== loadGenerationRef.current) return true
+
+      const widgetOk = widgetRes?.status_code === 200 && widgetRes.data
+      const agentOk = agentRes?.status_code === 200 && agentRes.data
+
+      if (!widgetOk || !agentOk) {
+        if (attempt < 1) {
+          await new Promise((resolve) => setTimeout(resolve, 400))
+          return fetchSettings(attempt + 1)
+        }
+        if (widgetOk || agentOk) {
+          await applyLoadedSettings(agentId, widgetRes, agentRes)
+        }
+        return Boolean(widgetOk || agentOk)
+      }
+
+      await applyLoadedSettings(agentId, widgetRes, agentRes)
+      return true
+    }
+
+    ;(async () => {
+      try {
+        const ok = await fetchSettings(0)
+        if (generation !== loadGenerationRef.current) return
+        if (!ok) toast.error('Failed to load settings')
+      } catch {
+        if (generation !== loadGenerationRef.current) return
+        toast.error('Failed to load settings')
+      } finally {
+        if (generation === loadGenerationRef.current) {
+          setSettingsLoading(false)
+        }
+      }
+    })()
+  }, [agentId, appBaseUrl, applyLoadedSettings])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -540,6 +642,9 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
     }
   }
 
+
+  console.log("is setting loading check : ", settingsLoading)
+
   // ── JSX ───────────────────────────────────────────────────────────────────
 
   return (
@@ -556,7 +661,15 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
       <div className="flex gap-[24px]">
 
         {/* ── Left panel ────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-[20px] flex-1 min-w-0">
+        <div className="relative flex flex-col gap-[20px] flex-1 min-w-0">
+          {/* {settingsLoading && (
+            <div className="absolute inset-0 z-20 flex items-start justify-center rounded-[20px] bg-[#F3F4F6]/75 pt-28">
+              <div className="flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-[#4686FE]" />
+                <span className="text-[13px] font-medium text-[#64748B]">Loading settings…</span>
+              </div>
+            </div>
+          )} */}
 
           {/* Embed Code card */}
           <div className="rounded-[20px] bg-white shadow-[0px_4px_20px_0px_rgba(0,0,0,0.02)] p-[20px]">
@@ -1006,7 +1119,7 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
 
           {/* Finish Setup button */}
           <div className='flex justify-end'>
-            <button type="button" onClick={handleSave} disabled={isSaving}
+            <button type="button" onClick={handleSave} disabled={isSaving || settingsLoading || !agentId}
               className="inline-flex h-[44px] items-center justify-center gap-2 rounded-[14px] bg-[#111827] px-[20px] text-[14px] font-semibold text-white transition-colors hover:bg-[#1f2937] disabled:opacity-60">
               {isSaving ? (
                 <>
@@ -1028,6 +1141,11 @@ export default function WidgetSetup({ onFinish, isScrapingInProgress }: WidgetSe
         {/* ── Right panel — Live Preview ──────────────────────────────── */}
         <div className="w-[358px] shrink-0">
           <div className="sticky top-6">
+            {settingsLoading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[14px] bg-[#F1F5F9]/80">
+                <Loader2 className="h-6 w-6 animate-spin text-[#4686FE]" />
+              </div>
+            )}
             <div className={`flex flex-col gap-3 rounded-[14px] bg-[#F1F5F9] min-h-[400px] relative ${widgetState.align === 'left' ? 'items-start' : 'items-end'}`}>
 
               <div className={`mt-6 w-full flex flex-col gap-3 ${widgetState.align === 'left' ? 'items-start' : 'items-end'}`}>

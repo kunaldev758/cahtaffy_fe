@@ -37,6 +37,10 @@ const checkboxUiClass =
 const headerCheckboxUiClass =
   `${checkboxUiClass} data-[state=indeterminate]:border-[#CBD5E1] data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-[#111827]`
 
+type AssignedAgentRef =
+  | string
+  | { _id?: string; agentName?: string; website_name?: string; id?: string; $oid?: string };
+
 // Define types locally
 export interface HumanAgentType {
   _id: any;
@@ -46,8 +50,26 @@ export interface HumanAgentType {
   isActive: boolean;
   lastActive?: string;
   isClient?: boolean;
-  assignedAgents?: string[];
+  assignedAgents?: AssignedAgentRef[];
   avatar?: string | null;
+}
+
+function normalizeAssignedAgentId(id: unknown): string {
+  if (id == null || id === '') return '';
+  if (typeof id === 'string') return id;
+  if (typeof id === 'object' && id !== null) {
+    const o = id as { _id?: unknown; id?: unknown; $oid?: string; toString?: () => string; constructor?: { name?: string } };
+    if (typeof o.$oid === 'string') return o.$oid;
+    if (o._id != null) return normalizeAssignedAgentId(o._id);
+    if (o.id != null) return String(o.id);
+    if (typeof o.toString === 'function' && o.constructor?.name === 'ObjectId') return o.toString();
+  }
+  return String(id);
+}
+
+function getAssignedAgentIds(assignedAgents?: AssignedAgentRef[]): string[] {
+  if (!assignedAgents?.length) return [];
+  return assignedAgents.map(normalizeAssignedAgentId).filter(Boolean);
 }
 
 export interface AIAgentType {
@@ -122,6 +144,7 @@ export default function HumanAgentPage() {
   const [agents, setAgents] = useState<HumanAgentType[]>([]);
   const [aiAgents, setAIAgents] = useState<AIAgentType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiAgentsLoading, setAiAgentsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<HumanAgentType | null>(null);
@@ -158,25 +181,33 @@ export default function HumanAgentPage() {
       toast.error('Failed to fetch human agents');
       setAgents([]);
       console.error('Error fetching human agents:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   // Fetch AI agents (websites) for assignedAgents dropdown
   const fetchAIAgents = async () => {
+    setAiAgentsLoading(true);
     try {
       const data = await getAIAgents();
       setAIAgents(Array.isArray(data) ? data : []);
     } catch (error: any) {
       console.error('Error fetching AI agents:', error);
       setAIAgents([]);
+    } finally {
+      setAiAgentsLoading(false);
     }
   };
 
+  const refreshTeamData = async () => {
+    await Promise.all([fetchAgents(), fetchAIAgents()]);
+  };
+
   useEffect(() => {
-    fetchAgents();
-    fetchAIAgents();
+    (async () => {
+      setLoading(true);
+      await Promise.all([fetchAgents(), fetchAIAgents()]);
+      setLoading(false);
+    })();
   }, []);
 
   // Listen for socket events to update agent status in real-time
@@ -198,9 +229,7 @@ export default function HumanAgentPage() {
           const assigned =
             updatedAgent.assignedAgents != null
               ? Array.isArray(updatedAgent.assignedAgents)
-                ? updatedAgent.assignedAgents.map((x: any) =>
-                  typeof x === 'string' ? x : String(x?._id ?? x?.id ?? x ?? '')
-                )
+                ? updatedAgent.assignedAgents.map((x: unknown) => normalizeAssignedAgentId(x))
                 : agent.assignedAgents
               : agent.assignedAgents;
           return {
@@ -291,7 +320,7 @@ export default function HumanAgentPage() {
         setShowAddModal(false);
         setFormData({ name: '', email: '', assignedAgents: [] });
         setFormErrors({});
-        fetchAgents();
+        refreshTeamData();
       }
     } catch (error: any) {
       toast.error('Failed to add human agent');
@@ -316,7 +345,7 @@ export default function HumanAgentPage() {
       setSelectedAgent(null);
       setFormData({ name: '', email: '', assignedAgents: [] });
       setFormErrors({});
-      fetchAgents();
+      refreshTeamData();
     } catch (error: any) {
       toast.error('Failed to update human agent');
       console.error('Error updating human agent:', error);
@@ -338,7 +367,7 @@ export default function HumanAgentPage() {
         return;
       }
       toast.success('Human agent deleted successfully');
-      fetchAgents();
+      refreshTeamData();
     } catch (error: any) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete human agent');
     }
@@ -368,7 +397,7 @@ export default function HumanAgentPage() {
         (result as { message?: string }).message ||
         'Invitation email resent successfully',
       );
-      fetchAgents();
+      refreshTeamData();
       return true;
     } catch (error: unknown) {
       toast.error(
@@ -388,29 +417,40 @@ export default function HumanAgentPage() {
       // UI updates from socket events (human-agent-status-updated / agent-status-updated / client-status-updated)
     } catch (error: any) {
       toast.error('Failed to update agent status');
-      fetchAgents();
+      refreshTeamData();
     }
   };
 
-  const getAgentName = (agentId: string) => {
-    const ai = aiAgents.find(
-      (a) => String(a._id) === String(agentId)
-    );
+  const getAgentName = (agentId: string, assignedAgents?: AssignedAgentRef[]) => {
+    const id = String(agentId);
+    const fromAssigned = assignedAgents?.find((entry) => {
+      if (typeof entry === 'string') return String(entry) === id;
+      if (entry && typeof entry === 'object') return normalizeAssignedAgentId(entry) === id;
+      return false;
+    });
+    if (fromAssigned && typeof fromAssigned === 'object') {
+      return fromAssigned.agentName || fromAssigned.website_name || '';
+    }
 
+    const ai = aiAgents.find((a) => String(a._id) === id);
     return ai?.agentName || ai?.website_name || '';
   };
 
   const websiteIdExists = (websiteId: string) =>
     aiAgents.some((a) => String(a._id ?? '') === String(websiteId));
 
+  const resolveRowWebsiteIds = (agent: HumanAgentType) => {
+    const rawIds = getAssignedAgentIds(agent.assignedAgents);
+    if (aiAgents.length === 0) return rawIds;
+    return rawIds.filter((id) => websiteIdExists(id));
+  };
+
   const openEditModal = (agent: HumanAgentType) => {
     if (agent.isClient) return;
     setSelectedAgent(agent);
-    const normalizedIds = (agent.assignedAgents || []).map((id) =>
-      typeof id === 'string' ? id : (id as any)?.toString?.() || ''
-    );
+    const normalizedIds = getAssignedAgentIds(agent.assignedAgents);
     const assignedForForm =
-      aiAgents.length > 0 ? normalizedIds.filter((id) => id && websiteIdExists(id)) : normalizedIds;
+      aiAgents.length > 0 ? normalizedIds.filter((id) => websiteIdExists(id)) : normalizedIds;
     setFormData({
       name: agent.name,
       email: agent.email,
@@ -495,7 +535,7 @@ export default function HumanAgentPage() {
       }
       setSelectedRowIds((prev) => prev.filter((id) => !toDelete.includes(id)));
       setBulkDeleteOpen(false);
-      fetchAgents();
+      refreshTeamData();
     } catch {
       toast.error('Failed to delete team member(s)');
       setBulkDeleteOpen(false);
@@ -504,7 +544,7 @@ export default function HumanAgentPage() {
 
   const handleRemoveAssignedWebsite = async (agent: HumanAgentType, websiteId: string) => {
     if (agent.isClient) return;
-    const current = (agent.assignedAgents || []).map((id) => (typeof id === 'string' ? id : String((id as any)?.toString?.() ?? '')));
+    const current = getAssignedAgentIds(agent.assignedAgents);
     const next = current.filter((id) => id !== String(websiteId));
     if (next.length === 0) {
       toast.warn('Keep at least one website assigned');
@@ -513,7 +553,7 @@ export default function HumanAgentPage() {
     try {
       await updateHumanAgent(agent._id, { name: agent.name, assignedAgents: next });
       toast.success('Website unassigned');
-      fetchAgents();
+      refreshTeamData();
     } catch (e) {
       toast.error('Failed to update assignments');
     }
@@ -767,25 +807,20 @@ export default function HumanAgentPage() {
                             ) : (
                               <div className="flex flex-wrap gap-1.5">
                                 {(() => {
-                                  const rawIds =
-                                    agent.assignedAgents?.map((aid) =>
-                                      typeof aid === 'string'
-                                        ? aid
-                                        : String((aid as any)?.toString?.() ?? aid)
-                                    ) ?? [];
-                                  // const rowWebsiteIds =
-                                  //   aiAgents.length > 0 ? rawIds.filter((id) => id && websiteIdExists(id)) : rawIds;
-                                  const rowWebsiteIds =
-                                    aiAgents.length > 0
-                                      ? rawIds.filter((id) => id && websiteIdExists(id))
-                                      : [];
+                                  const rawIds = getAssignedAgentIds(agent.assignedAgents);
+                                  if (aiAgentsLoading && rawIds.length > 0) {
+                                    return <Skeleton className="h-6 w-24 rounded-md" />;
+                                  }
+                                  const rowWebsiteIds = resolveRowWebsiteIds(agent);
                                   return rowWebsiteIds.length ? (
                                     rowWebsiteIds.map((aidStr) => (
                                       <span
                                         key={aidStr}
                                         className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 pl-2 pr-1 py-0.5 text-xs text-slate-600"
                                       >
-                                        <span className="truncate max-w-[120px]">{getAgentName(aidStr)}</span>
+                                        <span className="truncate max-w-[120px]">
+                                          {getAgentName(aidStr, agent.assignedAgents) || 'Unnamed website'}
+                                        </span>
                                         <button
                                           type="button"
                                           onClick={() => handleRemoveAssignedWebsite(agent, aidStr)}

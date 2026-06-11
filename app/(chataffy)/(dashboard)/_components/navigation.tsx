@@ -11,6 +11,7 @@ import logoPic from '@/images/logo.png'
 import ClientProfileMenu from '../inbox/_components/ClientProfileMenu'
 import { getClientData } from '@/app/_api/dashboard/action'
 import { createAIAgentApi } from '@/app/_api/login/action'
+import { getBrowserTimezone } from '@/lib/timezones'
 import { dispatchAuthStorageSync } from '@/app/socketContext'
 import { usePlanContext } from "@/app/planContext"
 
@@ -140,7 +141,7 @@ export default function IntegratedSidebar() {
     if (isCreatingAgent) return
     setIsCreatingAgent(true)
     try {
-      const res = await createAIAgentApi()
+      const res = await createAIAgentApi(getBrowserTimezone())
       if (!res?.status || !res?.agent?._id) {
         toast.error(res?.message || 'Failed to create agent')
         return

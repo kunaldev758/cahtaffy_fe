@@ -382,7 +382,11 @@ export default function OnboardingPage() {
                         isTraining={isTrainingUrls}
                     />
                 ) : currentStep === 'widget' ? (
-                    <WidgetSetup onFinish={handleFinish} isScrapingInProgress={isScrapingInProgress} />
+                    <WidgetSetup
+                      onFinish={handleFinish}
+                      isScrapingInProgress={isScrapingInProgress}
+                      autoDetectTimezone
+                    />
                 ) : (
                     <>
                         {isDocSnippets ? (

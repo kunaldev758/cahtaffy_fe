@@ -418,7 +418,7 @@ export default function NewAgentOnboardingPage() {
             isTraining={isTrainingUrls}
           />
         ) : currentStep === 'widget' ? (
-          <WidgetSetup onFinish={handleFinish} />
+          <WidgetSetup onFinish={handleFinish} autoDetectTimezone />
         ) : (
           <>
             {isDocSnippets ? (
