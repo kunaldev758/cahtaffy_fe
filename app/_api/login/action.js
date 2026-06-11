@@ -2,7 +2,7 @@
 
 
 
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 import {
 
@@ -23,6 +23,11 @@ import {
 const cookieOpts = () => serverAuthCookieOpts();
 
 const platformCookieOpts = () => serverPlatformCookieOpts();
+
+const getUserAgent = () => {
+  const h =  headers();
+  return h.get("user-agent");
+};
 
 
 
@@ -58,7 +63,7 @@ export async function loginAgentApi(email, password) {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
 
     body: JSON.stringify({ email, password }),
 
@@ -86,7 +91,7 @@ export async function loginApi(email, password, resendVerification = false) {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
     body: JSON.stringify({
       email: email,
       password: password,
@@ -118,7 +123,7 @@ export async function directClientLoginApi(token) {
 
     `${process.env.API_HOST}direct-client-login/${encodeURIComponent(token)}`,
 
-    { method: 'GET', cache: 'no-cache' },
+    { method: 'GET', cache: 'no-cache', headers: { 'User-Agent': getUserAgent() } },
 
   )
 
@@ -148,7 +153,7 @@ export async function registrationApi(email, password, role = 'client') {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
 
     body: JSON.stringify({ email, password, role }),
 
@@ -170,7 +175,7 @@ export async function googleOAuthExchange(googleToken) {
 
     cache: 'no-cache',
 
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
 
     body: JSON.stringify({ token: googleToken }),
 
@@ -202,7 +207,7 @@ export async function verifyEmailApi(token) {
 
     cache: 'no-store',
 
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
 
     body: JSON.stringify({ token }),
 
@@ -226,7 +231,7 @@ export async function forgotPasswordApi(email) {
   const response = await fetch(`${process.env.API_HOST}forgot-password`, {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
     body: JSON.stringify({ email }),
   })
   const text = await response.text()
@@ -241,7 +246,7 @@ export async function resetPasswordApi(token, newPassword, confirmPassword) {
   const response = await fetch(`${process.env.API_HOST}reset-password`, {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
     body: JSON.stringify({ token, newPassword, confirmPassword }),
   })
   const text = await response.text()
@@ -283,6 +288,8 @@ export async function getAgentsApi() {
 
       Authorization: token,
 
+      'User-Agent': getUserAgent(),
+
     },
 
   })
@@ -312,6 +319,8 @@ export async function createAIAgentApi() {
       'Content-Type': 'application/json',
 
       Authorization: token,
+
+      'User-Agent': getUserAgent(),
 
     },
 
@@ -349,6 +358,8 @@ export async function deleteAIAgentApi(agentId) {
 
         Authorization: token,
 
+        'User-Agent': getUserAgent(),
+
       },
 
       body: JSON.stringify({}),
@@ -383,6 +394,8 @@ export async function completeOnboardingApi() {
 
       Authorization: token,
 
+      'User-Agent': getUserAgent(),
+
     },
 
   })
@@ -392,6 +405,7 @@ export async function completeOnboardingApi() {
 }
 
 export async function bcAuthLoadApi(signedPayloadJwt) {
+
 
   const response = await fetch(`${process.env.API_HOST}bigcommerce/auth/load?signed_payload_jwt=${signedPayloadJwt}`, {
 
@@ -403,6 +417,7 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
 
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getClientSessionToken()}`,
+      'User-Agent': getUserAgent(),
     },
 
   })
@@ -429,6 +444,7 @@ export async function sfAuthLoadApi(params) {
 
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getClientSessionToken()}`,
+      'User-Agent': getUserAgent(),
     },
 
   })
@@ -455,7 +471,7 @@ export async function platformRedirectionLogin(userId) {
   const response = await fetch(`${process.env.API_HOST}platform-redirection-login/${userId}`, {
     method: 'GET',
     cache: 'no-cache',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'User-Agent': getUserAgent() },
   })
 
   const result = await response.json()
