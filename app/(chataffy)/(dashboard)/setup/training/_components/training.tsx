@@ -112,6 +112,13 @@ interface ScrapingProgress {
   percentage: number
   processed: number
   total: number
+  trainingStep?: 'chunking' | 'embedding' | 'upserting'
+  trainingProcessed?: number
+  trainingTotal?: number
+  embeddingProgress?: number
+  embeddingTotal?: number
+  upsertProgress?: number
+  upsertTotal?: number
   elapsedTime: string
   elapsedSeconds: number
   estimatedTimeRemaining: string | null
@@ -120,6 +127,53 @@ interface ScrapingProgress {
   phase?: 'scraping' | 'training'
   stoppedReason?: string
   error?: boolean
+}
+
+function formatElapsedTime(seconds: number): string {
+  const hrs = Math.floor(seconds / 3600)
+  const mins = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+}
+
+function formatCount(n: number): string {
+  return n.toLocaleString()
+}
+
+function getProgressDescription(progress: ScrapingProgress | null): string {
+  if (!progress) return 'Preparing training job...'
+  if (progress.phase === 'training') {
+    const step = progress.trainingStep ?? 'chunking'
+    if (step === 'embedding' && (progress.embeddingTotal ?? 0) > 0) {
+      return `Embedding chunks ${formatCount(progress.embeddingProgress ?? 0)}/${formatCount(progress.embeddingTotal ?? 0)}`
+    }
+    if (step === 'upserting' && (progress.upsertTotal ?? 0) > 0) {
+      return `Indexing chunks ${formatCount(progress.upsertProgress ?? 0)}/${formatCount(progress.upsertTotal ?? 0)}`
+    }
+    const total = progress.trainingTotal ?? progress.total
+    const done = Math.round(progress.trainingProcessed ?? 0)
+    return `Preparing pages ${done}/${total}`
+  }
+  return `Scraping pages ${progress.processed}/${progress.total}`
+}
+
+function getProgressSubtext(progress: ScrapingProgress | null): string | null {
+  if (!progress?.isProcessing || progress.phase !== 'training') return null
+  const step = progress.trainingStep ?? 'chunking'
+  if (step === 'embedding') return 'Generating embeddings for your pages…'
+  if (step === 'upserting') return 'Saving vectors to your search index…'
+  return 'Preparing page content for embedding…'
+}
+
+function getProgressStatusLabel(progress: ScrapingProgress | null, storageStopped: boolean): string {
+  if (storageStopped) return 'Stopped (storage)'
+  if (progress?.phase === 'training') {
+    const step = progress.trainingStep ?? 'chunking'
+    if (step === 'upserting') return 'Indexing'
+    if (step === 'embedding') return 'Embedding'
+    return 'Preparing'
+  }
+  return 'Running'
 }
 
 // ─── Circular Progress SVG ────────────────────────────────────────────────────
@@ -204,6 +258,7 @@ export default function EnhancedTrainingPage() {
   // Progress & alert states
   const [showContinueScrapping, setShowContinueScrapping] = useState(false)
   const [scrapingProgress, setScrapingProgress] = useState<ScrapingProgress | null>(null)
+  const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0)
 
   // Row selection
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({})
@@ -399,13 +454,32 @@ export default function EnhancedTrainingPage() {
     const onGetAgentDataResponse = ({
       agentData: data,
       webPagesTrainingStats,
+      trainingProgress,
     }: {
       agentData?: AgentData | null
       webPagesTrainingStats?: WebPagesTrainingStats | null
+      trainingProgress?: ScrapingProgress | null
     }) => {
+      const wasTraining = agentDataRef.current?.dataTrainingStatus === 1
       const merged = mergeAgentDataWithWebPageStats(data ?? null, webPagesTrainingStats)
       setAgentData(merged)
       agentDataRef.current = merged
+
+      if (trainingProgress && data?.dataTrainingStatus === 1) {
+        setScrapingProgress(trainingProgress)
+      } else if (data?.dataTrainingStatus === 0) {
+        if (wasTraining) {
+          setScrapingProgress(null)
+        }
+        const q = listQueryRef.current
+        socket.emit('get-training-list', {
+          skip: (q.currentPage - 1) * q.pageSize,
+          limit: q.pageSize,
+          sourcetype: q.sourceTypeFilter,
+          actionType: q.actionTypeFilter,
+          ...(q.search ? { search: q.search } : {}),
+        })
+      }
     }
 
     const onGetClientDataResponse = ({ clientData: data }: any) => setClientData(data)
@@ -555,6 +629,41 @@ export default function EnhancedTrainingPage() {
     agentData?.dataTrainingStatus === 1 ||
     (scrapingProgress?.isProcessing ?? false) ||
     showStorageStoppedCard
+
+  useEffect(() => {
+    const start = agentData?.scrapingStartTime
+    if (agentData?.dataTrainingStatus !== 1 || !start) {
+      setLiveElapsedSeconds(0)
+      return
+    }
+    const startMs = new Date(start).getTime()
+    const tick = () => {
+      setLiveElapsedSeconds(Math.max(0, Math.floor((Date.now() - startMs) / 1000)))
+    }
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [agentData?.dataTrainingStatus, agentData?.scrapingStartTime])
+
+  // Poll while training so a dropped socket event doesn't leave stale UI
+  useEffect(() => {
+    if (!socket || agentData?.dataTrainingStatus !== 1) return
+
+    const poll = () => {
+      socket.emit('get-agent-data')
+    }
+
+    const id = window.setInterval(poll, 5000)
+    return () => window.clearInterval(id)
+  }, [socket, agentData?.dataTrainingStatus])
+
+  const displayedElapsed =
+    isTrainingActive && liveElapsedSeconds > 0
+      ? formatElapsedTime(liveElapsedSeconds)
+      : scrapingProgress?.elapsedTime
+
+  const progressStatusLabel = getProgressStatusLabel(scrapingProgress, showStorageStoppedCard)
+  const progressSubtext = getProgressSubtext(scrapingProgress)
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -1016,24 +1125,28 @@ export default function EnhancedTrainingPage() {
             <CircularProgress percentage={scrapingProgress?.percentage ?? 0} />
             <div className="flex flex-col gap-0.5">
               <p className="text-[14px] font-semibold text-[#111827]">Training Progress</p>
-              {scrapingProgress ? (
-                <>
-                  <p className="text-[12px] text-[#64748B]">
-                    Processing {scrapingProgress.processed}/{scrapingProgress.total} pages
-                  </p>
-                  {scrapingProgress.estimatedTimeRemaining && (
-                    <p className="text-[12px] text-[#64748B]">
-                      Estimated time: {scrapingProgress.estimatedTimeRemaining}
-                    </p>
-                  )}
-                  {showStorageStoppedCard && (
-                    <p className="text-[12px] text-[#C2410C] font-medium mt-0.5">
-                      Storage limit reached — scraping stopped. Upgrade your plan to continue.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="text-[12px] text-[#64748B]">Preparing training job...</p>
+              <p className="text-[12px] text-[#64748B]">
+                {getProgressDescription(scrapingProgress)}
+              </p>
+              {displayedElapsed && (
+                <p className="text-[12px] text-[#64748B]">
+                  Elapsed: {displayedElapsed}
+                </p>
+              )}
+              {scrapingProgress?.phase !== 'training' && scrapingProgress?.estimatedTimeRemaining && (
+                <p className="text-[12px] text-[#64748B]">
+                  Estimated remaining: {scrapingProgress.estimatedTimeRemaining}
+                </p>
+              )}
+              {progressSubtext && (
+                <p className="text-[12px] text-[#64748B]">
+                  {progressSubtext}
+                </p>
+              )}
+              {showStorageStoppedCard && (
+                <p className="text-[12px] text-[#C2410C] font-medium mt-0.5">
+                  Storage limit reached — scraping stopped. Upgrade your plan to continue.
+                </p>
               )}
               <span
                 className={`inline-flex items-center gap-1.5 text-[11px] font-medium mt-0.5 ${showStorageStoppedCard ? 'text-[#C2410C]' : 'text-[#16A34A]'
@@ -1043,7 +1156,7 @@ export default function EnhancedTrainingPage() {
                   className={`w-1.5 h-1.5 rounded-full ${showStorageStoppedCard ? 'bg-[#C2410C]' : 'bg-[#16A34A] animate-pulse'
                     }`}
                 />
-                {showStorageStoppedCard ? 'Stopped (storage)' : 'Running'}
+                {progressStatusLabel}
               </span>
             </div>
           </div>
