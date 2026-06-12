@@ -32,12 +32,15 @@ export function PlatformRedirectionLoginClient() {
         //   credentials: 'include',
         // });
         // const data = await result.json();
-        const result = await platformRedirectionLogin(userId,token);
+        const result = await platformRedirectionLogin(userId, token);
         const data = result;
         if (data?.status_code !== 200 || !data?.token) {
           router.replace(`${appUrl}login`);
           return;
         }
+
+
+        console.log("palform based redirection data : ", data)
 
         sessionStorage.setItem("token", data.token);
         // also persist token where the socket provider expects it
@@ -53,15 +56,21 @@ export function PlatformRedirectionLoginClient() {
           );
         }
 
+        // store new human agent  id ---> 
+        if (data?.humanAgentId) {
+
+          sessionStorage.setItem('humanAgentId', data?.humanAgentId);
+        }
+
         // console.log("calling dispatchAuthStorageSync from redirection")
         await new Promise((resolve) => requestAnimationFrame(resolve));
         // setTimeout(() => {
-          dispatchAuthStorageSync();
-          if (data.isOnboarded === false) {
-            router.replace(`${appUrl}onboarding`);
-          } else {
-            router.replace(`${appUrl}dashboard`);
-          }
+        dispatchAuthStorageSync();
+        if (data.isOnboarded === false) {
+          router.replace(`${appUrl}onboarding`);
+        } else {
+          router.replace(`${appUrl}dashboard`);
+        }
         // }, 1000)
 
       } catch (error) {

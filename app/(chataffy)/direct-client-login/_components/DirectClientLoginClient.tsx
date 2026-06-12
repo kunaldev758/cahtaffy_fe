@@ -48,6 +48,14 @@ export function DirectClientLoginClient() {
           );
         }
 
+        // set the Human Agent Id during Direct client login ---> 
+
+        if (result?.humanAgentId) {
+
+          sessionStorage.setItem("humanAgentId", result?.humanAgentId);
+
+        }
+
         dispatchAuthStorageSync();
         redirectAfterClientLogin(result.isOnboarded !== false);
       } catch (error) {

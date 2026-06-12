@@ -444,7 +444,9 @@ export async function platformRedirectionLogin(userId,shortLivedToken) {
     headers: makeFetchHeaders(),
   })
 
-  const result = await response.json()
+  const result = await response.json();
+
+  console.log("result is : ",result);
 //  getting the token from set-cookie   `Set-Cookie` header
   const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
   if(result.status) {
