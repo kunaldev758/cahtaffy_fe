@@ -51,6 +51,10 @@ export default function WebsiteSelect() {
         setAgents(Array.isArray(data) ? data : [])
         if(data.length > 0) {
           window.sessionStorage.setItem('agents', JSON.stringify(data))
+          if(!storedId){
+            sessionStorage.setItem('currentAgentId', data[0]._id)
+            window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: data[0]._id } }))
+          }
         }
       } catch {
         // silent

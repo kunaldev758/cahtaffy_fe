@@ -93,6 +93,7 @@ export default function IntegratedSidebar() {
           if (data && data.clientAgent) {
             setClientData(data.clientAgent)
             sessionStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
+            sessionStorage.setItem('userId', data.clientAgent.userId)
             // dispatchAuthStorageSync()
           }
         } catch { }
