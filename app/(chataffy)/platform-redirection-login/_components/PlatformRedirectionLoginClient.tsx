@@ -42,7 +42,7 @@ export function PlatformRedirectionLoginClient() {
 
         console.log("palform based redirection data : ", data)
 
-        sessionStorage.setItem("token", data.token);
+        // sessionStorage.setItem("token", data.token);
         // also persist token where the socket provider expects it
         if (data.token) setSocketToken("client", data.token);
         if (data.userId != null) {
@@ -61,11 +61,12 @@ export function PlatformRedirectionLoginClient() {
 
           sessionStorage.setItem('humanAgentId', data?.humanAgentId);
         }
+        sessionStorage.setItem("role", "client");
 
         // console.log("calling dispatchAuthStorageSync from redirection")
-        await new Promise((resolve) => requestAnimationFrame(resolve));
         // setTimeout(() => {
         dispatchAuthStorageSync();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
         if (data.isOnboarded === false) {
           router.replace(`${appUrl}onboarding`);
         } else {
