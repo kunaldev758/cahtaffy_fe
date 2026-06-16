@@ -220,7 +220,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   }, [fetchNotifications]);
 
   const fetchMoreNotifications = useCallback(async () => {
-    if (!humanAgentId || isFetchingRef.current || !hasMore.current) return;
+
+    let updatedHumanAgentId = humanAgentId ? humanAgentId : sessionStorage.getItem("humanAgentId");
+    if (!updatedHumanAgentId || isFetchingRef.current || !hasMore.current) return;
     isFetchingRef.current = true;
 
     try {
@@ -231,7 +233,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
       }
 
       const res = await fetch(
-        `${apiBase}notifications/agent/${humanAgentId}?page=${page.current}&limit=20`,
+        `${apiBase}notifications/agent/${updatedHumanAgentId}?page=${page.current}&limit=20`,
         { headers: { Authorization: token } }
       );
       if (!res.ok) {
