@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { ChevronDown, Globe, Check, Loader2 } from 'lucide-react'
 import { getAIAgents, logoutAgentApi, toggleActiveStatus } from '@/app/_api/dashboard/action'
 import { clearSocketToken } from '@/lib/socketSession'
-import { dispatchAuthStorageSync } from '@/app/socketContext'
+import { AUTH_STORAGE_SYNC_EVENT, dispatchAuthStorageSync } from '@/app/socketContext'
 import NotificationBell from '@/app/(chataffy)/(dashboard)/_components/NotificationBell'
 import AgentEditProfileModal, { type AgentEditProfileAgent } from './AgentEditProfileModal'
 import defaultImageImport from '@/images/default-image.png'
@@ -135,16 +135,21 @@ export default function AgentTopBar() {
   const [hasReadAgentFromStorage, setHasReadAgentFromStorage] = useState(false)
 
   useEffect(() => {
-    // Read human agent from sessionStorage
-    try {
-      const raw = sessionStorage.getItem('agent');
+    const loadFromStorage = () => {
+      // Read human agent from sessionStorage
+      try {
+        const raw = sessionStorage.getItem('agent')
+        console.log('raw agent from sessionStorage:', raw)
+        setHumanAgent(raw ? JSON.parse(raw) : null)
+      } catch {
+        setHumanAgent(null)
+      }
 
-      console.log('raw agent from sessionStorage:', raw);
-      if (raw) setHumanAgent(JSON.parse(raw))
-    } catch { }
+      setCurrentAgentId(sessionStorage.getItem('currentAgentId'))
+      setHasReadAgentFromStorage(true)
+    }
 
-    setCurrentAgentId(sessionStorage.getItem('currentAgentId'))
-    setHasReadAgentFromStorage(true)
+    loadFromStorage()
 
     // Fetch all AI agents then filter to assigned ones
     const fetchAgents = async () => {
@@ -171,9 +176,11 @@ export default function AgentTopBar() {
 
     window.addEventListener('agent-changed', handleAgentChanged as EventListener)
     window.addEventListener('agent-status-updated', handleAgentStatusUpdate)
+    window.addEventListener(AUTH_STORAGE_SYNC_EVENT, loadFromStorage)
     return () => {
       window.removeEventListener('agent-changed', handleAgentChanged as EventListener)
       window.removeEventListener('agent-status-updated', handleAgentStatusUpdate)
+      window.removeEventListener(AUTH_STORAGE_SYNC_EVENT, loadFromStorage)
     }
   }, [])
 
@@ -276,6 +283,8 @@ export default function AgentTopBar() {
       id: humanAgent.id || (humanAgent as { _id?: string })._id,
     }
     : null
+
+    console.log("human agent check at topbar ",humanAgent);
 
   return (
     <>

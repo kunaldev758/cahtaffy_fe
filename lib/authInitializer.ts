@@ -194,6 +194,8 @@ const restoreValidatedSession = (session: TokenValidation & { role: AuthRole }) 
     );
     storage.setSessionJSON('agent', { ...session.agent, _id: humanAgentId });
     if (humanAgentId) storage.setSession('humanAgentId', humanAgentId);
+  } else if (session.humanAgentId) {
+    storage.setSession('humanAgentId', normalizeId(session.humanAgentId));
   }
 };
 

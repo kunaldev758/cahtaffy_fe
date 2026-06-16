@@ -54,6 +54,9 @@ export function resolveHumanAgentIdForSocket(portal: AuthPortal): string | undef
     return undefined;
   }
 
+  const stored = sessionStorage.getItem("humanAgentId");
+  if (stored) return stored;
+
   const clientAgentRaw = sessionStorage.getItem("clientAgent");
   if (clientAgentRaw) {
     try {

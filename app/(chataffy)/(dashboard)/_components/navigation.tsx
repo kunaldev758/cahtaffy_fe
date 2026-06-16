@@ -94,7 +94,10 @@ export default function IntegratedSidebar() {
             setClientData(data.clientAgent)
             sessionStorage.setItem('clientAgent', JSON.stringify(data.clientAgent))
             sessionStorage.setItem('userId', data.clientAgent.userId)
-            // dispatchAuthStorageSync()
+            if (data.clientAgent._id) {
+              sessionStorage.setItem('humanAgentId', String(data.clientAgent._id))
+            }
+            dispatchAuthStorageSync()
           }
         } catch { }
       }

@@ -28,10 +28,14 @@ export function dispatchAuthStorageSync() {
 }
 
 async function resolveSocketToken(portal: AuthPortal): Promise<string> {
-  const fromCookie =
-    portal === "agent" ? await getAgentToken() : await getClientToken();
+  if (portal === "agent") {
+    const fromSession = getSocketTokenFromSession("agent");
+    if (fromSession) return fromSession;
+    return (await getAgentToken()) || "";
+  }
+  const fromCookie = await getClientToken();
   if (fromCookie) return fromCookie;
-  return getSocketTokenFromSession(portal);
+  return getSocketTokenFromSession("client");
 }
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

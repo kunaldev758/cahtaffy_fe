@@ -152,7 +152,11 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   // If the API returns an empty array we deliberately keep the current state so that
   // real-time optimistic entries (added via socket events) are never wiped out.
   const fetchNotifications = useCallback(async (reset = false) => {
-    if (!humanAgentId) return;
+
+    console.log("fetch notifications check: ",humanAgentId)
+
+    let updatedHumanAgentId = humanAgentId ? humanAgentId : sessionStorage.getItem("humanAgentId");
+    if (!updatedHumanAgentId) return;
     if (reset) {
       page.current = 1;
       hasMore.current = true;
@@ -167,7 +171,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
 
       const currentPage = page.current;
       const res = await fetch(
-        `${apiBase}notifications/agent/${humanAgentId}?page=${currentPage}&limit=20`,
+        `${apiBase}notifications/agent/${updatedHumanAgentId}?page=${currentPage}&limit=20`,
         { headers: { Authorization: token } }
       );
 
