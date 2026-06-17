@@ -153,10 +153,21 @@ export default function NewAgentOnboardingPage() {
   const isWidgetStep = currentStep === 'widget'
   const hasUploadedDocFile = Boolean(uploadedFile)
 
+  const MAX_DOC_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
+
   const handleFileSelect = (files: FileList | null) => {
     if (!files || files.length === 0) return
-    setUploadedFileName(files[0].name)
-    setUploadedFile(files[0])
+    const file = files[0]
+    if (file.size > MAX_DOC_FILE_SIZE) {
+      const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+            toast.error(`current File size is ${fileSizeInMB} MB which exceeds the maximum allowed size of 50 MB`)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+    setUploadedFileName(file.name)
+    setUploadedFile(file)
   }
 
   const handleClearUploadedFile = () => {
