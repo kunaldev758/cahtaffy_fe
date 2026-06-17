@@ -9,9 +9,10 @@ import { toast } from 'react-toastify'
 import { Spinner } from '@/components/ui/spinner'
 import TrainSetup from '../../../onboarding/components/train-setup'
 import WidgetSetup from '../../../onboarding/components/widget-setup'
-import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi, updateOnboardingStepApi } from '@/app/_api/dashboard/action'
+import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi, updateOnboardingStepApi, getAIAgents } from '@/app/_api/dashboard/action'
 import { deleteAIAgentApi } from '@/app/_api/login/action'
 import { usePlanContext } from '@/app/planContext'
+import { findDuplicateWebsiteAgent } from '@/lib/websiteUrl'
 
 type SetupTab = 'web' | 'docs' | 'faqs'
 type SetupStep = 'source' | 'train' | 'widget'
@@ -48,6 +49,7 @@ export default function NewAgentOnboardingPage() {
   const { effectiveLimits } = usePlanContext()
   const [isAgentLimitReached, setIsAgentLimitReached] = useState(false)
   const [agentsLoading, setAgentsLoading] = useState(true)
+  const [existingAgents, setExistingAgents] = useState<Array<{ _id: string; agentName?: string; website_name?: string; onboardingWebsiteUrl?: string; onboardingExtractedUrls?: string[] }>>([])
 
   const [agentId, setAgentId] = useState<string | null>(null)
   useEffect(() => {
@@ -81,12 +83,28 @@ export default function NewAgentOnboardingPage() {
       const storedAgents = JSON.parse(sessionStorage.getItem('agents') || '[]')
       const currentAgentsCount = Array.isArray(storedAgents) ? storedAgents.length : 0
       setIsAgentLimitReached(currentAgentsCount >= maxAgentsPerAccount)
-      setAgentsLoading(false)
     } catch {
       setIsAgentLimitReached(false)
+    } finally {
       setAgentsLoading(false)
     }
   }, [effectiveLimits])
+
+  useEffect(() => {
+    getAIAgents()
+      .then((data) => {
+        const agentsList = Array.isArray(data) ? data : []
+        setExistingAgents(agentsList)
+      })
+      .catch(() => {
+        try {
+          const storedAgents = JSON.parse(sessionStorage.getItem('agents') || '[]')
+          setExistingAgents(Array.isArray(storedAgents) ? storedAgents : [])
+        } catch {
+          setExistingAgents([])
+        }
+      })
+  }, [])
 
   const removeAgentFromStorage = (deletedId: string | null, prevAgentId: string | null) => {
     if (deletedId) {
@@ -225,6 +243,12 @@ export default function NewAgentOnboardingPage() {
     if (!url) { toast.error('Please enter a website URL'); return }
     if (!agentId) { toast.error('Session expired. Please log in again.'); return }
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
+    const duplicateAgent = findDuplicateWebsiteAgent(existingAgents, normalizedUrl, agentId)
+    if (duplicateAgent) {
+      const existingName = duplicateAgent.agentName || duplicateAgent.website_name || 'your account'
+      toast.error(`This website is already added as "${existingName}".`)
+      return
+    }
     setIsFetchingUrls(true)
     setFetchStep('logo')
     const stepInterval = setInterval(() => {
