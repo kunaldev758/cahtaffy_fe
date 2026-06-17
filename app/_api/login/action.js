@@ -26,9 +26,16 @@ const platformCookieOpts = () => serverPlatformCookieOpts();
 
 const getRequestMeta = () => {
   const h = headers();
+
   const userAgent = h.get("user-agent") || "unknown";
-  const xff = h.get("x-forwarded-for") || h.get("x-client-ip") || h.get("x-real-ip") || "";
-  const ip = xff ? xff.split(",").pop().trim() : "unknown";
+
+  const ip =
+    h.get("cf-connecting-ip") ||
+    h.get("x-real-ip") ||
+    h.get("x-client-ip") ||
+    h.get("x-forwarded-for")?.split(",")[0].trim() ||
+    "unknown";
+
   return { userAgent, ip };
 };
 
