@@ -3,14 +3,24 @@ import { useState } from "react";
 import Image from 'next/image';
 import fileUploadImage from '@/images/file-upload.svg';
 
-export const FileUpload = ({ onFileChange }: { onFileChange: (file: File | null) => void }) => {
+export const FileUpload = ({
+  onFileChange,
+  validateFile,
+}: {
+  onFileChange: (file: File | null) => void
+  validateFile?: (file: File) => boolean
+}) => {
   const [file, setFile] = useState<File | null>(null);
   const [fileEnter, setFileEnter] = useState(false);
 
-  const handleFileChange = (files: FileList | null) => {
+  const handleFileChange = (files: FileList | null, inputEl?: HTMLInputElement | null) => {
     if (files && files[0]) {
       const uploadedFile = files[0];
       if (["application/pdf", "text/plain", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(uploadedFile.type)) {
+        if (validateFile && !validateFile(uploadedFile)) {
+          if (inputEl) inputEl.value = ''
+          return
+        }
         setFile(uploadedFile);
         onFileChange(uploadedFile);
       }
@@ -56,7 +66,7 @@ export const FileUpload = ({ onFileChange }: { onFileChange: (file: File | null)
         type="file"
         className="hidden"
         accept=".doc,.docx,.pdf,.txt"
-        onChange={(e) => handleFileChange(e.target.files)}
+        onChange={(e) => handleFileChange(e.target.files, e.target)}
       />
     </div>
   );

@@ -14,6 +14,16 @@ export default function AddContentModal({ showModal, onHide, agentId, onBack }: 
   const [file, setFile] = useState<File | null>(null);
   const [buttonLoading, setButtonLoading] = useState(false);
   const [fileUploadKey, setFileUploadKey] = useState(0);
+  const MAX_DOC_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
+
+  const validateFile = (selectedFile: File) => {
+    if (selectedFile.size > MAX_DOC_FILE_SIZE) {
+      const fileSizeInMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
+      toast.error(`current File size is ${fileSizeInMB} MB which exceeds the maximum allowed size of 50 MB`)
+      return false
+    }
+    return true
+  }
 
   useEffect(() => {
     if (!showModal) {
@@ -76,7 +86,7 @@ export default function AddContentModal({ showModal, onHide, agentId, onBack }: 
 
         <div>
           <div className="flex flex-col gap-[20px] px-[20px]">
-            <FileUpload key={fileUploadKey} onFileChange={setFile} />
+            <FileUpload key={fileUploadKey} onFileChange={setFile} validateFile={validateFile} />
 
             <div className="bg-[#F9FBFD] rounded-[20px] border border-[#E8E8E8]">
               <div className="flex items-center justify-between gap-1 py-[20px] px-[20px]">
