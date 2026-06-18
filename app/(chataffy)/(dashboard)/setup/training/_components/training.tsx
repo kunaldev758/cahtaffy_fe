@@ -303,7 +303,11 @@ export default function EnhancedTrainingPage() {
     return map[status] ?? map[0]
   }
 
-  const prevDebouncedSearchRef = useRef(debouncedSearch)
+  const prevListFiltersRef = useRef({
+    debouncedSearch,
+    sourceTypeFilter,
+    actionTypeFilter,
+  })
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchValue), 300)
@@ -594,12 +598,22 @@ export default function EnhancedTrainingPage() {
   useEffect(() => {
     if (!socket) return
 
-    if (prevDebouncedSearchRef.current !== debouncedSearch) {
+    const prev = prevListFiltersRef.current
+    const filtersChanged =
+      prev.debouncedSearch !== debouncedSearch ||
+      prev.sourceTypeFilter !== sourceTypeFilter ||
+      prev.actionTypeFilter !== actionTypeFilter
+
+    if (filtersChanged) {
       if (currentPage !== 1) {
         setCurrentPage(1)
         return
       }
-      prevDebouncedSearchRef.current = debouncedSearch
+      prevListFiltersRef.current = {
+        debouncedSearch,
+        sourceTypeFilter,
+        actionTypeFilter,
+      }
     }
 
     const search = debouncedSearch.trim()
