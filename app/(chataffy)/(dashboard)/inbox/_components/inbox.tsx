@@ -613,6 +613,16 @@ export default function Inbox(Props: any) {
     }
   };
 
+  const findConversationInLists = (conversationId: any) => {
+    const conversationFromList = conversationsList?.data?.find(
+      (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+    );
+    const oldConversationFromList = oldConversationList?.data?.find(
+      (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
+    );
+    return conversationFromList || oldConversationFromList;
+  };
+
   const openOldConversation = async (conversationId: any, visitorName: string) => {
     try {
       const data = await getOldConversationMessages({ conversationId });
@@ -624,6 +634,9 @@ export default function Inbox(Props: any) {
           (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
         );
         const selectedConversation = conversationFromList || oldConversationFromList;
+        if (selectedConversation?.aiChat !== undefined) {
+          setIsAIChat(selectedConversation.aiChat);
+        }
         const resolvedVisitorName =
           selectedConversation?.visitor?.name ||
           selectedConversation?.visitorName ||
@@ -888,6 +901,10 @@ export default function Inbox(Props: any) {
   };
 
   const handleOldConversationClick = async (conversationId: string, visitorName: string) => {
+    const selectedConversation = findConversationInLists(conversationId);
+    if (selectedConversation?.aiChat !== undefined) {
+      setIsAIChat(selectedConversation.aiChat);
+    }
     setOpenConversationId(conversationId);
     await openOldConversation(conversationId, visitorName);
   };
