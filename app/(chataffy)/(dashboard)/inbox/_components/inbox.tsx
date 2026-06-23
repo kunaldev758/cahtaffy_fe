@@ -20,6 +20,7 @@ import InboxSkeleton from "./InboxSkeleton";
 export default function Inbox(Props: any) {
   const searchParams = useSearchParams();
   const currentConversationId = searchParams?.get("conversationId") ?? null;
+  const urlVisitorName = searchParams?.get("visitorName") ?? null;
   // Add this state near the top of Inbox component
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -284,7 +285,9 @@ export default function Inbox(Props: any) {
       setAgentConnectionRequest({
         conversationId: data.conversationId,
         visitorName:
-          data.visitor?.visitorDetails?.find((d: any) => d.field === "Name")?.value || "Visitor",
+          data.visitor?.visitorDetails?.find(
+            (d: any) => d.field?.trim?.().toLowerCase() === "name"
+          )?.value || "Visitor",
         requestStartedAt: startedAt,
       });
     };
@@ -623,6 +626,15 @@ export default function Inbox(Props: any) {
     return conversationFromList || oldConversationFromList;
   };
 
+  const resolveVisitorDisplayName = (conv: any, fallback?: string) =>
+    conv?.visitor?.visitorDetails?.find(
+      (d: any) => d.field?.trim?.().toLowerCase() === "name"
+    )?.value ||
+    conv?.visitorName ||
+    conv?.visitor?.name ||
+    fallback ||
+    "Visitor";
+
   const openOldConversation = async (conversationId: any, visitorName: string) => {
     try {
       const data = await getOldConversationMessages({ conversationId });
@@ -637,11 +649,9 @@ export default function Inbox(Props: any) {
         if (selectedConversation?.aiChat !== undefined) {
           setIsAIChat(selectedConversation.aiChat);
         }
-        const resolvedVisitorName =
-          selectedConversation?.visitor?.name ||
-          selectedConversation?.visitorName ||
-          visitorName ||
-          "Visitor";
+        const resolvedVisitorName = selectedConversation
+          ? resolveVisitorDisplayName(selectedConversation, visitorName)
+          : visitorName || "Visitor";
 
         history.pushState(null, '', `?conversationId=${conversationId}`);
         setConversationMessages({
@@ -707,37 +717,45 @@ export default function Inbox(Props: any) {
     }
   };
 
+  // Open by id even when the active list filter hides it (e.g. closed conv while filter is "open").
+  const openConversationById = async (conversationId: string, fallbackVisitorName?: string) => {
+    const cid = String(conversationId);
+    const conversation = conversationsList?.data?.find(
+      (conv: any) => String(conv._id) === cid || String(conv.id) === cid
+    );
+    if (conversation) {
+      await openConversation(
+        conversation,
+        resolveVisitorDisplayName(conversation, fallbackVisitorName),
+        0
+      );
+      return;
+    }
+    try {
+      const data = await getOldConversationMessages({ conversationId: cid });
+      if (!data) return;
+      if (data.conversationOpenStatus === "close" && status === "open") {
+        setStatus("all");
+      }
+      setIsConversationAvailable(true);
+      await openOldConversation(cid, fallbackVisitorName || "Visitor");
+    } catch (error) {
+      console.error("Error opening conversation by ID:", error);
+    }
+  };
+
   // Handle notification navigation when already on inbox page
   useEffect(() => {
     const handleNotificationNavigate = async (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { conversationId } = customEvent.detail;
+      const { conversationId, visitorName } = customEvent.detail;
       console.log("Notification navigate to conversation:", conversationId);
-
-      // Find the conversation in the list
-      const conversation = conversationsList?.data?.find(
-        (conv: any) =>
-          String(conv._id) === String(conversationId) || String(conv.id) === String(conversationId)
+      // Let the URL effect open once the list is loaded (avoids "Visitor" fallback on cross-page nav).
+      if (conversationsList.loading) return;
+      await openConversationById(
+        String(conversationId),
+        visitorName || urlVisitorName || undefined
       );
-
-      if (conversation) {
-        const visitorName = conversation.visitor?.visitorDetails?.find((d: any) => d.field === 'Name')?.value ||
-          conversation.visitorName ||
-          'Visitor';
-        await openConversation(conversation, visitorName, 0);
-      } else {
-        // If conversation not found in list, try to open it directly by ID
-        // This might be an old conversation or one that needs to be fetched
-        try {
-          const data = await getOldConversationMessages({ conversationId });
-          if (data && data.chatMessages && data.chatMessages.length > 0) {
-            const visitorName = data.visitorName || 'Visitor';
-            await openOldConversation(conversationId, visitorName);
-          }
-        } catch (error) {
-          console.error("Error opening conversation from notification:", error);
-        }
-      }
     };
 
     window.addEventListener('notification-navigate-to-conversation', handleNotificationNavigate);
@@ -745,7 +763,7 @@ export default function Inbox(Props: any) {
     return () => {
       window.removeEventListener('notification-navigate-to-conversation', handleNotificationNavigate);
     };
-  }, [conversationsList]);
+  }, [conversationsList, status, urlVisitorName]);
 
   const handleMessageSend = () => {
     if (!inputMessage.trim()) return;
@@ -940,16 +958,10 @@ export default function Inbox(Props: any) {
   useEffect(() => {
     if (conversationsList.loading) return;
 
-    const visitorDisplayName = (conv: any) =>
-      conv?.visitor?.visitorDetails?.find((d: any) => d.field === "Name")?.value ||
-      conv?.visitor?.name ||
-      "Visitor";
-
     const run = async () => {
       if (currentConversationId) {
         const cid = String(currentConversationId);
         const conv = conversationsList?.data?.find((con: any) => String(con._id) === cid);
-        if (!conv) return;
         // Do NOT skip just because openConversationId was hydrated from the URL on first paint.
         // We must still run openConversation() to load messages, join the socket room, and run
         // emitCheckPendingAgentRequest (accept/decline popup) — e.g. when opening inbox from another tab.
@@ -960,7 +972,12 @@ export default function Inbox(Props: any) {
         if (urlConversationOpenInFlightRef.current === cid) return;
         urlConversationOpenInFlightRef.current = cid;
         try {
-          await openConversation(conv, visitorDisplayName(conv), 0);
+          const nameFallback = urlVisitorName || undefined;
+          if (conv) {
+            await openConversation(conv, resolveVisitorDisplayName(conv, nameFallback), 0);
+          } else {
+            await openConversationById(cid, nameFallback);
+          }
         } finally {
           if (urlConversationOpenInFlightRef.current === cid) {
             urlConversationOpenInFlightRef.current = null;
@@ -975,17 +992,44 @@ export default function Inbox(Props: any) {
 
       hasOpenedFirstRef.current = true;
       const first = conversationsList.data[0];
-      await openConversation(first, visitorDisplayName(first), 0);
+      await openConversation(first, resolveVisitorDisplayName(first), 0);
     };
 
     void run();
   }, [
     currentConversationId,
+    urlVisitorName,
     conversationMessages?.conversationId,
     conversationMessages?.loading,
     status,
     conversationsList.loading,
     conversationsList?.data,
+  ]);
+
+  // If the chat opened before the list had visitor data, patch the name once the list arrives.
+  useEffect(() => {
+    if (!currentConversationId || conversationsList.loading) return;
+    const cid = String(currentConversationId);
+    if (String(conversationMessages?.conversationId ?? "") !== cid) return;
+    if (conversationMessages?.visitorName && conversationMessages.visitorName !== "Visitor") {
+      return;
+    }
+
+    const conv = conversationsList?.data?.find((c: any) => String(c._id) === cid);
+    const resolved = resolveVisitorDisplayName(conv, urlVisitorName || undefined);
+    if (!resolved || resolved === "Visitor" || resolved === conversationMessages?.visitorName) {
+      return;
+    }
+
+    setConversationMessages((prev: any) => ({ ...prev, visitorName: resolved }));
+    setOpenVisitorName(resolved);
+  }, [
+    currentConversationId,
+    urlVisitorName,
+    conversationsList.loading,
+    conversationsList?.data,
+    conversationMessages?.conversationId,
+    conversationMessages?.visitorName,
   ]);
 
   // Mark messages as seen only when the open conversation changes — not on every

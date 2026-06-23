@@ -44,9 +44,15 @@ function formatTimeAgo(dateStr: string): string {
 
 function getVisitorName(notif: NotificationItem): string {
   const details = notif.visitorId?.visitorDetails;
-  if (!details) return "Visitor";
-  const nameField = details.find((d) => d.field === "Name");
-  return nameField?.value || "Visitor";
+  if (details?.length) {
+    const nameField = details.find(
+      (d) => d.field?.trim().toLowerCase() === "name"
+    );
+    if (nameField?.value) return nameField.value;
+  }
+  const populatedName = (notif.visitorId as { name?: string } | undefined)?.name;
+  if (populatedName) return populatedName;
+  return "Visitor";
 }
 
 function getConversationId(notif: NotificationItem): string {
@@ -412,44 +418,25 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     if (!convId) return;
     const inboxPath = getInboxPath(pathname || "");
 
-    const targetUrl = `${inboxPath}?conversationId=${encodeURIComponent(convId)}`;
+    const visitorName = getVisitorName(notif);
+    const params = new URLSearchParams({ conversationId: convId });
+    if (visitorName && visitorName !== "Visitor") {
+      params.set("visitorName", visitorName);
+    }
+    const targetUrl = `${inboxPath}?${params.toString()}`;
     router.replace(targetUrl);
-    // const isAlreadyOnInbox = !!(pathname?.includes(inboxPath));
 
-    // if (!isAlreadyOnInbox) {
-      // router.replace(targetUrl);
-      // setTimeout(
-      //   () =>
-      //     window.dispatchEvent(
-      //       new CustomEvent("notification-navigate-to-conversation", {
-      //         detail: { conversationId: convId },
-      //       })
-      //     ),
-      //   didSwitchAgent ? 600 : 400
-      // );
-    // } else {
-      // Already on inbox — use router.replace() so Next.js searchParams
-      // receives the update and the URL-based auto-open useEffect fires.
-      // router.replace(targetUrl);
+    const isAlreadyOnInbox = !!(pathname?.includes(inboxPath));
+    if (isAlreadyOnInbox) {
+      const emitConversationNavigate = () =>
+        window.dispatchEvent(
+          new CustomEvent("notification-navigate-to-conversation", {
+            detail: { conversationId: convId, visitorName },
+          })
+        );
 
-      // Also fire the custom event so the existing handler in inbox.tsx
-      // can open the conversation immediately without waiting for a re-render.
-      // const emitConversationNavigate = () =>
-      //   window.dispatchEvent(
-      //     new CustomEvent("notification-navigate-to-conversation", {
-      //       detail: { conversationId: convId },
-      //     })
-      //   );
-
-      // When switching agent, inbox resets and socket reconnects.
-      // Delay opening the conversation slightly to avoid racing that reset.
-      // if (didSwitchAgent) {
-      //   setTimeout(emitConversationNavigate, 400);
-      // } else {
-      //   // Small tick to let router.replace propagate before the event fires.
-      //   setTimeout(emitConversationNavigate, 50);
-      // }
-    // }
+      setTimeout(emitConversationNavigate, didSwitchAgent ? 400 : 50);
+    }
   };
 
   // useEffect(() => {
