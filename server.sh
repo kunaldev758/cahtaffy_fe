@@ -10,7 +10,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 echo "Local Current Branch: $CURRENT_BRANCH"
 echo "Connecting to EC2 Server..."
 
-ssh -i "C:\Users\sta\Desktop\chataffy-imp-data\chataffy-key1.pem" ubuntu@34.213.132.47 << EOF
+ssh -i "C:\Users\sta\Desktop\chataffy-imp-data\chataffy-live.pem" ubuntu@44.203.85.96 << EOF
 
 set -e
 
@@ -24,7 +24,7 @@ whoami
 
 echo ""
 echo "Moving to Frontend Project Directory..."
-cd /var/www/html/chataffy/cahtaffy_fe
+cd /var/www/html/chataffy.com/chataffy_fe
 
 echo ""
 echo "Current Directory:"
@@ -32,7 +32,7 @@ pwd
 
 echo ""
 echo "Adding Git Safe Directory..."
-git config --global --add safe.directory /var/www/html/chataffy/cahtaffy_fe
+git config --global --add safe.directory /var/www/chataffy.com/chataffy_fe
 
 echo ""
 echo "Checking Current Git Branch on Server..."
