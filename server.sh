@@ -24,7 +24,7 @@ whoami
 
 echo ""
 echo "Moving to Frontend Project Directory..."
-cd /var/www/html/chataffy.com/chataffy_fe
+cd /var/www/chataffy.com/chataffy_fe
 
 echo ""
 echo "Current Directory:"
