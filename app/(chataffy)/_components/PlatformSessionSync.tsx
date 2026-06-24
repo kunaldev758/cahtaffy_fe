@@ -80,14 +80,14 @@ export default function PlatformSessionSync() {
       syncingRef.current = true;
       try {
         if (provider === 'bigcommerce') {
-          const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt');
-          if (!signedPayloadJwt) return;
+          // const signedPayloadJwt = sessionStorage.getItem('signedPayloadJwt');
+          // if (!signedPayloadJwt) return;
 
           setClientPlatformCookie('bigcommerce');
         } else {
-          const shop = sessionStorage.getItem('shopifyShop');
-          const sfParams = sessionStorage.getItem('sf_params');
-          if (!shop && !sfParams) return;
+          // const shop = sessionStorage.getItem('shopifyShop');
+          // const sfParams = sessionStorage.getItem('sf_params');
+          // if (!shop && !sfParams) return;
 
           setClientPlatformCookie('shopify');
         }
