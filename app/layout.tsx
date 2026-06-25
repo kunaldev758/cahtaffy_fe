@@ -5,7 +5,14 @@ import 'react-toastify/dist/ReactToastify.css';
 import '@/app/fonts.css'
 import '@/app/globals.css'
 import { Plus_Jakarta_Sans } from 'next/font/google'
-import ShopifyAppBridgeHead from '@/app/_components/ShopifyAppBridgeHead'
+import ShopifyAppBridgeHead from '@/app/_components/ShopifyAppBridgeHead';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  icons: {
+    icon: '/images/logo.png',
+  },
+};
 
 
 const jakarta = Plus_Jakarta_Sans({
