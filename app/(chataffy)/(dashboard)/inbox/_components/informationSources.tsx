@@ -29,8 +29,40 @@ interface InformationSourcesProps {
   sources: Source[];
 }
 
+const UTILITY_SOURCE_PATTERNS = [
+  /privacy[-\s]?policy/i,
+  /terms[-\s]?(of[-\s]?(use|service)|and[-\s]?conditions)/i,
+  /cookie[-\s]?policy/i,
+  /\/contact(?:\/|$|\?|#)/i,
+  /\bcontact[-\s]us\b/i,
+  /\/legal(?:\/|$|\?|#)/i,
+  /disclaimer/i,
+  /\bgdpr\b/i,
+  /\/cookies(?:\/|$|\?|#)/i,
+];
+
+function isUtilitySource(source: Source) {
+  const haystack = `${source.title || ''} ${source.url || ''}`;
+  return UTILITY_SOURCE_PATTERNS.some((pattern) => pattern.test(haystack));
+}
+
+function filterDisplaySources(sources: Source[]) {
+  const seen = new Set<string>();
+  return sources
+    .filter((source) => source && (source.url || source.title))
+    .filter((source) => !isUtilitySource(source))
+    .filter((source) => {
+      const key = source.url || source.title || '';
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 3);
+}
+
 export default function InformationSources({ sources }: InformationSourcesProps) {
-  if (!sources || sources.length === 0) return null;
+  const displaySources = filterDisplaySources(sources || []);
+  if (!displaySources.length) return null;
 
   return (
     <div className="sourceChat-show" style={{
@@ -58,7 +90,7 @@ export default function InformationSources({ sources }: InformationSourcesProps)
       }}>
         Sources
       </div>
-      {sources.map((source, index) => {
+      {displaySources.map((source, index) => {
         const typeLabel = source.type !== null ? (SOURCE_LABELS[source.type] ?? 'Source') : 'Source';
         const icon = source.type !== null ? (SOURCE_ICONS[source.type] ?? <FileText className="w-3.5 h-3.5" />) : <FileText className="w-3.5 h-3.5" />;
         const display = source.title || source.url || 'Unknown source';
@@ -69,7 +101,7 @@ export default function InformationSources({ sources }: InformationSourcesProps)
             display: 'flex',
             alignItems: 'flex-start',
             gap: '8px',
-            borderBottom: index < sources.length - 1 ? '1px solid #f9fafb' : 'none',
+            borderBottom: index < displaySources.length - 1 ? '1px solid #f9fafb' : 'none',
           }}>
             <span style={{ color: '#6b7280', marginTop: '2px', flexShrink: 0 }}>
               {icon}

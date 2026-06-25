@@ -297,12 +297,39 @@ const Message = ({
   // Parse infoSources: support both new object format and legacy string format
   const structuredSources: MessageSource[] = React.useMemo(() => {
     if (!messageData.infoSources?.length) return [];
-    return (messageData.infoSources as any[]).map((s) => {
-      if (typeof s === 'string') {
-        try { return JSON.parse(s); } catch { return { type: null, title: s, url: null }; }
-      }
-      return s as MessageSource;
-    }).filter((s) => s && (s.url || s.title));
+    const utilityPatterns = [
+      /privacy[-\s]?policy/i,
+      /terms[-\s]?(of[-\s]?(use|service)|and[-\s]?conditions)/i,
+      /cookie[-\s]?policy/i,
+      /\/contact(?:\/|$|\?|#)/i,
+      /\bcontact[-\s]us\b/i,
+      /\/legal(?:\/|$|\?|#)/i,
+      /disclaimer/i,
+      /\bgdpr\b/i,
+      /\/cookies(?:\/|$|\?|#)/i,
+    ];
+    const isUtility = (source: MessageSource) =>
+      utilityPatterns.some((pattern) =>
+        pattern.test(`${source.title || ''} ${source.url || ''}`)
+      );
+
+    const seen = new Set<string>();
+    return (messageData.infoSources as any[])
+      .map((s) => {
+        if (typeof s === 'string') {
+          try { return JSON.parse(s); } catch { return { type: null, title: s, url: null }; }
+        }
+        return s as MessageSource;
+      })
+      .filter((s) => s && (s.url || s.title))
+      .filter((s) => !isUtility(s))
+      .filter((s) => {
+        const key = s.url || s.title || '';
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 3);
   }, [messageData.infoSources]);
 
   let message;
