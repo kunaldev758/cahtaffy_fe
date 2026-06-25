@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { continueWithOptionalShopifyHeader } from "./lib/shopifyEmbed";
+
 import {
 
   respondWidgetEmbedResolve,
@@ -174,7 +176,7 @@ export async function middleware(request: NextRequest) {
 
   ) {
 
-    return NextResponse.next();
+    return continueWithOptionalShopifyHeader(request);
 
   }
 
@@ -327,7 +329,7 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === "/") {
 
-    return NextResponse.next();
+    return continueWithOptionalShopifyHeader(request);
 
   }
 
@@ -347,7 +349,7 @@ export async function middleware(request: NextRequest) {
 
     ) {
 
-      return NextResponse.next();
+      return continueWithOptionalShopifyHeader(request);
 
     }
 
@@ -434,7 +436,7 @@ export async function middleware(request: NextRequest) {
 
     if (normalizedAgentRoutes.includes(pathnameWithoutQuery)) {
 
-      return NextResponse.next();
+      return continueWithOptionalShopifyHeader(request);
 
     }
 
@@ -462,7 +464,7 @@ export async function middleware(request: NextRequest) {
 
     }
 
-    return NextResponse.next();
+    return continueWithOptionalShopifyHeader(request);
 
   }
 
@@ -470,7 +472,7 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith(visitorAllowedPrefix)) {
 
-    return NextResponse.next();
+    return continueWithOptionalShopifyHeader(request);
 
   }
 
