@@ -253,7 +253,8 @@ export default function DetailsPanel({
               <div className="space-y-3 max-h-48 overflow-y-auto">
                 {oldConversationList.data.map((conversation: any) => {
                   const isActive = openConversationId === conversation._id || openConversationId === conversation._id?.toString();
-                  const conversationVisitorName = conversation?.visitor?.name || "Visitor";
+                  const conversationVisitorName = conversation?.visitor?.name || openVisitorName || "Visitor";
+                  const showVisitorName = conversationVisitorName !== openVisitorName;
                   // For the currently open conversation use live real-time values; for others use stored data
                   const isOpen = isActive ? openConversationStatus === "open" : conversation.conversationOpenStatus === "open";
                   const aiChatValue = isActive ? isAIChat : conversation.aiChat;
@@ -273,9 +274,16 @@ export default function DetailsPanel({
                         </div>
                       </div> */}
                       <div className="flex justify-between items-center mb-[4px]">
-                        <p className="text-[10px] font-semibold text-[#64748B] uppercase">
-                          {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
-                        </p>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <p className="text-[10px] font-semibold text-[#64748B] uppercase">
+                            {formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })}
+                          </p>
+                          {showVisitorName && (
+                            <span className="text-[10px] font-medium text-[#94A3B8] truncate">
+                              · {conversationVisitorName}
+                            </span>
+                          )}
+                        </div>
                         <span className={`text-[9px] h-[18px] flex items-center justify-center min-h-[18px] font-semibold px-1.5 py-0.5 rounded-[4px] border ${aiChatValue ? 'bg-[#F1F5F9] text-[#64748B] border-[#E8E8E8]' : 'bg-[#FAF5FF] text-[#A855F7] border-[#A855F7]'}`}>
                           {aiChatValue ? "AI-ONLY" : "AI + AGENT"}
                         </span>
