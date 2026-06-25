@@ -1,7 +1,7 @@
 // components/Inbox.tsx (Main refactored component)
 "use client";
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getConversationMessages, getOldConversationMessages, getClientData } from "@/app/_api/dashboard/action";
 import { useSocketManager } from "./hooks/useSocketManager";
 import { dispatchAuthStorageSync } from "@/app/socketContext";
@@ -19,6 +19,8 @@ import InboxSkeleton from "./InboxSkeleton";
 
 export default function Inbox(Props: any) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const currentConversationId = searchParams?.get("conversationId") ?? null;
   const urlVisitorName = searchParams?.get("visitorName") ?? null;
   // Add this state near the top of Inbox component
@@ -95,6 +97,7 @@ export default function Inbox(Props: any) {
   // Prevents the auto-open logic from resetting the active conversation whenever
   // the list length changes (e.g. a new visitor connects).
   const hasOpenedFirstRef = useRef(false);
+  const pendingAgentSwitchRef = useRef(false);
   // Keeps latest open conversation for socket/window handlers (avoids stale closure vs ObjectId/string ids)
   const openConversationIdRef = useRef<any>(null);
   openConversationIdRef.current = openConversationId;
@@ -346,6 +349,7 @@ export default function Inbox(Props: any) {
   // Reset all conversation state when the active agent changes
   useEffect(() => {
     const handleAgentChanged = () => {
+      pendingAgentSwitchRef.current = true;
       setConversationsList({ data: [], loading: true });
       setSearchConversationsList({ data: [], loading: true });
       setConversationMessages({ data: [], loading: false, conversationId: null, visitorName: '' });
@@ -359,10 +363,12 @@ export default function Inbox(Props: any) {
       setOpenConversationStatus('close');
       setAgentConnectionRequest(null);
       hasOpenedFirstRef.current = false;
+      urlConversationOpenInFlightRef.current = null;
+      router.replace(pathname || "/inbox");
     };
     window.addEventListener('agent-changed', handleAgentChanged);
     return () => window.removeEventListener('agent-changed', handleAgentChanged);
-  }, []);
+  }, [router, pathname]);
 
   // Initialize socket manager
   const {
@@ -959,6 +965,18 @@ export default function Inbox(Props: any) {
     if (conversationsList.loading) return;
 
     const run = async () => {
+      if (pendingAgentSwitchRef.current) {
+        if (conversationsList.loading) return;
+        pendingAgentSwitchRef.current = false;
+        if (!conversationsList?.data?.length) return;
+        if (!(status === "open" || status === "all")) return;
+
+        hasOpenedFirstRef.current = true;
+        const first = conversationsList.data[0];
+        await openConversation(first, resolveVisitorDisplayName(first), 0);
+        return;
+      }
+
       if (currentConversationId) {
         const cid = String(currentConversationId);
         const conv = conversationsList?.data?.find((con: any) => String(con._id) === cid);
