@@ -353,23 +353,24 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const markAsSeen = async (id: string) => {
+  const markAsSeen = (id: string) => {
     if (id.startsWith("tmp-")) return; // skip optimistic entries
-    
-    try {
-      const token = await getCorrectToken();
-      await fetch(`${apiBase}notifications/${id}/seen`, {
-        method: "PUT",
-        headers: { Authorization: token }
-      });
-    } catch (error) {
-      console.error("Error marking notification as seen:", error);
-    }
-  
-    // Update local state after API confirms
+
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, isSeen: true } : n))
     );
+
+    void (async () => {
+      try {
+        const token = await getCorrectToken();
+        await fetch(`${apiBase}notifications/${id}/seen`, {
+          method: "PUT",
+          headers: { Authorization: token },
+        });
+      } catch (error) {
+        console.error("Error marking notification as seen:", error);
+      }
+    })();
   };
 
   const markAllSeen = async () => {
@@ -395,15 +396,15 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     }
   };
 
-  const handleNotificationClick = async (notif: NotificationItem) => {
+  const handleNotificationClick = (notif: NotificationItem) => {
     // Ignore clicks that happen within 300 ms of the dropdown opening.
     // This prevents the bell-click event from "falling through" onto the first
     // notification item when it renders right beneath the cursor.
     if (Date.now() - openedAtRef.current < 300) return;
 
-    if(!notif.isSeen) {
-      await markAsSeen(notif._id);
-    };
+    if (!notif.isSeen) {
+      markAsSeen(notif._id);
+    }
     const nextAgentId = notif.agentId;
     const currentAgentId = sessionStorage.getItem("currentAgentId");
     const didSwitchAgent = !!(nextAgentId && nextAgentId !== currentAgentId);
