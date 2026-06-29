@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Bell, Bot } from "lucide-react";
+import { Bell, Bot, RefreshCcw } from "lucide-react";
 import { useSocket } from "@/app/socketContext";
 import { useRouter, usePathname } from "next/navigation";
 import { getToken, getAgentToken } from "@/app/_api/dashboard/action";
 import { isAgentPath } from "@/lib/portalUrls";
 import { handleSessionExpired } from "@/lib/sessionExpired";
+import { Skeleton } from "@/components/ui/skeleton";
 interface NotificationItem {
   _id: string;
   message: string;
@@ -72,6 +73,8 @@ type NotificationBellProps = {
 
 const globalSeenDedup = new Set<string>();
 
+const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
+
 export default function NotificationBell({ badgeStyle = "count" }: NotificationBellProps) {
   const { socket } = useSocket();
   const router = useRouter();
@@ -89,6 +92,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
   const listRef = useRef<HTMLDivElement>(null);
   const observer = useRef<IntersectionObserver | null>(null);
   const isFetchingRef = useRef(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const hasMore = useRef(true);
   const page = useRef(1);
 
@@ -138,9 +142,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     } catch { }
   }, []);
 
-  const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
+  // const apiBase = `${process.env.NEXT_PUBLIC_API_HOST || ""}/api/`;
 
-  console.log("api base url  : ",apiBase);
+  // console.log("api base url  : ",apiBase);
 
   // Get the correct token based on login type
   const getCorrectToken = useCallback(async () => {
@@ -223,7 +227,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
 
   useEffect(() => {
     fetchNotifications();
-  }, [fetchNotifications]);
+  }, []);
 
   const fetchMoreNotifications = useCallback(async () => {
 
@@ -396,6 +400,17 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
     }
   };
 
+  const handleRefreshNotifications = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    listRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    try {
+      await fetchNotifications(true);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchNotifications]);
+
   const handleNotificationClick = (notif: NotificationItem) => {
     // Ignore clicks that happen within 300 ms of the dropdown opening.
     // This prevents the bell-click event from "falling through" onto the first
@@ -456,7 +471,7 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
           setIsOpen((prev) => !prev);
           if (opening) {
             openedAtRef.current = Date.now();
-            fetchNotifications(true);
+            // fetchNotifications(true);
           }
         }}
         className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-[#fff] hover:bg-gray-100 transition-colors"
@@ -485,7 +500,24 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
         <div className="absolute right-0 top-full mt-2 z-50 w-[360px] rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-[15px] font-bold text-[#111827]">Notification</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[15px] font-bold text-[#111827]">
+                Notification
+              </span>
+              <button
+                type="button"
+                className="cursor-pointer text-[#64748B] transition-colors hover:text-[#4B56F2] disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Refresh notifications"
+                onClick={handleRefreshNotifications}
+                disabled={isRefreshing}
+                title={isRefreshing ? "Refreshing notifications..." : "Refresh notifications"}
+              >
+                <RefreshCcw
+                  className={`${isRefreshing ? "animate-spin" : ""}`}
+                  size={14}
+                />
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               {unseenCount > 0 && (
                 <span className="text-xs font-semibold text-[#7C3AED] bg-[#EDE9FE] px-2.5 py-0.5 rounded-full">
@@ -505,11 +537,32 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
           </div>
 
           {/* List */}
-          <div ref={listRef} className="max-h-[360px] overflow-y-auto divide-y divide-gray-50">
+          <div
+            ref={listRef}
+            className="max-h-[360px] overflow-y-auto divide-y divide-gray-50"
+          >
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <Bell className="w-8 h-8 text-gray-300 mb-2" />
                 <p className="text-sm text-gray-400">No notifications yet</p>
+              </div>
+            ) : isRefreshing ? (
+              // skeleton loading
+              <div className="flex flex-col gap-2">
+                {
+                  Array.from({ length: 10 }).map((_, index) => (
+                    <div key={index} className="w-full flex items-start gap-3 px-4 py-3.5">
+                      <Skeleton className="flex-shrink-0 w-10 h-10 rounded-full bg-[#EDE9FE]" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <Skeleton className="h-4 w-32 rounded" />
+                          <Skeleton className="h-3 w-14 rounded" />
+                        </div>
+                        <Skeleton className="h-3 w-40 rounded my-1" />
+                      </div>
+                    </div>
+                  ))
+                }
               </div>
             ) : (
               notifications.map((notif) => {
@@ -519,8 +572,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
                     key={notif._id}
                     type="button"
                     onClick={() => handleNotificationClick(notif)}
-                    className={`w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors ${!notif.isSeen ? "bg-[#FAFAFF]" : ""
-                      }`}
+                    className={`w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors ${
+                      !notif.isSeen ? "bg-[#FAFAFF]" : ""
+                    }`}
                   >
                     {/* Icon */}
                     <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-[#EDE9FE]">
@@ -538,7 +592,9 @@ export default function NotificationBell({ badgeStyle = "count" }: NotificationB
                         </span>
                       </div>
                       <p className="text-[12px] text-[#64748B] leading-snug line-clamp-2">
-                        <span className="font-semibold text-[#374151]">{visitorName}</span>{" "}
+                        <span className="font-semibold text-[#374151]">
+                          {visitorName}
+                        </span>{" "}
                         requested to connect to an agent
                       </p>
                     </div>

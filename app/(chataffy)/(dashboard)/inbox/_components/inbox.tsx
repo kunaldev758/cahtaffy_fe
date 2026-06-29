@@ -599,22 +599,7 @@ export default function Inbox(Props: any) {
           }));
         }
 
-        // Transform visitor details
-        const transformedVisitorDetails =
-          ConversationData?.visitor?.visitorDetails?.reduce(
-            (acc: any, { field, value }: { field: string; value: string }) => {
-              acc[field.toLowerCase()] = value;
-              return acc;
-            },
-            {
-              location: ConversationData?.visitor?.location,
-              ip: ConversationData?.visitor?.ip,
-            }
-          );
-
-        setVisitorDetails(transformedVisitorDetails);
-        setIsAIChat(ConversationData.aiChat);
-        setIsVisitorClosed(ConversationData.visitorClosed === true);
+        applyVisitorContextFromConversation(ConversationData);
         setCurrentConversation(ConversationData);
       }
     } catch (error) {
@@ -641,6 +626,40 @@ export default function Inbox(Props: any) {
     fallback ||
     "Visitor";
 
+  const transformVisitorDetails = (visitor: any) => {
+    if (!visitor || typeof visitor !== "object") return undefined;
+    return visitor.visitorDetails?.reduce(
+      (acc: any, { field, value }: { field: string; value: string }) => {
+        acc[field.toLowerCase()] = value;
+        return acc;
+      },
+      {
+        location: visitor.location,
+        ip: visitor.ip,
+      }
+    );
+  };
+
+  const applyVisitorContextFromConversation = (conversationData: any) => {
+    if (!conversationData) return;
+    const visitor = conversationData.visitor;
+    const transformedVisitorDetails = transformVisitorDetails(visitor);
+    if (transformedVisitorDetails) {
+      setVisitorDetails(transformedVisitorDetails);
+    }
+    const visitorId = visitor?._id || visitor;
+    if (visitorId) {
+      setOpenVisitorId(visitorId);
+      setOpenVisitorIp(visitor?.ip || null);
+    }
+    if (conversationData.aiChat !== undefined) {
+      setIsAIChat(conversationData.aiChat);
+    }
+    if (conversationData.visitorClosed !== undefined) {
+      setIsVisitorClosed(conversationData.visitorClosed === true);
+    }
+  };
+
   const openOldConversation = async (conversationId: any, visitorName: string) => {
     try {
       const data = await getOldConversationMessages({ conversationId });
@@ -652,11 +671,19 @@ export default function Inbox(Props: any) {
           (conv: any) => conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
         );
         const selectedConversation = conversationFromList || oldConversationFromList;
-        if (selectedConversation?.aiChat !== undefined) {
-          setIsAIChat(selectedConversation.aiChat);
-        }
-        const resolvedVisitorName = selectedConversation
-          ? resolveVisitorDisplayName(selectedConversation, visitorName)
+        const conversationContext =
+          selectedConversation ||
+          (data.visitor
+            ? {
+                visitor: data.visitor,
+                aiChat: data.aiChat,
+                visitorClosed: data.visitorClosed,
+              }
+            : null);
+        applyVisitorContextFromConversation(conversationContext);
+
+        const resolvedVisitorName = conversationContext
+          ? resolveVisitorDisplayName(conversationContext, visitorName)
           : visitorName || "Visitor";
 
         history.pushState(null, '', `?conversationId=${conversationId}`);
@@ -664,23 +691,11 @@ export default function Inbox(Props: any) {
           data: data.chatMessages,
           loading: false,
           conversationId: conversationId,
-          // visitorName,
           visitorName: resolvedVisitorName,
         });
         setOpenConversationStatus(data.conversationOpenStatus);
         setOpenConversationId(conversationId);
         setOpenVisitorName(resolvedVisitorName);
-        const resolvedVisitorId =
-          selectedConversation?.visitor?._id ||
-          selectedConversation?.visitor ||
-          openVisitorId ||
-          null;
-        const resolvedVisitorIp =
-          selectedConversation?.visitor?.ip ||
-          openVisitorIp ||
-          null;
-        setOpenVisitorId(resolvedVisitorId);
-        setOpenVisitorIp(resolvedVisitorIp);
 
         // Find and set the conversation data from the list
         let oldConv: any = null;
