@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
+import { createWidgetSocket, VISITOR_AWAY_TIMEOUT_MS } from '@/app/socket';
 import { v4 as uuidv4 } from "uuid";
 import { FormField, validateField } from "./_components/FormField";
 import LimitExpiredComponent from "./_components/LimitExpiredComponent";
@@ -82,6 +83,9 @@ export default function EnhancedChatWidget({ params }: any) {
   const [isLimitExpired, setIsLimitExpired] = useState(false);
   const noReplyTimerRef = useRef<any>(null);
   const NO_REPLY_MS = 2 * 60 * 1000;
+  const lastVisitorActivityAtRef = useRef<number>(Date.now());
+  const conversationStatusRef = useRef(conversationStatus);
+  const isChatOngoingRef = useRef(false);
 
   const chatBottomRef = useRef<any>(null);
   const messageRowRefsById = useRef<Record<string, HTMLDivElement | null>>({});
@@ -106,6 +110,9 @@ export default function EnhancedChatWidget({ params }: any) {
   const voiceButtonDisabled = !isRecording && (!isOnline || (aiChat && isTyping));
   const hasVisitorMessages = conversation.some((message: any) => message?.sender_type === 'visitor');
   const isChatOngoing = conversationStatus === 'open' && hasVisitorMessages && Boolean(conversationId || conversation[0]?.conversation_id);
+
+  conversationStatusRef.current = conversationStatus;
+  isChatOngoingRef.current = isChatOngoing;
 
   const widgetId = params?.slug?.[0] || 'demo-widget';
   const widgetToken = params?.slug?.[1] || 'demo-token';
@@ -217,21 +224,15 @@ export default function EnhancedChatWidget({ params }: any) {
     };
 
     try {
-      socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_HOST || ""}`, {
-        query: {
+      socketInstance = createWidgetSocket(
+        process.env.NEXT_PUBLIC_SOCKET_HOST || "",
+        {
           widgetId,
           widgetAuthToken: widgetToken,
-          agentId: agentId,
+          agentId,
           visitorId: sessionStorage.getItem('visitorId'),
         },
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 10000,
-        randomizationFactor: 0.5,
-        timeout: 20000,
-      });
+      );
 
       socketInstance.on("connect", () => {
         hasSocketConnectedOnceRef.current = true;
@@ -289,6 +290,83 @@ export default function EnhancedChatWidget({ params }: any) {
     markChatCompletedForReload();
     setConversationStatus('close');
   }, [markChatCompletedForReload]);
+
+  const endConversationDueToAway = useCallback(() => {
+    if (conversationStatusRef.current !== 'open' || !isChatOngoingRef.current) return;
+
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const { conversationId: cid, conversation: conv } = closeConversationContextRef.current;
+    socket.emit('close-conversation-visitor', {
+      conversationId: cid ? cid : conv[0]?.conversation_id,
+    });
+    markChatCompletedForReload();
+    setConversationStatus('close');
+    setShowWidget(true);
+  }, [markChatCompletedForReload]);
+
+  const markVisitorActivity = useCallback(() => {
+    lastVisitorActivityAtRef.current = Date.now();
+  }, []);
+
+  const checkVisitorAwayTimeout = useCallback(() => {
+    if (conversationStatusRef.current !== 'open' || !isChatOngoingRef.current) return;
+
+    const inactiveMs = Date.now() - lastVisitorActivityAtRef.current;
+    if (inactiveMs >= VISITOR_AWAY_TIMEOUT_MS) {
+      endConversationDueToAway();
+    }
+  }, [endConversationDueToAway]);
+
+  // Auto-end open conversations after 5 minutes of continuous visitor away time.
+  // Socket stays connected while away (< 5 min); only the conversation is closed after the full window.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "touchstart",
+      "scroll",
+      "focus",
+    ];
+
+    const onActivity = () => {
+      markVisitorActivity();
+    };
+
+    const onVisibilityChange = () => {
+      checkVisitorAwayTimeout();
+    };
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, onActivity, { passive: true });
+    });
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const intervalId = window.setInterval(checkVisitorAwayTimeout, 10_000);
+    checkVisitorAwayTimeout();
+
+    return () => {
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, onActivity);
+      });
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [checkVisitorAwayTimeout, markVisitorActivity]);
+
+  useEffect(() => {
+    checkVisitorAwayTimeout();
+  }, [isMinimized, checkVisitorAwayTimeout]);
+
+  useEffect(() => {
+    if (isChatOngoing) {
+      lastVisitorActivityAtRef.current = Date.now();
+    }
+  }, [isChatOngoing]);
 
   // Use a ref to track aiChat so socket listeners always have the latest value
   const aiChatRef = useRef(aiChat);
@@ -411,11 +489,13 @@ export default function EnhancedChatWidget({ params }: any) {
 
     socket.on("visitor-blocked", handleCloseConversationClient);
     socket.on("visitor-conversation-close", handleCloseConversationClient);
+    socket.on("visitor-close-chat", handleCloseConversationClient);
 
     return () => {
       socket.off("conversation-append-message");
       socket.off("visitor-blocked");
       socket.off("visitor-conversation-close");
+      socket.off("visitor-close-chat");
       socket.off("agent-typing");
       socket.off("agent-stop-typing");
       socket.off("ai-chat-status-update");
@@ -578,6 +658,8 @@ export default function EnhancedChatWidget({ params }: any) {
 
   const handleMessageSend = () => {
     if (inputMessage.trim() === '' || error) return;
+
+    markVisitorActivity();
 
     const socket = socketRef.current;
     const sanitizedMessage = sanitizeInput(inputMessage);
@@ -1469,9 +1551,16 @@ export default function EnhancedChatWidget({ params }: any) {
                     {conversationStatus === 'open' && (
                       <div className="flex-1 p-[20px] min-h-0 overflow-y-auto bg-white custom-scrollbar">
                         <style>{`
+                          .chat-bubble {
+                            overflow-wrap: anywhere;
+                            word-break: break-all;
+                            max-width: 100%;
+                          }
                           .chat-bubble a {
                             color: var(--chat-link-color) !important;
                             text-decoration: underline !important;
+                            overflow-wrap: anywhere;
+                            word-break: break-all;
                           }
                           .chat-bubble a:visited {
                             color: var(--chat-link-color) !important;
@@ -1537,7 +1626,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                         </div>
                                       )}
 
-                                      <div className="flex-1 max-w-xs">
+                                      <div className="flex-1 max-w-xs min-w-0">
                                         <div
                                           className="px-[20px] py-[12px] rounded-2xl rounded-tl-md shadow-sm chat-bubble"
                                           style={{
@@ -1569,7 +1658,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                             </button>
                                           )}
                                           <div
-                                            className="text-sm leading-relaxed [&_a]:text-[var(--chat-link-color)] [&_a]:underline [&_a]:break-words"
+                                            className="text-sm leading-relaxed break-all min-w-0 [&_a]:text-[var(--chat-link-color)] [&_a]:underline"
                                             dangerouslySetInnerHTML={{
                                               __html: item.message.replace(
                                                 /<a\b([^>]*)>/gi,
@@ -1607,7 +1696,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 {/* Visitor messages */}
                                 {item.sender_type === 'visitor' && (
                                   <div className="flex justify-end animate-in slide-in-from-right duration-300">
-                                    <div className="max-w-xs">
+                                    <div className="max-w-xs min-w-0">
                                       <div
                                         className="px-[20px] py-[12px] rounded-2xl rounded-tr-md shadow-sm chat-bubble"
                                         style={{
@@ -1638,7 +1727,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                           </button>
                                         )}
                                         <div
-                                          className="text-sm leading-relaxed [&_a]:text-[var(--chat-link-color)] [&_a]:underline [&_a]:break-words"
+                                          className="text-sm leading-relaxed break-all min-w-0 [&_a]:text-[var(--chat-link-color)] [&_a]:underline"
                                           dangerouslySetInnerHTML={{ __html: item.message }}
                                         />
                                       </div>
