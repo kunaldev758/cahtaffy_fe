@@ -46,6 +46,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [visitorIp, setVisitorIp] = useState('');
   const [visitorLocation, setVisitorLocation] = useState('');
   const [showWidget, setShowWidget] = useState(true);
+  const [isWidgetDataLoaded, setIsWidgetDataLoaded] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [comment, setComment] = useState('');
   const [conversationFeedback, setConversationFeedback] = useState<any>(null);
@@ -248,10 +249,16 @@ export default function EnhancedChatWidget({ params }: any) {
       });
 
       socketInstance.on("connect_error", () => {
-        if (!hasSocketConnectedOnceRef.current) setSocketError(true);
+        if (!hasSocketConnectedOnceRef.current) {
+          setSocketError(true);
+          setIsWidgetDataLoaded(true);
+        }
       });
       socketInstance.on("error", () => {
-        if (!hasSocketConnectedOnceRef.current) setSocketError(true);
+        if (!hasSocketConnectedOnceRef.current) {
+          setSocketError(true);
+          setIsWidgetDataLoaded(true);
+        }
       });
       socketInstance.on("disconnect", (reason: string) => {
         if (reason === "io client disconnect") return;
@@ -266,6 +273,7 @@ export default function EnhancedChatWidget({ params }: any) {
     } catch (e) {
       console.error("Socket initialization error", e);
       setSocketError(true);
+      setIsWidgetDataLoaded(true);
     }
 
     return () => {
@@ -438,6 +446,7 @@ export default function EnhancedChatWidget({ params }: any) {
       setConversation(data.chatMessages || []);
       setThemeSettings(data.themeSettings || {});
       setBotVisible(data.themeSettings?.isActive === 1);
+      setIsWidgetDataLoaded(true);
       setFields(
         normalizePreChatFieldOrder(data.themeSettings?.fields || [])
       );
@@ -1019,7 +1028,7 @@ export default function EnhancedChatWidget({ params }: any) {
       );
       postPointerOutside();
     };
-  }, [showWidget, isBarLauncher, alignLeft, botVisible, unreadCount, isMinimized]);
+  }, [showWidget, isBarLauncher, alignLeft, botVisible, unreadCount, isMinimized, isWidgetDataLoaded]);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -1210,7 +1219,7 @@ export default function EnhancedChatWidget({ params }: any) {
 
   return (
     <>
-      {botVisible && (
+      {isWidgetDataLoaded && botVisible && (
         <div style={{ ...launcherContainerStyle, pointerEvents: 'auto' }} className="font-sans">
           {/* Chat Widget launcher: bubble or bar */}
           <div className={isBarLauncher ? 'relative w-[360px] max-w-[calc(100vw-20px)]' : 'relative'}>
