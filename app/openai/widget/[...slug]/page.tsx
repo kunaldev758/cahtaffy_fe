@@ -528,8 +528,10 @@ export default function EnhancedChatWidget({ params }: any) {
   }, [fields]);
 
   const sanitizeInput = (text: any) => {
-    const sanitized = text.replace(/<[^>]*>/g, '');
-    return sanitized.replace(/[^\w\s.,!?'"-]/g, '');
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/<[^>]*>/g, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
   };
 
   const limitMessageWords = (text: string) => {
