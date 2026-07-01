@@ -91,6 +91,9 @@ export default function EnhancedChatWidget({ params }: any) {
   const messageRowRefsById = useRef<Record<string, HTMLDivElement | null>>({});
   const socketRef = useRef<Socket | null>(null);
   const hasSocketConnectedOnceRef = useRef(false);
+  const hasCompletedInitialConnectRef = useRef(false);
+  const syncVisitorSocketSessionRef = useRef<() => void>(() => {});
+  const widgetTokenRef = useRef('');
   const closeConversationContextRef = useRef({ conversationId: null as string | null, conversation: [] as any[] });
   closeConversationContextRef.current = { conversationId, conversation };
   const recognitionRef = useRef<any>(null);
@@ -117,6 +120,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const widgetId = params?.slug?.[0] || 'demo-widget';
   const widgetToken = params?.slug?.[1] || 'demo-token';
   const agentId = params?.slug?.[2] || null;
+  widgetTokenRef.current = widgetToken;
   const chatCompletedStorageKey = `chataffy-chat-completed-${widgetToken}-${agentId || 'default'}`;
 
   const markChatCompletedForReload = useCallback(() => {
@@ -216,11 +220,16 @@ export default function EnhancedChatWidget({ params }: any) {
     }
 
     hasSocketConnectedOnceRef.current = false;
+    hasCompletedInitialConnectRef.current = false;
 
     let socketInstance: Socket | null = null;
     const onBrowserOnline = () => {
       const s = socketRef.current;
-      if (s && !s.connected) s.connect();
+      if (s && !s.connected) {
+        s.connect();
+        return;
+      }
+      syncVisitorSocketSessionRef.current();
     };
 
     try {
@@ -237,6 +246,11 @@ export default function EnhancedChatWidget({ params }: any) {
       socketInstance.on("connect", () => {
         hasSocketConnectedOnceRef.current = true;
         setSocketError(false);
+        syncVisitorSocketSessionRef.current();
+      });
+
+      socketInstance.on("reconnect", () => {
+        syncVisitorSocketSessionRef.current();
       });
 
       socketInstance.on('visitor-geo-resolved', (payload: { ip?: string; country?: string }) => {
@@ -319,6 +333,53 @@ export default function EnhancedChatWidget({ params }: any) {
     }
   }, [endConversationDueToAway]);
 
+  const syncVisitorSocketSession = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    if (conversationStatusRef.current === 'open' && isChatOngoingRef.current) {
+      const inactiveMs = Date.now() - lastVisitorActivityAtRef.current;
+      if (inactiveMs >= VISITOR_AWAY_TIMEOUT_MS) {
+        endConversationDueToAway();
+        return;
+      }
+    }
+
+    const { conversationId: cid, conversation: conv } = closeConversationContextRef.current;
+    const convId = cid || conv[0]?.conversation_id;
+    const shouldResumeSession =
+      hasCompletedInitialConnectRef.current &&
+      Boolean(convId) &&
+      conversationStatusRef.current === 'open' &&
+      isChatOngoingRef.current;
+
+    if (shouldResumeSession) {
+      socket.emit('visitor-reconnect', { conversationId: convId });
+      return;
+    }
+
+    if (conversationStatusRef.current === 'close' && hasCompletedInitialConnectRef.current) {
+      return;
+    }
+
+    socket.emit('visitor-connect', { widgetToken: widgetTokenRef.current });
+  }, [endConversationDueToAway]);
+
+  syncVisitorSocketSessionRef.current = syncVisitorSocketSession;
+
+  const resumeVisitorSocketAfterWake = useCallback(() => {
+    checkVisitorAwayTimeout();
+    if (conversationStatusRef.current !== 'open') return;
+
+    const socket = socketRef.current;
+    if (!socket) return;
+    if (!socket.connected) {
+      socket.connect();
+      return;
+    }
+    syncVisitorSocketSession();
+  }, [checkVisitorAwayTimeout, syncVisitorSocketSession]);
+
   // Auto-end open conversations after 5 minutes of continuous visitor away time.
   // Socket stays connected while away (< 5 min); only the conversation is closed after the full window.
   useEffect(() => {
@@ -338,13 +399,27 @@ export default function EnhancedChatWidget({ params }: any) {
     };
 
     const onVisibilityChange = () => {
+      if (!document.hidden) {
+        resumeVisitorSocketAfterWake();
+        return;
+      }
       checkVisitorAwayTimeout();
+    };
+
+    const onPageShow = () => {
+      resumeVisitorSocketAfterWake();
+    };
+
+    const onWindowFocus = () => {
+      resumeVisitorSocketAfterWake();
     };
 
     activityEvents.forEach((eventName) => {
       window.addEventListener(eventName, onActivity, { passive: true });
     });
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("focus", onWindowFocus);
 
     const intervalId = window.setInterval(checkVisitorAwayTimeout, 10_000);
     checkVisitorAwayTimeout();
@@ -354,9 +429,11 @@ export default function EnhancedChatWidget({ params }: any) {
         window.removeEventListener(eventName, onActivity);
       });
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("focus", onWindowFocus);
       window.clearInterval(intervalId);
     };
-  }, [checkVisitorAwayTimeout, markVisitorActivity]);
+  }, [checkVisitorAwayTimeout, markVisitorActivity, resumeVisitorSocketAfterWake]);
 
   useEffect(() => {
     checkVisitorAwayTimeout();
@@ -510,11 +587,7 @@ export default function EnhancedChatWidget({ params }: any) {
     const socket = socketRef.current;
     if (!socket) return;
 
-    socket.emit('visitor-connect', {
-      widgetToken
-    });
-
-    socket.on("visitor-connect-response", (data) => {
+    const onVisitorConnectResponse = (data: any) => {
       console.log('🔌 visitor-connect-response received:', {
         hasChatMessages: !!data?.chatMessages,
         chatMessagesCount: data?.chatMessages?.length,
@@ -548,15 +621,25 @@ export default function EnhancedChatWidget({ params }: any) {
         setFeedback(data.conversationFeedback.feedback);
         setComment(data.conversationFeedback.comment || '');
       }
-      // Set aiChat status if provided in response
       if (data?.aiChat !== undefined) {
         console.log(`📝 Setting aiChat from visitor-connect-response: ${data.aiChat}`);
         setAiChat(data.aiChat);
       } else {
         console.log('⚠️ No aiChat value in visitor-connect-response, keeping default:', aiChatRef.current);
       }
-    });
+      hasCompletedInitialConnectRef.current = true;
+    };
 
+    const onVisitorReconnectAck = (data: { success?: boolean }) => {
+      if (data?.success) {
+        console.log('🔌 visitor-reconnect-ack: session resumed');
+        return;
+      }
+      handleCloseConversationClient();
+    };
+
+    socket.on("visitor-connect-response", onVisitorConnectResponse);
+    socket.on("visitor-reconnect-ack", onVisitorReconnectAck);
     socket.on("visitor-connect-response-upgrade", () => {
       console.log("event emmited for upgrade")
       setIsUnavailableMode(true);
@@ -564,10 +647,11 @@ export default function EnhancedChatWidget({ params }: any) {
     });
 
     return () => {
-      socket.off("visitor-connect-response");
+      socket.off("visitor-connect-response", onVisitorConnectResponse);
+      socket.off("visitor-reconnect-ack", onVisitorReconnectAck);
       socket.off("visitor-connect-response-upgrade");
     };
-  }, [widgetToken]);
+  }, [handleCloseConversationClient]);
 
   const handleSubmitUnavailableContact = async () => {
     setUnavailableError('');
@@ -1551,16 +1635,9 @@ export default function EnhancedChatWidget({ params }: any) {
                     {conversationStatus === 'open' && (
                       <div className="flex-1 p-[20px] min-h-0 overflow-y-auto bg-white custom-scrollbar">
                         <style>{`
-                          .chat-bubble {
-                            overflow-wrap: anywhere;
-                            word-break: break-all;
-                            max-width: 100%;
-                          }
                           .chat-bubble a {
                             color: var(--chat-link-color) !important;
                             text-decoration: underline !important;
-                            overflow-wrap: anywhere;
-                            word-break: break-all;
                           }
                           .chat-bubble a:visited {
                             color: var(--chat-link-color) !important;
@@ -1626,7 +1703,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                         </div>
                                       )}
 
-                                      <div className="flex-1 max-w-xs min-w-0">
+                                      <div className="flex-1 max-w-xs">
                                         <div
                                           className="px-[20px] py-[12px] rounded-2xl rounded-tl-md shadow-sm chat-bubble"
                                           style={{
@@ -1658,7 +1735,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                             </button>
                                           )}
                                           <div
-                                            className="text-sm leading-relaxed break-all min-w-0 [&_a]:text-[var(--chat-link-color)] [&_a]:underline"
+                                            className="text-sm leading-relaxed [&_a]:text-[var(--chat-link-color)] [&_a]:underline"
                                             dangerouslySetInnerHTML={{
                                               __html: item.message.replace(
                                                 /<a\b([^>]*)>/gi,
@@ -1696,7 +1773,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                 {/* Visitor messages */}
                                 {item.sender_type === 'visitor' && (
                                   <div className="flex justify-end animate-in slide-in-from-right duration-300">
-                                    <div className="max-w-xs min-w-0">
+                                    <div className="max-w-xs">
                                       <div
                                         className="px-[20px] py-[12px] rounded-2xl rounded-tr-md shadow-sm chat-bubble"
                                         style={{
@@ -1727,7 +1804,7 @@ export default function EnhancedChatWidget({ params }: any) {
                                           </button>
                                         )}
                                         <div
-                                          className="text-sm leading-relaxed break-all min-w-0 [&_a]:text-[var(--chat-link-color)] [&_a]:underline"
+                                          className="text-sm leading-relaxed [&_a]:text-[var(--chat-link-color)] [&_a]:underline"
                                           dangerouslySetInnerHTML={{ __html: item.message }}
                                         />
                                       </div>

@@ -23,6 +23,7 @@ interface SocketManagerProps {
   setIsConversationAvailable: (value: boolean) => void;
   setAITyping?: (value: boolean) => void;
   setIsVisitorClosed: (value: boolean) => void;
+  setCurrentConversation: (value: any) => void;
 
   // Current state values
   status: string;
@@ -47,6 +48,7 @@ export const useSocketManager = ({
   setIsConversationAvailable,
   setAITyping,
   setIsVisitorClosed,
+  setCurrentConversation,
   status,
   rating,
   handledBy,
@@ -64,7 +66,6 @@ export const useSocketManager = ({
 
   const lastSocketInstanceRef = useRef<Socket | null>(null);
   const [socketVersion, setSocketVersion] = useState(0);
-  const [socketConnected, setSocketConnected] = useState(false);
 
   // Auth check on inbox mount (socket connection is owned by SocketProvider)
   useEffect(() => {
@@ -87,44 +88,6 @@ export const useSocketManager = ({
       cancelled = true;
     };
   }, []);
-
-  // Track connection state and re-join conversation room after reconnect
-  useEffect(() => {
-    if (!socket) {
-      setSocketConnected(false);
-      return;
-    }
-
-    setSocketConnected(socket.connected);
-
-    const onConnect = () => setSocketConnected(true);
-    const onDisconnect = () => setSocketConnected(false);
-    const onReconnect = () => {
-      const convId = openConversationIdRef.current;
-      if (!convId || !socket.connected) return;
-      setTimeout(() => {
-        socket.emit(
-          "set-conversation-id",
-          { conversationId: convId },
-          (response: { success?: boolean }) => {
-            if (response?.success) {
-              console.log("Rejoined conversation room after reconnect:", convId);
-            }
-          }
-        );
-      }, 100);
-    };
-
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("reconnect", onReconnect);
-
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("reconnect", onReconnect);
-    };
-  }, [socket]);
 
   // Re-run inbox handlers when SocketProvider creates a new socket instance
   useEffect(() => {
@@ -262,20 +225,28 @@ export const useSocketManager = ({
     const handleConversationFeedbackUpdate = (data: any) => {
       const { conversationId, feedback, comment } = data || {};
       console.log("Conversation feedback update received:", data);
-      if (conversationId) {
-        // Patch the feedback fields on the matching conversation in the list
-        setConversationsList((prev: any) => ({
-          ...prev,
-          data: prev.data?.map((conv: any) =>
-            conv._id === conversationId || conv._id?.toString() === conversationId?.toString()
-              ? { ...conv, feedback, ...(comment !== undefined ? { comment } : {}) }
-              : conv
-          ),
-        }));
-        // Dispatch a window event so the open conversation panel can also react if needed
-        window.dispatchEvent(
-          new CustomEvent("conversation-feedback-update", { detail: data })
-        );
+      if (!conversationId) return;
+
+      const matchesConv = (conv: any) =>
+        conv._id === conversationId || conv._id?.toString() === conversationId?.toString();
+      const patch = (conv: any) => ({
+        ...conv,
+        feedback,
+        ...(comment !== undefined ? { comment } : {}),
+      });
+
+      setConversationsList((prev: any) => ({
+        ...prev,
+        data: prev.data?.map((conv: any) => (matchesConv(conv) ? patch(conv) : conv)),
+      }));
+      setOldConversationList((prev: any) => ({
+        ...prev,
+        data: prev.data?.map((conv: any) => (matchesConv(conv) ? patch(conv) : conv)),
+      }));
+
+      const openId = openConversationIdRef.current;
+      if (openId && String(openId) === String(conversationId)) {
+        setCurrentConversation((prev: any) => (prev ? patch(prev) : prev));
       }
     };
 
@@ -303,7 +274,7 @@ export const useSocketManager = ({
       socket.off("visitor-close-chat", handleVisitorCloseChat);
       socket.off("conversation-feedback-update", handleConversationFeedbackUpdate);
     };
-  }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setAITyping, setIsVisitorClosed]);
+  }, [status, rating, handledBy, openConversationId, setConversationMessages, setNotesList, setIsAIChat, setOpenConversationStatus, setIsConversationAvailable, setConversationsList, setOldConversationList, setCurrentConversation, setAITyping, setIsVisitorClosed]);
 
   // ✅ NEW: Separate persistent agent-connection handlers (NEVER removed)
   const setupAgentConnectionHandlers = useCallback(() => {
@@ -518,6 +489,51 @@ export const useSocketManager = ({
       socket.once("connect", doEmit);
     }
   }, [status, rating, handledBy, setConversationsList, setIsConversationAvailable]);
+
+  const emitGetConversationsListRef = useRef(emitGetConversationsList);
+  emitGetConversationsListRef.current = emitGetConversationsList;
+  const hasConnectedOnceRef = useRef(false);
+
+  // Refresh list and rejoin open conversation room after reconnect / tab wake
+  useEffect(() => {
+    if (!socket) return;
+
+    hasConnectedOnceRef.current = false;
+
+    const rejoinOpenConversation = () => {
+      const convId = openConversationIdRef.current;
+      if (!convId || !socket.connected) return;
+      setTimeout(() => {
+        socket.emit(
+          "set-conversation-id",
+          { conversationId: convId },
+          (response: { success?: boolean }) => {
+            if (response?.success) {
+              console.log("Rejoined conversation room after reconnect:", convId);
+            }
+          }
+        );
+      }, 100);
+    };
+
+    const recoverAfterReconnect = () => {
+      emitGetConversationsListRef.current();
+      rejoinOpenConversation();
+    };
+
+    const onConnect = () => {
+      if (!hasConnectedOnceRef.current) {
+        hasConnectedOnceRef.current = true;
+        return;
+      }
+      recoverAfterReconnect();
+    };
+
+    socket.on("connect", onConnect);
+    return () => {
+      socket.off("connect", onConnect);
+    };
+  }, [socket]);
 
   const emitGetConversationTags = useCallback((conversationId?: string) => {
     const socket = socketRef.current;
@@ -879,7 +895,6 @@ export const useSocketManager = ({
 
   return {
     socketRef,
-    socketConnected,
     // Emit functions
     // socket,
     emitJoinConversation,

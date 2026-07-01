@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getConversationMessages, getOldConversationMessages, getClientData } from "@/app/_api/dashboard/action";
 import { useSocketManager } from "./hooks/useSocketManager";
-import { dispatchAuthStorageSync } from "@/app/socketContext";
+import { dispatchAuthStorageSync, useSocket } from "@/app/socketContext";
 import ReviseAnswerModal from "./ReviseAnswerModal";
 
 // Component imports
@@ -27,6 +27,7 @@ export default function Inbox(Props: any) {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const initialLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { socket, isConnected, isReconnecting } = useSocket();
 
   // console.log("now we are inside agent inbox component, currentConversationId:", currentConversationId);
 
@@ -373,8 +374,6 @@ export default function Inbox(Props: any) {
   // Initialize socket manager
   const {
     socketRef,
-    socketConnected,
-    // socket,
     emitJoinConversation,
     emitSendMessage,
     emitSendNote,
@@ -400,6 +399,7 @@ export default function Inbox(Props: any) {
     setIsConversationAvailable,
     setAITyping: setIsAITyping,
     setIsVisitorClosed,
+    setCurrentConversation,
     status,
     rating,
     handledBy,
@@ -1136,9 +1136,20 @@ export default function Inbox(Props: any) {
   const showSkeleton = isInitialLoad || (!!openConversationId && conversationMessages.loading);
 
   // console.log("show skeleton: ", { showSkeleton, isInitialLoad, conversationMessagesLoading: conversationMessages.loading, openConversationId });
+  const showReconnectBanner = !!socket && !isConnected;
+
   return (
     <>
       {showSkeleton && <InboxSkeleton />}
+      {showReconnectBanner && (
+        <div
+          className="flex items-center justify-center gap-2 bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800"
+          role="status"
+        >
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+          {isReconnecting ? "Reconnecting…" : "Connecting…"}
+        </div>
+      )}
       <div className={`rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex gap-6 h-[calc(100vh-89px)] ${showSkeleton ? 'hidden' : ''}`}>
         <ConversationsList
           conversationsList={conversationsList}

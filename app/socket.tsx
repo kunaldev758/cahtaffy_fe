@@ -42,6 +42,12 @@ const initializeSocket = (options: SocketOptions): Socket => {
   const socket = io(process.env.NEXT_PUBLIC_SOCKET_HOST as string, {
     query: options,
     transports: ["websocket", "polling"], // Ensure compatibility
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 10000,
+    randomizationFactor: 0.5,
+    timeout: 20000,
   });
   attachSocketLifecycleLogs(socket);
   return socket;

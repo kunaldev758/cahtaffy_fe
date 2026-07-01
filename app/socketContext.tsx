@@ -13,10 +13,14 @@ import { usePathname } from "next/navigation";
 
 interface SocketContextProps {
   socket: Socket | null;
+  isConnected: boolean;
+  isReconnecting: boolean;
 }
 
 const SocketContext = createContext<SocketContextProps>({
   socket: null,
+  isConnected: false,
+  isReconnecting: false,
 });
 
 export const AUTH_STORAGE_SYNC_EVENT = "chataffy-auth-storage-sync";
@@ -40,6 +44,8 @@ async function resolveSocketToken(portal: AuthPortal): Promise<string> {
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [agentId, setAgentId] = useState<string | null>(null);
@@ -91,6 +97,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (!token || !userId) {
       setSocket(null);
+      setIsConnected(false);
+      setIsReconnecting(false);
       return;
     }
 
@@ -101,10 +109,51 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       humanAgentId: humanAgentId || undefined,
     });
 
+    setIsConnected(socketInstance.connected);
+    setIsReconnecting(false);
+
+    const onConnect = () => {
+      setIsConnected(true);
+      setIsReconnecting(false);
+    };
+    const onDisconnect = () => setIsConnected(false);
+    const onReconnectAttempt = () => setIsReconnecting(true);
+    const onReconnect = () => setIsReconnecting(false);
+    const ensureSocketConnected = () => {
+      if (!socketInstance.active) return;
+      if (!socketInstance.connected) {
+        socketInstance.connect();
+        return;
+      }
+      const engine = socketInstance.io?.engine as { writable?: boolean } | undefined;
+      if (engine && engine.writable === false) {
+        socketInstance.disconnect().connect();
+      }
+    };
+    const onBrowserOnline = () => ensureSocketConnected();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") ensureSocketConnected();
+    };
+
+    socketInstance.on("connect", onConnect);
+    socketInstance.on("disconnect", onDisconnect);
+    socketInstance.on("reconnect_attempt", onReconnectAttempt);
+    socketInstance.on("reconnect", onReconnect);
+    window.addEventListener("online", onBrowserOnline);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     setSocket(socketInstance);
 
     return () => {
+      socketInstance.off("connect", onConnect);
+      socketInstance.off("disconnect", onDisconnect);
+      socketInstance.off("reconnect_attempt", onReconnectAttempt);
+      socketInstance.off("reconnect", onReconnect);
+      window.removeEventListener("online", onBrowserOnline);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       socketInstance.disconnect();
+      setIsConnected(false);
+      setIsReconnecting(false);
     };
   }, [token, userId, agentId, humanAgentId]);
 
@@ -186,7 +235,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [socket]);
 
   return (
-    <SocketContext.Provider value={{ socket }}>
+    <SocketContext.Provider value={{ socket, isConnected, isReconnecting }}>
       {children}
     </SocketContext.Provider>
   );
