@@ -830,7 +830,7 @@ export default function EnhancedTrainingPage() {
               <input
                 value={searchValue}
                 onChange={e => setSearchValue(e.target.value)}
-                placeholder="Search Pages"
+                placeholder="Search by URL"
                 className="text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] w-full bg-transparent"
               />
             </div>
