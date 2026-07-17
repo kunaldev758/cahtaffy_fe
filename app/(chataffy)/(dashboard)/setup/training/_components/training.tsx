@@ -260,8 +260,8 @@ export default function EnhancedTrainingPage() {
   const [scrapingProgress, setScrapingProgress] = useState<ScrapingProgress | null>(null)
   const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0)
 
-  // Row selection
-  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({})
+  // Row selection: id → source type (persists across pages so bulk retrain keeps all picks)
+  const [selectedRows, setSelectedRows] = useState<Record<string, number>>({})
 
   // Per-row loading states
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
@@ -316,19 +316,27 @@ export default function EnhancedTrainingPage() {
 
   // ── Selection helpers (list rows are server-filtered when searching) ───────────
 
-  const allSelected = trainingList.data.length > 0 && trainingList.data.every(item => selectedRows[item._id])
-  const hasPartialSelection = trainingList.data.some(item => selectedRows[item._id]) && !allSelected
-  const selectedCount = Object.values(selectedRows).filter(Boolean).length
-  const selectedIds = Object.entries(selectedRows).filter(([, v]) => v).map(([k]) => k)
+  const allSelected = trainingList.data.length > 0 && trainingList.data.every(item => item._id in selectedRows)
+  const hasPartialSelection = trainingList.data.some(item => item._id in selectedRows) && !allSelected
+  const selectedCount = Object.keys(selectedRows).length
+  const selectedIds = Object.keys(selectedRows)
 
   const handleSelectAll = (checked: boolean) => {
-    const updated: Record<string, boolean> = { ...selectedRows }
-    trainingList.data.forEach(item => { updated[item._id] = checked })
+    const updated: Record<string, number> = { ...selectedRows }
+    trainingList.data.forEach(item => {
+      if (checked) updated[item._id] = item.type
+      else delete updated[item._id]
+    })
     setSelectedRows(updated)
   }
 
-  const handleSelectRow = (id: string, checked: boolean) => {
-    setSelectedRows(prev => ({ ...prev, [id]: checked }))
+  const handleSelectRow = (id: string, type: number, checked: boolean) => {
+    setSelectedRows(prev => {
+      const next = { ...prev }
+      if (checked) next[id] = type
+      else delete next[id]
+      return next
+    })
   }
 
   // ── Action handlers ───────────────────────────────────────────────────────────
@@ -405,10 +413,8 @@ export default function EnhancedTrainingPage() {
   const handleBulkDelete = () => handleDelete(selectedIds)
 
   const handleBulkRetrain = () => {
-    const webPageIds = selectedIds.filter(id => {
-      const item = trainingList.data.find(d => d._id === id)
-      return item?.type === 0
-    })
+    // Use types stored at selection time — current page alone cannot resolve cross-page picks
+    const webPageIds = selectedIds.filter(id => selectedRows[id] === 0)
     if (webPageIds.length === 0) {
       toast.warning('No web pages selected for retraining')
       return
@@ -830,7 +836,7 @@ export default function EnhancedTrainingPage() {
               <input
                 value={searchValue}
                 onChange={e => setSearchValue(e.target.value)}
-                placeholder="Search Pages"
+                placeholder="Search by URL"
                 className="text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] w-full bg-transparent"
               />
             </div>
@@ -964,8 +970,8 @@ export default function EnhancedTrainingPage() {
                       <TableCell className="w-[60px] !px-[20px] text-left">
                         <Checkbox
                           className={checkboxUiClass}
-                          checked={!!selectedRows[item._id]}
-                          onCheckedChange={checked => handleSelectRow(item._id, checked === true)}
+                          checked={item._id in selectedRows}
+                          onCheckedChange={checked => handleSelectRow(item._id, item.type, checked === true)}
                         />
                       </TableCell>
 
