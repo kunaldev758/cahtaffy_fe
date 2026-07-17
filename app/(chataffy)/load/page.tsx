@@ -270,8 +270,6 @@ function LoadPageContent() {
       return;
     }
     window.location.href = url;
-     // 👇 New tab — do NOT redirect to Shopify
-    // return false;
   }
 
   useEffect(() => {
@@ -289,7 +287,6 @@ function LoadPageContent() {
           //   withCredentials: true,
           // });
           const res = await bcAuthLoadApi(signedPayload);
-          console.log(res, "this is the response bigcommerce!");
           const result = res;
           if (result.status) {
             const { userId, isOnboarded, agents, bigcommerceStoreHash, bigcommerceStoreUrl, token } =
@@ -316,12 +313,22 @@ function LoadPageContent() {
         // ── Shopify ──────────────────────────────────────────────────────
         if (shop) {
           try {
-            // Get session token from new App Bridge via window.shopify
             let id_token: string | null = searchParams?.get("id_token") ?? null;
+            const hasHmac = Boolean(searchParams?.get("hmac"));
 
-            if (typeof window !== "undefined" && window.shopify?.idToken) {
+            if (
+              !id_token &&
+              !hasHmac &&
+              typeof window !== "undefined" &&
+              window.shopify?.idToken
+            ) {
               try {
-                id_token = await window.shopify.idToken();
+                id_token = await Promise.race([
+                  window.shopify.idToken(),
+                  new Promise<null>((resolve) =>
+                    setTimeout(() => resolve(null), 3000),
+                  ),
+                ]);
               } catch (tokenErr) {
                 console.warn(
                   "Could not get App Bridge session token:",
@@ -330,19 +337,11 @@ function LoadPageContent() {
               }
             }
 
-            // Build params — prefer id_token, fallback to install_token etc.
             const allParams = Object.fromEntries(searchParams?.entries() ?? []);
-            // const params = id_token
-            //   ? { shop, host, id_token } // App Bridge flow (normal load)
-            //   : allParams; // Post-install flow (install_token)
-            const params = allParams;
-
-            // const res = await axios.get(`${apiBase}/api/shopify/auth/load`, {
-            //   params,
-            //   withCredentials: true,
-            // });
+            const params = id_token ? { ...allParams, id_token } : allParams;
             const res = await sfAuthLoadApi(params);
             const result = res;
+            
             if (result.status) {
               const { userId, isOnboarded, agents, shopifyShop, token } = result;
               if (token) {
@@ -364,11 +363,11 @@ function LoadPageContent() {
             }
 
             const httpStatus = getHttpStatusFromLoadResult(result);
-            // Not installed or uninstalled → trigger OAuth
             if (
               httpStatus === 400 ||
               httpStatus === 401 ||
-              httpStatus === 403
+              httpStatus === 403 ||
+              result.status === false
             ) {
               const installUrl = new URL(
                 `${process.env.NEXT_PUBLIC_API_HOST}/api/shopify/auth/install`,
