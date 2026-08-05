@@ -22,6 +22,15 @@ interface ContentData {
   webPage?: {
     url: string
   }
+  entity_type?: string
+  entity_name?: string
+  classification_confidence?: number
+  classification_reason?: string
+  content_hash?: string
+  attributes?: any
+  search_terms?: string[]
+  language?: string
+  is_active?: boolean
 }
 
 interface ContentDetailsModalProps {
@@ -255,6 +264,13 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
                   value={getRelativeTime(contentData.lastEdit)}
                   icon={<RotateCcw className="h-[18px] w-[18px]" />}
                 />
+                {contentData.entity_type && (
+                  <InfoBlock
+                    label="AI Classification"
+                    value={`${contentData.entity_type.charAt(0).toUpperCase() + contentData.entity_type.slice(1)} (${Math.round((contentData.classification_confidence ?? 0) * 100)}%)`}
+                    icon={<span className="material-symbols-outlined text-[#64748B] !text-[20px]">smart_toy</span>}
+                  />
+                )}
               </div>
 
               <div className="flex flex-col gap-[16px]">
@@ -306,6 +322,61 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
                   )}
                 </div>
               </div>
+
+              {contentData.classification_reason && (
+                <div className="mt-2 p-3 bg-[#f8fafc] border border-[#e2e8f0] rounded-[12px] text-[13px] text-[#64748b]">
+                  <span className="font-semibold text-[#334155]">Classification Reason:</span> {contentData.classification_reason}
+                </div>
+              )}
+
+              {contentData.entity_type === 'product' && contentData.attributes && (
+                <div className="p-4 border border-[#e2e8f0] rounded-[16px] bg-[#f8fafc] flex gap-4">
+                  {contentData.attributes.imageUrl && (
+                    <img 
+                      src={contentData.attributes.imageUrl} 
+                      alt={contentData.entity_name || contentData.title}
+                      className="w-[120px] h-[120px] object-cover rounded-lg border border-[#e2e8f0]"
+                    />
+                  )}
+                  <div className="flex-1 flex flex-col gap-1.5 justify-center">
+                    <h4 className="text-[16px] font-semibold text-[#1e293b]">{contentData.entity_name || contentData.title}</h4>
+                    {contentData.attributes.brand && (
+                      <p className="text-[13px] text-[#64748b]">Brand: <span className="font-medium text-[#334155]">{contentData.attributes.brand}</span></p>
+                    )}
+                    {contentData.attributes.sku && (
+                      <p className="text-[13px] text-[#64748b]">SKU: <span className="font-medium text-[#334155]">{contentData.attributes.sku}</span></p>
+                    )}
+                    {contentData.attributes.category && (
+                      <p className="text-[13px] text-[#64748b]">Category: <span className="font-medium text-[#334155]">{contentData.attributes.category}</span></p>
+                    )}
+                    <div className="mt-1 flex items-center gap-3">
+                      <span className="text-[16px] font-bold text-[#4686FE]">
+                        {contentData.attributes.price ? `$${contentData.attributes.price}` : 'Price N/A'}
+                      </span>
+                      {contentData.attributes.availability && (
+                        <span className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-full ${
+                          contentData.attributes.availability === 'InStock' ? 'bg-[#d1fae5] text-[#065f46]' : 'bg-[#fee2e2] text-[#991b1b]'
+                        }`}>
+                          {contentData.attributes.availability === 'InStock' ? 'In Stock' : 'Out of Stock'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {contentData.search_terms && contentData.search_terms.length > 0 && (
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <p className="text-[11px] font-semibold tracking-wider text-[#64748b] uppercase">AI Search Terms / Keywords</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {contentData.search_terms.map((term, index) => (
+                      <span key={index} className="px-2.5 py-0.5 text-[12px] font-medium rounded-full bg-[#f1f5f9] text-[#475569] border border-[#e2e8f0]">
+                        {term}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-6 flex items-center justify-between">
                 <p className="flex items-center gap-2 text-[12px] font-bold tracking-wide text-[#111827]">

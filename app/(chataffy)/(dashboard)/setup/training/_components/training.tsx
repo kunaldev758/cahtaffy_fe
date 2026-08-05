@@ -39,6 +39,8 @@ interface TrainingItem {
   fileSize?: number
   type: number
   isActive?: boolean
+  entity_type?: string
+  classification_confidence?: number
 }
 
 interface ClientData {
@@ -987,6 +989,14 @@ export default function EnhancedTrainingPage() {
                           <span className="text-[13px] text-[#334155] truncate" title={item.title}>
                             {item.title}
                           </span>
+                          {item.entity_type && (
+                            <span 
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#EFF5FF] text-[#4686FE] border border-[#dbeafe] flex-shrink-0"
+                              title={`Classification Confidence: ${Math.round((item.classification_confidence ?? 0) * 100)}%`}
+                            >
+                              {item.entity_type}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
 

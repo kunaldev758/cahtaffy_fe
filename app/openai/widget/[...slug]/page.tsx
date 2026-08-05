@@ -1642,6 +1642,42 @@ export default function EnhancedChatWidget({ params }: any) {
                           .chat-bubble a:visited {
                             color: var(--chat-link-color) !important;
                           }
+                          .chat-bubble h1 {
+                            margin: 0 0 8px;
+                            font-size: 15px;
+                            font-weight: 700;
+                            line-height: 1.3;
+                          }
+                          .chat-bubble h2 {
+                            margin: 10px 0 6px;
+                            font-size: 13px;
+                            font-weight: 600;
+                            line-height: 1.35;
+                          }
+                          .chat-bubble p {
+                            margin: 0 0 6px;
+                          }
+                          .chat-bubble p:last-child {
+                            margin-bottom: 0;
+                          }
+                          .chat-bubble ul,
+                          .chat-bubble ol {
+                            margin: 6px 0;
+                            padding-left: 18px;
+                          }
+                          .chat-bubble ul {
+                            list-style: disc;
+                          }
+                          .chat-bubble ol {
+                            list-style: decimal;
+                          }
+                          .chat-bubble li {
+                            margin: 5px 0;
+                            line-height: 1.45;
+                          }
+                          .chat-bubble strong {
+                            font-weight: 600;
+                          }
                         `}</style>
                         {visitorExists || (!visitorExists && !(themeSettings as any)?.isPreChatFormEnabled) ? (
                           <div className="space-y-4">

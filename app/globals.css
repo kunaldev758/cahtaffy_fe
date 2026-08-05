@@ -1110,6 +1110,61 @@ color: #C977E2;
     font-weight: 500;
 }
 
+.ai-messaageInner h1,
+.structured-response h1 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.ai-messaageInner h2,
+.structured-response h2 {
+    margin: 10px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.ai-messaageInner p,
+.structured-response p {
+    margin: 0 0 6px;
+}
+
+.ai-messaageInner p:last-child,
+.structured-response p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-messaageInner ul,
+.ai-messaageInner ol,
+.structured-response ul,
+.structured-response ol {
+    margin: 6px 0;
+    padding-left: 18px;
+}
+
+.ai-messaageInner ul,
+.structured-response ul {
+    list-style: disc;
+}
+
+.ai-messaageInner ol,
+.structured-response ol {
+    list-style: decimal;
+}
+
+.ai-messaageInner li,
+.structured-response li {
+    margin: 5px 0;
+    line-height: 1.45;
+}
+
+.ai-messaageInner strong,
+.structured-response strong {
+    font-weight: 600;
+}
+
 .chat-messageBox:nth-last-child(1) {
     margin-bottom: 0;
 }

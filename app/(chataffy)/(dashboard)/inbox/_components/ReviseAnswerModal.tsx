@@ -129,6 +129,7 @@ export default function ReviseAnswerModal({
               Agent Response
             </label>
             <div
+              className="structured-response"
               style={{
                 background: '#f9fafb',
                 border: '1px solid #e5e7eb',
