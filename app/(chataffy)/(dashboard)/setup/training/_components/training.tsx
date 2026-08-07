@@ -89,23 +89,16 @@ function mergeAgentDataWithWebPageStats(
 ): AgentData | null {
   if (!data) return null
   if (!stats || typeof stats.total !== 'number') return data
-  // While a scrape/train job is running, training rows may not exist yet — keep Agent counters.
+  // Mid-job: agent counters update as each page finishes (recompute). List
+  // may still be incomplete, so keep agent values until training is idle.
   if (data.dataTrainingStatus === 1) return data
-  const pa = data.pagesAdded ?? { success: 0, failed: 0, total: 0 }
-  const dbSum = stats.synced + stats.failed + stats.pending
-  const agentAccounted = (pa.success ?? 0) + (pa.failed ?? 0)
-  // Do not wipe real Agent counters when DB counts look empty or incomplete (e.g. aggregation casting bugs).
-  if (stats.total === 0 && (pa.total ?? 0) > 0) return data
-  if (dbSum > 0 && agentAccounted > 0 && dbSum < agentAccounted) return data
-
-  const displayTotal = Math.max(pa.total ?? 0, dbSum)
+  // Idle: inventory total is training-list row count (rises on add, falls on delete).
   return {
     ...data,
     pagesAdded: {
-      ...pa,
-      total: displayTotal,
-      success: stats.synced,
-      failed: stats.failed,
+      success: stats.synced ?? 0,
+      failed: stats.failed ?? 0,
+      total: stats.total ?? 0,
     },
   }
 }
@@ -361,9 +354,24 @@ export default function EnhancedTrainingPage() {
     try {
       const res = await deleteTrainingDataApi(ids, agentId)
       if (res?.success) {
-        toast.success('Delete job queued successfully')
+        const queuedIds = new Set<string>(
+          Array.isArray(res.ids) && res.ids.length > 0 ? res.ids : ids
+        )
+        const queuedCount = typeof res.count === 'number' ? res.count : queuedIds.size
+        // The vector cleanup stays asynchronous, but hide all matching Mongo
+        // rows (including historical duplicates returned by the API) now.
+        setTrainingList(prev => {
+          const data = prev.data.filter(item => !queuedIds.has(item._id))
+          const totalCount = Math.max(0, prev.totalCount - queuedCount)
+          return {
+            ...prev,
+            data,
+            totalCount,
+            totalPages: Math.ceil(totalCount / pageSize),
+          }
+        })
+        toast.success('Content deletion started')
         setSelectedRows({})
-        refreshList()
       } else {
         toast.error(res?.error || 'Failed to delete training data')
       }

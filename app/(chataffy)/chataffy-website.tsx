@@ -96,7 +96,7 @@ const ChataffyWebsite = () => {
     {
       icon: <Shield className="w-8 h-8" />,
       title: "Secure & Reliable",
-      description: "Enterprise-grade security with encrypted communications and reliable uptime."
+      description: "Enterprize-grade security with encrypted communications and reliable uptime."
     },
     {
       icon: <BarChart3 className="w-8 h-8" />,
@@ -137,7 +137,7 @@ const ChataffyWebsite = () => {
       popular: true
     },
     {
-      name: "Enterprise",
+      name: "Enterprize",
       price: "Custom",
       period: "",
       description: "For large organizations",
@@ -359,7 +359,7 @@ const ChataffyWebsite = () => {
                     ))}
                   </ul>
                   <button className={`w-full ${plan.popular ? theme.primary : 'bg-gray-200'} ${plan.popular ? 'text-white' : 'text-gray-700'} py-3 px-6 rounded-lg font-semibold ${plan.popular ? theme.primaryHover : 'hover:bg-gray-300'} transition-colors`}>
-                    {plan.name === 'Enterprise' ? 'Contact Sales' : 'Get Started'}
+                    {plan.name === 'Enterprize' ? 'Contact Sales' : 'Get Started'}
                   </button>
                 </div>
               </div>
