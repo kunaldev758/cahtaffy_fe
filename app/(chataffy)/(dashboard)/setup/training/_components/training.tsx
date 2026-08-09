@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   Globe, FileText, HelpCircle, Plus, Search, Eye,
   RotateCcw, Trash2, Loader2, CheckCircle, Clock,
-  XCircle, Zap, AlertCircle, ChevronLeft, ChevronRight, Database, Link as LinkIcon
+  XCircle, Zap, ChevronLeft, ChevronRight, Database, Link as LinkIcon
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -41,6 +41,7 @@ interface TrainingItem {
   isActive?: boolean
   entity_type?: string
   classification_confidence?: number
+  error?: string | null
 }
 
 interface ClientData {
@@ -107,6 +108,87 @@ function mergeAgentDataWithWebPageStats(
       success: stats.synced,
       failed: stats.failed,
     },
+  }
+}
+
+interface TrainingSummary {
+  total?: number
+  trained?: number
+  failed?: number
+  skipped?: number
+  unchanged?: number
+  skipReasons?: Record<string, number>
+}
+
+function formatTrainingSkipReason(reason: string): string {
+  if (reason.startsWith('canonical_duplicate:')) {
+    return 'already trained via canonical URL'
+  }
+  if (reason.startsWith('low_quality:empty_input')) {
+    return 'no usable content'
+  }
+  if (reason.startsWith('low_quality:')) {
+    return `low-quality content (${reason.slice('low_quality:'.length)})`
+  }
+  if (/non-content/i.test(reason)) {
+    return 'non-content URL'
+  }
+  if (/non-html/i.test(reason)) {
+    return 'non-HTML URL'
+  }
+  return reason
+}
+
+function buildTrainingOutcomeToast(summary?: TrainingSummary | null) {
+  if (!summary) return null
+
+  const trained = summary.trained ?? 0
+  const failed = summary.failed ?? 0
+  const skipped = summary.skipped ?? 0
+  const unchanged = summary.unchanged ?? 0
+  const total = summary.total ?? trained + failed + skipped + unchanged
+  const topReasonEntry = Object.entries(summary.skipReasons || {}).sort(
+    (a, b) => b[1] - a[1]
+  )[0]
+  const topReason = topReasonEntry
+    ? formatTrainingSkipReason(topReasonEntry[0])
+    : null
+
+  if (failed === 0 && skipped === 0) {
+    if (unchanged > 0 && trained === 0) {
+      return {
+        type: 'info' as const,
+        message: `No new pages trained. ${unchanged} already up to date.`,
+      }
+    }
+    return {
+      type: 'success' as const,
+      message:
+        trained > 0
+          ? `Training completed successfully! ${trained} page${trained === 1 ? '' : 's'} trained.`
+          : 'Training completed successfully!',
+    }
+  }
+
+  const parts = [
+    `${trained} trained`,
+    failed > 0 ? `${failed} failed` : null,
+    skipped > 0 ? `${skipped} skipped` : null,
+    unchanged > 0 ? `${unchanged} unchanged` : null,
+  ].filter(Boolean)
+
+  const reasonSuffix = topReason ? ` Top reason: ${topReason}.` : ''
+
+  if (trained === 0) {
+    return {
+      type: 'error' as const,
+      message: `Training finished with no new pages. ${parts.join(', ')}.${reasonSuffix}`,
+    }
+  }
+
+  return {
+    type: 'warning' as const,
+    message: `Training finished with mixed results (${parts.join(', ')} of ${total}).${reasonSuffix}`,
   }
 }
 
@@ -503,6 +585,7 @@ export default function EnhancedTrainingPage() {
         createdAt: item.createdAt,
         fileSize: item.fileSize,
         type: item.type,
+        error: item.error || null,
       })) || []
 
       const totalCount = data?.data?.pagination?.total || 0
@@ -511,7 +594,7 @@ export default function EnhancedTrainingPage() {
       setTrainingList({ data: transformedData, loading: false, totalCount, currentPage, totalPages })
     }
 
-    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress }: any) => {
+    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress, trainingSummary }: any) => {
       if (progress) {
         setScrapingProgress(progress)
         if (progress.stoppedReason === 'storage_limit_exceeded' && message) {
@@ -546,7 +629,16 @@ export default function EnhancedTrainingPage() {
           if (message && progress?.stoppedReason !== 'storage_limit_exceeded') {
             toast.error(message)
           } else if (!message && !progress?.stoppedReason) {
-            toast.success('Training completed successfully!')
+            const outcome = buildTrainingOutcomeToast(trainingSummary)
+            if (!outcome || outcome.type === 'success') {
+              toast.success(outcome?.message || 'Training completed successfully!')
+            } else if (outcome.type === 'warning') {
+              toast.warning(outcome.message)
+            } else if (outcome.type === 'info') {
+              toast.info(outcome.message)
+            } else {
+              toast.error(outcome.message)
+            }
           }
         }
         setAgentData(agent)
@@ -916,7 +1008,8 @@ export default function EnhancedTrainingPage() {
                 <TableHead className="!pl-0 !pr-[20px] text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">Source Name</TableHead>
                 <TableHead className="w-[130px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Type</TableHead>
                 <TableHead className="w-[170px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Last Synced</TableHead>
-                <TableHead className="w-[120px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Status</TableHead>
+                <TableHead className="w-[110px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Status</TableHead>
+                <TableHead className="min-w-[180px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Failure Reason</TableHead>
                 <TableHead className="w-[108px] text-[12px] px-[20px] text-right font-medium text-[#94A3B8] uppercase tracking-wide">Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -939,6 +1032,9 @@ export default function EnhancedTrainingPage() {
                     <TableCell className="px-[20px] py-[10px]">
                       <Skeleton className="h-4 w-20" />
                     </TableCell>
+                    <TableCell className="px-[20px] py-[10px]">
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
                     <TableCell className="px-[20px] py-[10px] text-right">
                       <Skeleton className="h-4 w-16 ml-auto" />
                     </TableCell>
@@ -946,7 +1042,7 @@ export default function EnhancedTrainingPage() {
                 ))
               ) : trainingList.data.length === 0 ? (
                 <TableRow className="border-0 hover:bg-[#F8FAFC]">
-                  <TableCell colSpan={6} className="p-0 border-0">
+                  <TableCell colSpan={7} className="p-0 border-0">
                     <div className="py-16 flex flex-col items-center justify-center text-center">
                       <Database className="w-10 h-10 text-[#CBD5E1] mb-3" />
                       <p className="text-[15px] font-medium text-[#111827] mb-1">No Training Data</p>
@@ -960,10 +1056,18 @@ export default function EnhancedTrainingPage() {
                   const isDeleting = deletingIds.has(item._id)
                   const isRetraining = retrainingIds.has(item._id)
                   const isWebPage = item.type === 0
+                  const sourceLabel = isWebPage
+                    ? (item.url || item.title)
+                    : item.title
+                  const showPageTitle =
+                    isWebPage &&
+                    !!item.title &&
+                    !!item.url &&
+                    item.title !== item.url
 
                   return (
                     <TableRow key={item._id} className="min-h-[50px] hover:bg-[#F8FAFC] transition-colors">
-                      <TableCell className="w-[60px] !px-[20px] text-left">
+                      <TableCell className="w-[60px] !px-[20px] text-left align-top pt-[14px]">
                         <Checkbox
                           className={checkboxUiClass}
                           checked={!!selectedRows[item._id]}
@@ -971,32 +1075,50 @@ export default function EnhancedTrainingPage() {
                         />
                       </TableCell>
 
-                      <TableCell className="px-[20px] !pl-0 !pr-[20px]">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <TableCell className="px-[20px] !pl-0 !pr-[20px] max-w-[420px]">
+                        <div className="flex items-start gap-2 min-w-0">
                           {isWebPage ? (
                             <a
                               href={item.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-[#EEF2FF]"
+                              className="flex-shrink-0 w-6 h-6 mt-0.5 flex items-center justify-center rounded hover:bg-[#EEF2FF]"
                               title={item.url}
                             >
                               <LinkIcon className="w-[14px] h-[14px] text-[#94A3B8]" />
                             </a>
                           ) : (
-                            <FileText className="flex-shrink-0 w-[14px] h-[14px] text-[#94A3B8]" />
+                            <FileText className="flex-shrink-0 w-[14px] h-[14px] text-[#94A3B8] mt-0.5" />
                           )}
-                          <span className="text-[13px] text-[#334155] truncate" title={item.title}>
-                            {item.title}
-                          </span>
-                          {item.entity_type && (
-                            <span 
-                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#EFF5FF] text-[#4686FE] border border-[#dbeafe] flex-shrink-0"
-                              title={`Classification Confidence: ${Math.round((item.classification_confidence ?? 0) * 100)}%`}
-                            >
-                              {item.entity_type}
-                            </span>
-                          )}
+                          <div className="min-w-0 flex-1">
+                            {isWebPage && item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block text-[13px] text-[#334155] break-all hover:text-[#4686FE] hover:underline"
+                              >
+                                {item.url}
+                              </a>
+                            ) : (
+                              <span className="block text-[13px] text-[#334155] break-words">
+                                {sourceLabel}
+                              </span>
+                            )}
+                            {showPageTitle && (
+                              <span className="mt-0.5 block text-[11px] text-[#94A3B8] break-words">
+                                {item.title}
+                              </span>
+                            )}
+                            {item.entity_type && (
+                              <span
+                                className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#EFF5FF] text-[#4686FE] border border-[#dbeafe]"
+                                title={`Classification Confidence: ${Math.round((item.classification_confidence ?? 0) * 100)}%`}
+                              >
+                                {item.entity_type}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
 
@@ -1012,6 +1134,16 @@ export default function EnhancedTrainingPage() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${statusConfig.className}`}>
                           {statusConfig.label}
                         </span>
+                      </TableCell>
+
+                      <TableCell className="px-[20px] !pl-0 !pr-[20px] max-w-[260px]">
+                        {item.trainingStatus === 2 && item.error ? (
+                          <span className="text-[12px] text-[#B91C1C] break-words whitespace-normal">
+                            {item.error}
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-[#94A3B8]">—</span>
+                        )}
                       </TableCell>
 
                       <TableCell className="px-[20px] !pl-0 !pr-[20px]">

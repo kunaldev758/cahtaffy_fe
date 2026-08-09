@@ -19,6 +19,7 @@ interface ContentData {
   dataSize: number
   lastEdit: string
   createdAt: string
+  error?: string | null
   webPage?: {
     url: string
   }
@@ -91,11 +92,15 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
     return types[type as keyof typeof types] || types[0]
   }
 
-  const getTrainingStatusInfo = (status: number) => {
+  const getTrainingStatusInfo = (status: number, trainingError?: string | null) => {
     const statuses = {
       0: { name: 'Sync Pending', subtitle: 'Content is in processing queue.', dot: 'bg-[#D97706]' },
-      1: { name: 'Syns Completed', subtitle: 'All data has been successfully vectorized.', dot: 'bg-[#34D399]' },
-      2: { name: 'Sync Failed', subtitle: 'This content could not be synchronized.', dot: 'bg-[#EF4444]' },
+      1: { name: 'Sync Completed', subtitle: 'All data has been successfully vectorized.', dot: 'bg-[#34D399]' },
+      2: {
+        name: 'Sync Failed',
+        subtitle: trainingError || 'This content could not be synchronized.',
+        dot: 'bg-[#EF4444]',
+      },
       10: { name: 'Upgrade Required', subtitle: 'Upgrade plan to continue synchronization.', dot: 'bg-[#6366F1]' }
     }
     return statuses[status as keyof typeof statuses] || statuses[0]
@@ -300,10 +305,10 @@ export default function ContentDetailsModal({ show, onHide, itemId, agentId, onR
                   </div>
                   <div>
                     <p className="flex items-center gap-2 text-[14px] font-medium text-[#111827]">
-                      <span className={`h-2.5 w-2.5 rounded-full ${getTrainingStatusInfo(contentData.trainingStatus).dot}`} />
-                      {getTrainingStatusInfo(contentData.trainingStatus).name}
+                      <span className={`h-2.5 w-2.5 rounded-full ${getTrainingStatusInfo(contentData.trainingStatus, contentData.error).dot}`} />
+                      {getTrainingStatusInfo(contentData.trainingStatus, contentData.error).name}
                     </p>
-                    <p className="mt-1 text-[13px] font-normal text-[#64748B]">{getTrainingStatusInfo(contentData.trainingStatus).subtitle}</p>
+                    <p className="mt-1 text-[13px] font-normal text-[#64748B]">{getTrainingStatusInfo(contentData.trainingStatus, contentData.error).subtitle}</p>
                   </div>
                 </div>
                 <div className="min-w-[220px]">
