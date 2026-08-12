@@ -52,6 +52,9 @@
     var iframe = document.createElement('iframe');
     iframe.id = 'chataffy-widget-frame';
     iframe.src = widgetPageUrl;
+    // Cross-origin iframes need an explicit Permissions Policy grant for mic
+    // (Web Speech API / getUserMedia). Without this, browsers return not-allowed.
+    iframe.setAttribute('allow', 'microphone; autoplay');
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('scrolling', 'no');

@@ -73,6 +73,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const [unavailableError, setUnavailableError] = useState('');
   const [userId, setUserId] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingTranscript, setRecordingTranscript] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [aiChat, setAiChat] = useState(true); // Default to true (AI chat mode)
   const [isConnectingToAgent, setIsConnectingToAgent] = useState(false);
@@ -107,6 +108,9 @@ export default function EnhancedChatWidget({ params }: any) {
   const currentTranscriptRef = useRef<string>('');
   const lastFinalTranscriptRef = useRef<string>('');
   const lastDisplayedTextRef = useRef<string>('');
+  const manualStopFinalizeTimerRef = useRef<any>(null);
+  const isDiscardRecordingRef = useRef<boolean>(false);
+  const noSpeechErrorCountRef = useRef<number>(0);
 
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
@@ -789,65 +793,100 @@ export default function EnhancedChatWidget({ params }: any) {
     }
   };
 
-  const stopRecording = () => {
-    const recognition = recognitionRef.current;
-    if (recognition && isRecording) {
-      console.log('⏹️ Stopping recording manually');
-      console.log('📋 Transcript at stop:', currentTranscriptRef.current);
+  const getBestTranscript = () =>
+    (currentTranscriptRef.current || lastDisplayedTextRef.current || '').trim();
 
-      // CRITICAL: Capture the transcript value NOW before anything else
-      const finalTranscript = currentTranscriptRef.current;
-      console.log('🔒 Captured transcript:', finalTranscript);
-
-      // Set flags BEFORE stopping recognition
-      shouldBeRecordingRef.current = false;
-      isManualStopRef.current = true;
-
-      // Stop the recognition
-      try {
-        recognition.stop();
-      } catch (e) {
-        console.error('Error stopping recognition:', e);
-      }
-
-      setIsRecording(false);
-
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
-      }
-      setRecordingTime(0);
-
-      // Show transcribing loader
-      setIsTranscribing(true);
-
-      // Set the message AFTER the loader, when the textarea will be rendered
-      setTimeout(() => {
-        console.log('⏰ Transcribing complete, now setting input message');
-
-        if (finalTranscript) {
-          const { value, error: limitError } = limitMessageWords(finalTranscript);
-          console.log('🔢 Setting value:', `"${value}"`);
-          setError(limitError);
-          setInputMessage(value);
-          console.log('💾 Input message set');
-        }
-
-        setIsTranscribing(false);
-        isManualStopRef.current = false;
-        console.log('✅ Transcribing complete, textarea should now show:', finalTranscript);
-      }, 1500);
-    }
-  };
-
-  const handleRecordingCancel = () => {
-    stopRecording();
-    setInputMessage('');
-    setSpeechError(null);
-    // setIsTranscribing(false);
+  const clearTranscriptRefs = () => {
     currentTranscriptRef.current = '';
     lastFinalTranscriptRef.current = '';
     lastDisplayedTextRef.current = '';
+  };
+
+  const finalizeRecording = (discard: boolean) => {
+    if (manualStopFinalizeTimerRef.current) {
+      clearTimeout(manualStopFinalizeTimerRef.current);
+      manualStopFinalizeTimerRef.current = null;
+    }
+
+    setIsTranscribing(false);
+    isManualStopRef.current = false;
+    isDiscardRecordingRef.current = false;
+    setRecordingTranscript('');
+
+    if (discard) {
+      setInputMessage('');
+      clearTranscriptRefs();
+      return;
+    }
+
+    const transcript = getBestTranscript();
+    if (transcript) {
+      const { value, error: limitError } = limitMessageWords(transcript);
+      setError(limitError);
+      setInputMessage(value);
+      setSpeechError(null);
+    } else {
+      setSpeechError('No speech detected. Please try again.');
+    }
+  };
+
+  const scheduleManualStopFinalize = (delay = 400) => {
+    if (manualStopFinalizeTimerRef.current) {
+      clearTimeout(manualStopFinalizeTimerRef.current);
+    }
+
+    manualStopFinalizeTimerRef.current = setTimeout(() => {
+      if (isManualStopRef.current) {
+        finalizeRecording(isDiscardRecordingRef.current);
+      }
+    }, delay);
+  };
+
+  const stopRecordingInternal = (discard: boolean) => {
+    const recognition = recognitionRef.current;
+    if (!recognition || !isRecording) {
+      return;
+    }
+
+    isDiscardRecordingRef.current = discard;
+    shouldBeRecordingRef.current = false;
+    isManualStopRef.current = true;
+
+    const captured = getBestTranscript();
+    if (captured) {
+      currentTranscriptRef.current = captured;
+      lastDisplayedTextRef.current = captured;
+    }
+
+    try {
+      recognition.stop();
+    } catch (e) {
+      console.error('Error stopping recognition:', e);
+    }
+
+    setIsRecording(false);
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setRecordingTime(0);
+
+    if (discard) {
+      finalizeRecording(true);
+      return;
+    }
+
+    setIsTranscribing(true);
+    scheduleManualStopFinalize(400);
+  };
+
+  const handleRecordingStop = () => {
+    stopRecordingInternal(false);
+  };
+
+  const handleRecordingCancel = () => {
+    stopRecordingInternal(true);
   };
 
   const toggleRecording = () => {
@@ -867,19 +906,20 @@ export default function EnhancedChatWidget({ params }: any) {
     }
 
     if (isRecording) {
-      console.log('⏸️ Currently recording, calling stopRecording()');
-      stopRecording();
+      console.log('⏸️ Currently recording, finishing recording');
+      handleRecordingStop();
       return;
     }
 
     console.log('▶️ Starting new recording');
     setSpeechError(null);
     isManualStopRef.current = false;
+    isDiscardRecordingRef.current = false;
     shouldBeRecordingRef.current = true;
+    noSpeechErrorCountRef.current = 0;
     setRecordingTime(0);
-    currentTranscriptRef.current = '';
-    lastFinalTranscriptRef.current = '';
-    lastDisplayedTextRef.current = '';
+    setRecordingTranscript('');
+    clearTranscriptRefs();
     console.log('🔄 Reset all transcript refs for new recording');
 
     try {
@@ -1223,7 +1263,7 @@ export default function EnhancedChatWidget({ params }: any) {
     }
 
     const recognition = new SpeechRecognitionConstructor();
-    recognition.lang = 'en-US';
+    recognition.lang = navigator.language || 'en-US';
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognition.continuous = true;
@@ -1260,14 +1300,7 @@ export default function EnhancedChatWidget({ params }: any) {
       console.log('📋 Built final text:', finalText);
       console.log('📋 Built interim text:', interimText);
 
-      // CRITICAL: Always update currentTranscriptRef with the latest complete text
-      // This ensures we have the most up-to-date transcript when stopping
-      if (finalText) {
-        currentTranscriptRef.current = finalText;
-        console.log('💾 Updated ref to:', currentTranscriptRef.current);
-      }
-
-      // For display: show final + interim
+      // Build full transcript (final + interim) for storage and display
       let displayText = '';
       if (finalText) {
         displayText = interimText ? `${finalText} ${interimText}` : finalText;
@@ -1276,18 +1309,31 @@ export default function EnhancedChatWidget({ params }: any) {
       }
 
       displayText = displayText.trim();
-
-      // Only update display if text actually changed
-      if (displayText && displayText !== lastDisplayedTextRef.current) {
-        console.log('📺 Updating display to:', `"${displayText}"`);
-        lastDisplayedTextRef.current = displayText;
-
-        const { value, error: limitError } = limitMessageWords(displayText);
-        setError(limitError);
-        setInputMessage(value);
-      } else {
-        console.log('⏭️ Display unchanged, skipping');
+      if (!displayText) {
+        return;
       }
+
+      if (displayText === lastDisplayedTextRef.current && !isManualStopRef.current) {
+        return;
+      }
+
+      noSpeechErrorCountRef.current = 0;
+      currentTranscriptRef.current = displayText;
+      lastDisplayedTextRef.current = displayText;
+      if (finalText) {
+        lastFinalTranscriptRef.current = finalText;
+      }
+
+      console.log('💾 Updated transcript ref to:', currentTranscriptRef.current);
+
+      if (isManualStopRef.current) {
+        // Late results after stop — wait briefly then finalize with the latest text
+        scheduleManualStopFinalize(250);
+        return;
+      }
+
+      console.log('📺 Updating live transcript to:', `"${displayText}"`);
+      setRecordingTranscript(displayText);
     };
 
     recognition.onerror = (event: any) => {
@@ -1295,12 +1341,24 @@ export default function EnhancedChatWidget({ params }: any) {
       console.error('❌ Speech recognition error:', error);
 
       if (error === 'no-speech') {
-        console.log('⚠️ No speech detected, but continuing...');
-        return; // Don't stop on no-speech
+        noSpeechErrorCountRef.current += 1;
+        if (noSpeechErrorCountRef.current >= 2 && !getBestTranscript()) {
+          setSpeechError('No speech detected. Speak clearly into your microphone.');
+        }
+        return;
       }
 
       if (error === 'audio-capture') {
-        console.log('⚠️ Audio capture issue, but continuing...');
+        setSpeechError('Microphone capture failed. Check your mic and try again.');
+        setIsRecording(false);
+        isManualStopRef.current = false;
+        shouldBeRecordingRef.current = false;
+        setRecordingTranscript('');
+
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
         return;
       }
 
@@ -1309,6 +1367,7 @@ export default function EnhancedChatWidget({ params }: any) {
       setIsRecording(false);
       isManualStopRef.current = false;
       shouldBeRecordingRef.current = false;
+      setRecordingTranscript('');
 
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
@@ -1322,15 +1381,11 @@ export default function EnhancedChatWidget({ params }: any) {
       console.log('🎯 Manual stop?', isManualStopRef.current);
       console.log('🔄 Should continue?', shouldBeRecordingRef.current);
 
-      // Only update the input if this is NOT a manual stop
-      // (manual stop already handled the input in stopRecording)
-      if (currentTranscriptRef.current && !isManualStopRef.current) {
-        console.log('💬 Setting final message:', currentTranscriptRef.current);
-        const { value, error: limitError } = limitMessageWords(currentTranscriptRef.current);
-        setError(limitError);
-        setInputMessage(value);
-      } else if (isManualStopRef.current) {
-        console.log('⏭️ Skipping message update - manual stop already handled it');
+      if (isManualStopRef.current) {
+        if (!isDiscardRecordingRef.current) {
+          scheduleManualStopFinalize(200);
+        }
+        return;
       }
 
       // Check if we should continue recording (not a manual stop)
@@ -1381,6 +1436,9 @@ export default function EnhancedChatWidget({ params }: any) {
       recognitionRef.current = null;
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
+      }
+      if (manualStopFinalizeTimerRef.current) {
+        clearTimeout(manualStopFinalizeTimerRef.current);
       }
     };
   }, []);
@@ -2160,8 +2218,24 @@ export default function EnhancedChatWidget({ params }: any) {
                                     <span className="text-[13px] font-mono text-red-600 font-semibold">{formatRecordingTime(recordingTime)}</span>
                                   </div>
 
+                                  {/* Live transcript preview */}
+                                  <div className="rounded-lg bg-white px-3 py-2 min-h-[48px] shadow-inner">
+                                    {recordingTranscript ? (
+                                      <p className="text-[13px] text-[#0F172A] leading-[20px]">{recordingTranscript}</p>
+                                    ) : (
+                                      <p className="text-[13px] text-[#94A3B8] italic">Listening... speak now</p>
+                                    )}
+                                  </div>
+
+                                  {speechError && (
+                                    <div className="mt-2 text-xs text-red-600 flex items-center space-x-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      <span>{speechError}</span>
+                                    </div>
+                                  )}
+
                                   {/* Waveform animation */}
-                                  <div className="flex items-center justify-center space-x-1 h-16 bg-white rounded-lg px-[20px] shadow-inner">
+                                  <div className="flex items-center justify-center space-x-1 h-16 bg-white rounded-lg px-[20px] shadow-inner mt-3">
                                     {[...Array(30)].map((_, i) => {
                                       const randomHeight = 20 + Math.random() * 70;
                                       const randomDuration = 0.3 + Math.random() * 0.5;
@@ -2180,13 +2254,21 @@ export default function EnhancedChatWidget({ params }: any) {
                                   </div>
                                 </div>
 
-                                {/* Cancel button only */}
-                                <div className="flex items-center justify-center">
+                                {/* Stop / Cancel controls */}
+                                <div className="flex items-center gap-2">
                                   <button
+                                    type="button"
                                     onClick={handleRecordingCancel}
-                                    className="inline-flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                                    className="inline-flex h-[44px] flex-1 items-center justify-center gap-[8px] rounded-[12px] border border-[#E2E8F0] bg-white px-[20px] text-[13px] font-semibold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
                                   >
-                                    Stop
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleRecordingStop}
+                                    className="inline-flex h-[44px] flex-1 items-center justify-center gap-[8px] rounded-[12px] bg-[#0F172A] px-[20px] text-[13px] font-semibold text-white transition-colors hover:bg-[#111827]"
+                                  >
+                                    Done
                                   </button>
                                 </div>
                               </div>

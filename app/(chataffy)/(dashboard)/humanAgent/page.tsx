@@ -598,7 +598,7 @@ export default function HumanAgentPage() {
           subtitle="Manage team members, permissions, and website assignments."
           showDatePicker={false}
           showWebsiteSelect={false}
-          showNotificationBell={false}
+          showNotificationBell={true}
           showStatusBadge={false}
         />
 
