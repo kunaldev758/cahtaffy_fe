@@ -1,7 +1,7 @@
 import { io, Socket } from "socket.io-client";
 
 /** Auto-end widget conversations after this much continuous visitor away time. */
-export const VISITOR_AWAY_TIMEOUT_MS = 5 * 60 * 1000;
+export const VISITOR_AWAY_TIMEOUT_MS = 15 * 60 * 1000;
 
 interface SocketOptions {
   token?: string;

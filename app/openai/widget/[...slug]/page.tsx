@@ -1522,17 +1522,17 @@ export default function EnhancedChatWidget({ params }: any) {
                       />
                     </button>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                       if (isChatOngoing) {
-                        setShowEndSessionConfirm(true);
-                       }
-                      }}
-                      className="p-2 hover:bg-white/20 rounded-full transition-colors"
-                    >
-                      <X className="w-4 h-4" style={{ color: getThemeColor(1, '#ffffff') }} />
-                    </button>
+                    {isChatOngoing && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowEndSessionConfirm(true);
+                        }}
+                        className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                      >
+                        <X className="w-4 h-4" style={{ color: getThemeColor(1, '#ffffff') }} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
