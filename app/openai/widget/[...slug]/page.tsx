@@ -93,7 +93,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const socketRef = useRef<Socket | null>(null);
   const hasSocketConnectedOnceRef = useRef(false);
   const hasCompletedInitialConnectRef = useRef(false);
-  const syncVisitorSocketSessionRef = useRef<() => void>(() => {});
+  const syncVisitorSocketSessionRef = useRef<() => void>(() => { });
   const widgetTokenRef = useRef('');
   const closeConversationContextRef = useRef({ conversationId: null as string | null, conversation: [] as any[] });
   closeConversationContextRef.current = { conversationId, conversation };
@@ -111,6 +111,9 @@ export default function EnhancedChatWidget({ params }: any) {
   const manualStopFinalizeTimerRef = useRef<any>(null);
   const isDiscardRecordingRef = useRef<boolean>(false);
   const noSpeechErrorCountRef = useRef<number>(0);
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
+  const playNotificationSoundRef = useRef<() => void>(() => { });
 
   const chatInputAvailable = visitorExists || (!visitorExists && !themeSettings?.isPreChatFormEnabled);
   const shouldRenderVoiceButton = chatInputAvailable && conversationStatus === 'open' && isSpeechSupported;
@@ -491,16 +494,8 @@ export default function EnhancedChatWidget({ params }: any) {
         clearNoReplyTimer();
       }
 
-      try {
-        // Construct audio path with basePath support for production
-        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-        const audioPath = `${basePath}/audio/notification.mp3`;
-        const audio = new Audio(audioPath);
-        data.chatMessage.sender_type != 'visitor' && audio.play().catch((err) => {
-          console.error("Failed to play notification sound", err);
-        });
-      } catch (e) {
-        console.error("Audio play error", e);
+      if (data?.chatMessage?.sender_type !== 'visitor') {
+        playNotificationSoundRef.current();
       }
     });
 
@@ -1081,7 +1076,7 @@ export default function EnhancedChatWidget({ params }: any) {
     ? `absolute bottom-[calc(100%+8px)] w-[400px] max-w-[calc(100vw-20px)] ${alignLeft ? 'left-0' : 'right-0'}`
     : `absolute bottom-20 w-[400px] ${alignLeft ? 'left-0' : 'right-0'}`;
 
-    // effect for interactive zones means the widget is visible and the user can interact with it and with the parent page
+  // effect for interactive zones means the widget is visible and the user can interact with it and with the parent page
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -1249,6 +1244,78 @@ export default function EnhancedChatWidget({ params }: any) {
     };
   }, []);
 
+  const getNotificationAudio = () => {
+    if (typeof window === 'undefined') return null;
+    if (!notificationAudioRef.current) {
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+      const audio = new Audio(`${basePath}/audio/notification.mp3`);
+      audio.preload = 'auto';
+      notificationAudioRef.current = audio;
+    }
+    return notificationAudioRef.current;
+  };
+
+  playNotificationSoundRef.current = () => {
+    const audio = getNotificationAudio();
+    if (!audio) return;
+    try {
+      audio.muted = false;
+      audio.volume = 1;
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Metadata may not be loaded yet.
+      }
+      const playPromise = audio.play();
+      playPromise?.catch((err) => {
+        console.warn("Notification sound deferred or blocked by browser autoplay policy:", err);
+      });
+    } catch (e) {
+      console.error("Audio play error", e);
+    }
+  };
+
+  // Unlock autoplay on iframe gesture; retry until play() succeeds, then reuse this element.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const audio = getNotificationAudio();
+    if (!audio) return;
+
+    const unlockAudio = () => {
+      if (audioUnlockedRef.current) return;
+      try {
+        audio.muted = true;
+        const promise = audio.play();
+        if (!promise) return;
+        promise
+          .then(() => {
+            if (audioUnlockedRef.current) return;
+            audio.pause();
+            try {
+              audio.currentTime = 0;
+            } catch {
+              // Metadata may not be loaded yet.
+            }
+            audio.muted = false;
+            audioUnlockedRef.current = true;
+            window.removeEventListener('pointerdown', unlockAudio);
+            window.removeEventListener('keydown', unlockAudio);
+          })
+          .catch(() => { });
+      } catch {
+        // Retry on the next gesture.
+      }
+    };
+
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -1266,13 +1333,11 @@ export default function EnhancedChatWidget({ params }: any) {
     recognition.lang = navigator.language || 'en-US';
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.continuous = true;
+    // Set continuous = false to prevent Chrome iframe Web Speech stalls and InvalidStateError
+    recognition.continuous = false;
 
     recognition.onstart = () => {
       console.log('🎤 Recognition started');
-      // Don't reset refs if we're continuing a recording session
-      // Only reset when starting fresh (shouldBeRecordingRef will be true on continue)
-      // The refs are reset in toggleRecording when starting new
     };
 
     recognition.onresult = (event: any) => {
@@ -1281,26 +1346,19 @@ export default function EnhancedChatWidget({ params }: any) {
       let finalText = '';
       let interimText = '';
 
-      // Build complete transcript from ALL results
       for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
 
         if (event.results[i].isFinal) {
           finalText += transcript + ' ';
-          console.log(`✅ Final [${i}]: "${transcript}"`);
         } else {
           interimText += transcript;
-          console.log(`⏳ Interim [${i}]: "${transcript}"`);
         }
       }
 
       finalText = finalText.trim();
       interimText = interimText.trim();
 
-      console.log('📋 Built final text:', finalText);
-      console.log('📋 Built interim text:', interimText);
-
-      // Build full transcript (final + interim) for storage and display
       let displayText = '';
       if (finalText) {
         displayText = interimText ? `${finalText} ${interimText}` : finalText;
@@ -1313,10 +1371,6 @@ export default function EnhancedChatWidget({ params }: any) {
         return;
       }
 
-      if (displayText === lastDisplayedTextRef.current && !isManualStopRef.current) {
-        return;
-      }
-
       noSpeechErrorCountRef.current = 0;
       currentTranscriptRef.current = displayText;
       lastDisplayedTextRef.current = displayText;
@@ -1324,10 +1378,7 @@ export default function EnhancedChatWidget({ params }: any) {
         lastFinalTranscriptRef.current = finalText;
       }
 
-      console.log('💾 Updated transcript ref to:', currentTranscriptRef.current);
-
       if (isManualStopRef.current) {
-        // Late results after stop — wait briefly then finalize with the latest text
         scheduleManualStopFinalize(250);
         return;
       }
@@ -1362,8 +1413,7 @@ export default function EnhancedChatWidget({ params }: any) {
         return;
       }
 
-      // For other errors, stop recording
-      setSpeechError(error === 'not-allowed' ? 'Microphone access denied' : 'Voice recognition error');
+      setSpeechError(error === 'not-allowed' ? 'Microphone access denied. Please allow mic permissions.' : 'Voice recognition error');
       setIsRecording(false);
       isManualStopRef.current = false;
       shouldBeRecordingRef.current = false;
@@ -1376,10 +1426,7 @@ export default function EnhancedChatWidget({ params }: any) {
     };
 
     recognition.onend = () => {
-      console.log('🛑 Recognition ended');
-      console.log('📋 Final transcript in ref:', currentTranscriptRef.current);
-      console.log('🎯 Manual stop?', isManualStopRef.current);
-      console.log('🔄 Should continue?', shouldBeRecordingRef.current);
+      console.log('🛑 Recognition ended. Final text:', currentTranscriptRef.current);
 
       if (isManualStopRef.current) {
         if (!isDiscardRecordingRef.current) {
@@ -1388,11 +1435,9 @@ export default function EnhancedChatWidget({ params }: any) {
         return;
       }
 
-      // Check if we should continue recording (not a manual stop)
+      // If user is still recording in active mode, restart seamlessly for next voice segment
       if (shouldBeRecordingRef.current && !isManualStopRef.current) {
-        console.log('🔄 Restarting recognition (continuous mode)');
         try {
-          // Small delay before restart to ensure clean state
           setTimeout(() => {
             if (recognitionRef.current && shouldBeRecordingRef.current && !isManualStopRef.current) {
               recognition.start();
@@ -1410,9 +1455,6 @@ export default function EnhancedChatWidget({ params }: any) {
           }
         }
       } else {
-        console.log('✋ Not restarting - user stopped recording');
-        // IMPORTANT: Don't clear the ref here! It's needed for the UI
-        // Only clear the recording state
         setIsRecording(false);
 
         if (recordingTimerRef.current) {
@@ -1513,7 +1555,7 @@ export default function EnhancedChatWidget({ params }: any) {
             <div
               ref={chatPanelRef}
               className={`${chatPanelPositionClass} ${jakarta.className} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out transform flex flex-col ${isMinimized ? 'h-[76px]' : 'h-[calc(100vh-200px)]'
-              }`}>
+                }`}>
 
               {/* No Internet Banner */}
               {!isOnline && (
@@ -1552,12 +1594,12 @@ export default function EnhancedChatWidget({ params }: any) {
                       <div className="flex items-center space-x-2 text-xs opacity-90 mt-0.5">
                         {isLimitExpired ? (
                           <>
-                          {/* <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                            {/* <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
                           <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Offline</span> */}
                           </>
                         ) : (
                           <>
-                          {/* <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            {/* <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                           <span className="text-xs font-medium" style={{ color: getThemeColor(1, '#ffffff') }}>Online</span> */}
                           </>
                         )}
@@ -1686,7 +1728,7 @@ export default function EnhancedChatWidget({ params }: any) {
                     </div>
                   </div>
                 ) : isLimitExpired ? (
-                  <LimitExpiredComponent userId={userId} visitorId={typeof window !== 'undefined' ? sessionStorage.getItem('visitorId') : null}/>
+                  <LimitExpiredComponent userId={userId} visitorId={typeof window !== 'undefined' ? sessionStorage.getItem('visitorId') : null} />
                 ) : (
                   <>
                     {/* Messages Area */}
