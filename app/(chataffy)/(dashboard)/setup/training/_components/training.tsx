@@ -506,8 +506,6 @@ export default function EnhancedTrainingPage() {
         const queuedCount = typeof res.count === 'number' ? res.count : queuedIds.size
         // The vector cleanup stays asynchronous, but hide all matching Mongo
         // rows (including historical duplicates returned by the API) now.
-<<<<<<< Updated upstream
-=======
         const deletedWebPages = ids
           .map(id => {
             const selected = selectedRows[id]
@@ -535,7 +533,6 @@ export default function EnhancedTrainingPage() {
           })
         }
 
->>>>>>> Stashed changes
         setTrainingList(prev => {
           const data = prev.data.filter(item => !queuedIds.has(item._id))
           const totalCount = Math.max(0, prev.totalCount - queuedCount)
@@ -694,9 +691,6 @@ export default function EnhancedTrainingPage() {
       setTrainingList({ data: transformedData, loading: false, totalCount, currentPage, totalPages })
     }
 
-<<<<<<< Updated upstream
-    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress, trainingSummary }: any) => {
-=======
     const onGetTrainingListIdsResponse = (payload: any) => {
       if (payload?.requestId !== selectAllRequestIdRef.current) return
       if (selectAllTimeoutRef.current != null) {
@@ -723,8 +717,7 @@ export default function EnhancedTrainingPage() {
       }
     }
 
-    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress }: any) => {
->>>>>>> Stashed changes
+    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress, trainingSummary }: any) => {
       if (progress) {
         setScrapingProgress(progress)
         if (progress.stoppedReason === 'storage_limit_exceeded' && message) {
@@ -1228,22 +1221,7 @@ export default function EnhancedTrainingPage() {
                               <LinkIcon className="w-[14px] h-[14px] text-[#94A3B8]" />
                             </a>
                           ) : (
-<<<<<<< Updated upstream
                             <FileText className="flex-shrink-0 w-[14px] h-[14px] text-[#94A3B8] mt-0.5" />
-=======
-                            <FileText className="flex-shrink-0 w-[14px] h-[14px] text-[#94A3B8]" />
-                          )}
-                          <span className="text-[13px] text-[#334155] truncate" title={item.title}>
-                            {item.title}
-                          </span>
-                          {item.entity_type && (
-                            <span
-                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#EFF5FF] text-[#4686FE] border border-[#dbeafe] flex-shrink-0"
-                              title={`Classification Confidence: ${Math.round((item.classification_confidence ?? 0) * 100)}%`}
-                            >
-                              {item.entity_type}
-                            </span>
->>>>>>> Stashed changes
                           )}
                           <div className="min-w-0 flex-1">
                             {isWebPage && item.url ? (
