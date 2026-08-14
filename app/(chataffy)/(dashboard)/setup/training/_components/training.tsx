@@ -360,6 +360,24 @@ export default function EnhancedTrainingPage() {
         const queuedCount = typeof res.count === 'number' ? res.count : queuedIds.size
         // The vector cleanup stays asynchronous, but hide all matching Mongo
         // rows (including historical duplicates returned by the API) now.
+        const deletedWebPages = trainingList.data.filter(item => queuedIds.has(item._id) && item.type === 0)
+        const webPagesCount = deletedWebPages.length
+        if (webPagesCount > 0) {
+          const deletedSyncedCount = deletedWebPages.filter(item => item.trainingStatus === 1).length
+          const deletedFailedCount = deletedWebPages.filter(item => item.trainingStatus === 2).length
+          setAgentData(prev => {
+            if (!prev) return null
+            return {
+              ...prev,
+              pagesAdded: {
+                total: Math.max(0, prev.pagesAdded.total - webPagesCount),
+                success: Math.max(0, prev.pagesAdded.success - deletedSyncedCount),
+                failed: Math.max(0, prev.pagesAdded.failed - deletedFailedCount),
+              }
+            }
+          })
+        }
+
         setTrainingList(prev => {
           const data = prev.data.filter(item => !queuedIds.has(item._id))
           const totalCount = Math.max(0, prev.totalCount - queuedCount)
