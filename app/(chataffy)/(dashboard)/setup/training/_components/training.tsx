@@ -346,7 +346,7 @@ export default function EnhancedTrainingPage() {
   const [selectedRows, setSelectedRows] = useState<Record<string, SelectedRowMeta>>({})
   const [selectingAll, setSelectingAll] = useState(false)
   const selectAllRequestIdRef = useRef(0)
-  const selectAllTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const selectAllTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
   // Per-row loading states
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
