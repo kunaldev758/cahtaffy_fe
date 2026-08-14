@@ -166,13 +166,20 @@ export default function Home(Props: any) {
       router.push('/login')
       return
     }
+
+    if (response?.success === false) {
+      setButtonLoading(false)
+      toast.error(response?.error || 'Failed to start training')
+      return
+    }
+
     setButtonLoading(false)
     setUrl('')
     setUrlInput('')
     setUrlInputError(null)
     setUrlTags([])
     onHide()
-    toast.success(response.message)
+    toast.info(response?.message || 'Training started...')
     await fetchAgentData()
 
   }

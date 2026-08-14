@@ -9,6 +9,7 @@ import {
   CheckCircle,
   Clock,
   Frown,
+  MessageCircle,
   Mic,
   Minimize2,
   Send,
@@ -1509,9 +1510,7 @@ export default function EnhancedChatWidget({ params }: any) {
                   {showWidget ? (
                     <X className="h-6 w-6" style={{ color: getThemeColor(1, '#ffffff') }} />
                   ) : (
-                    <span className="material-symbols-outlined" style={{ color: getThemeColor(1, '#ffffff') }}>
-                      chat_bubble
-                    </span>
+                    <MessageCircle className="h-6 w-6" style={{ color: getThemeColor(1, '#ffffff') }} />
                   )}
                   {!showWidget && unreadCount > 0 && (
                     <div className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-[12px]">
@@ -1535,9 +1534,7 @@ export default function EnhancedChatWidget({ params }: any) {
                   {showWidget ? (
                     <X className="h-7 w-7 rotate-0 text-white transition-transform duration-300 group-hover:rotate-90" style={{ color: getThemeColor(1, '#ffffff') }} />
                   ) : (
-                    <span className="material-symbols-outlined !text-[28px]  transition-transform duration-300 group-hover:scale-110" style={{ color: getThemeColor(1, '#ffffff') }}>
-                      chat_bubble
-                    </span>
+                    <MessageCircle className="h-7 w-7 text-white transition-transform duration-300 group-hover:scale-110" style={{ color: getThemeColor(1, '#ffffff') }} />
                   )}
                 </div>
 

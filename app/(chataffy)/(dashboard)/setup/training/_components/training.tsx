@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   Globe, FileText, HelpCircle, Plus, Search, Eye,
   RotateCcw, Trash2, Loader2, CheckCircle, Clock,
-  XCircle, Zap, AlertCircle, ChevronLeft, ChevronRight, Database, Link as LinkIcon
+  XCircle, Zap, ChevronLeft, ChevronRight, Database, Link as LinkIcon
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -41,6 +41,7 @@ interface TrainingItem {
   isActive?: boolean
   entity_type?: string
   classification_confidence?: number
+  error?: string | null
 }
 
 interface ClientData {
@@ -83,6 +84,11 @@ interface WebPagesTrainingStats {
   pending: number
 }
 
+interface SelectedRowMeta {
+  type: number
+  trainingStatus?: number
+}
+
 function mergeAgentDataWithWebPageStats(
   data: AgentData | null,
   stats: WebPagesTrainingStats | null | undefined
@@ -100,6 +106,87 @@ function mergeAgentDataWithWebPageStats(
       failed: stats.failed ?? 0,
       total: stats.total ?? 0,
     },
+  }
+}
+
+interface TrainingSummary {
+  total?: number
+  trained?: number
+  failed?: number
+  skipped?: number
+  unchanged?: number
+  skipReasons?: Record<string, number>
+}
+
+function formatTrainingSkipReason(reason: string): string {
+  if (reason.startsWith('canonical_duplicate:')) {
+    return 'already trained via canonical URL'
+  }
+  if (reason.startsWith('low_quality:empty_input')) {
+    return 'no usable content'
+  }
+  if (reason.startsWith('low_quality:')) {
+    return `low-quality content (${reason.slice('low_quality:'.length)})`
+  }
+  if (/non-content/i.test(reason)) {
+    return 'non-content URL'
+  }
+  if (/non-html/i.test(reason)) {
+    return 'non-HTML URL'
+  }
+  return reason
+}
+
+function buildTrainingOutcomeToast(summary?: TrainingSummary | null) {
+  if (!summary) return null
+
+  const trained = summary.trained ?? 0
+  const failed = summary.failed ?? 0
+  const skipped = summary.skipped ?? 0
+  const unchanged = summary.unchanged ?? 0
+  const total = summary.total ?? trained + failed + skipped + unchanged
+  const topReasonEntry = Object.entries(summary.skipReasons || {}).sort(
+    (a, b) => b[1] - a[1]
+  )[0]
+  const topReason = topReasonEntry
+    ? formatTrainingSkipReason(topReasonEntry[0])
+    : null
+
+  if (failed === 0 && skipped === 0) {
+    if (unchanged > 0 && trained === 0) {
+      return {
+        type: 'info' as const,
+        message: `No new pages trained. ${unchanged} already up to date.`,
+      }
+    }
+    return {
+      type: 'success' as const,
+      message:
+        trained > 0
+          ? `Training completed successfully! ${trained} page${trained === 1 ? '' : 's'} trained.`
+          : 'Training completed successfully!',
+    }
+  }
+
+  const parts = [
+    `${trained} trained`,
+    failed > 0 ? `${failed} failed` : null,
+    skipped > 0 ? `${skipped} skipped` : null,
+    unchanged > 0 ? `${unchanged} unchanged` : null,
+  ].filter(Boolean)
+
+  const reasonSuffix = topReason ? ` Top reason: ${topReason}.` : ''
+
+  if (trained === 0) {
+    return {
+      type: 'error' as const,
+      message: `Training finished with no new pages. ${parts.join(', ')}.${reasonSuffix}`,
+    }
+  }
+
+  return {
+    type: 'warning' as const,
+    message: `Training finished with mixed results (${parts.join(', ')} of ${total}).${reasonSuffix}`,
   }
 }
 
@@ -255,8 +342,11 @@ export default function EnhancedTrainingPage() {
   const [scrapingProgress, setScrapingProgress] = useState<ScrapingProgress | null>(null)
   const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0)
 
-  // Row selection
-  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({})
+  // Row selection (ids may span pages; meta is used for bulk retrain/delete)
+  const [selectedRows, setSelectedRows] = useState<Record<string, SelectedRowMeta>>({})
+  const [selectingAll, setSelectingAll] = useState(false)
+  const selectAllRequestIdRef = useRef(0)
+  const selectAllTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Per-row loading states
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
@@ -309,21 +399,77 @@ export default function EnhancedTrainingPage() {
     return () => window.clearTimeout(t)
   }, [searchValue])
 
-  // ── Selection helpers (list rows are server-filtered when searching) ───────────
+  // ── Selection helpers (select all applies to every filtered row, not just this page)
 
-  const allSelected = trainingList.data.length > 0 && trainingList.data.every(item => selectedRows[item._id])
-  const hasPartialSelection = trainingList.data.some(item => selectedRows[item._id]) && !allSelected
-  const selectedCount = Object.values(selectedRows).filter(Boolean).length
-  const selectedIds = Object.entries(selectedRows).filter(([, v]) => v).map(([k]) => k)
+  const selectedIds = Object.keys(selectedRows)
+  const selectedCount = selectedIds.length
+  const allSelected = trainingList.totalCount > 0 && selectedCount >= trainingList.totalCount
+  const hasPartialSelection = selectedCount > 0 && !allSelected
 
-  const handleSelectAll = (checked: boolean) => {
-    const updated: Record<string, boolean> = { ...selectedRows }
-    trainingList.data.forEach(item => { updated[item._id] = checked })
-    setSelectedRows(updated)
+  const clearSelectAllRequest = () => {
+    selectAllRequestIdRef.current += 1
+    if (selectAllTimeoutRef.current != null) {
+      window.clearTimeout(selectAllTimeoutRef.current)
+      selectAllTimeoutRef.current = null
+    }
+    setSelectingAll(false)
   }
 
-  const handleSelectRow = (id: string, checked: boolean) => {
-    setSelectedRows(prev => ({ ...prev, [id]: checked }))
+  const handleSelectAll = (checked: boolean) => {
+    clearSelectAllRequest()
+
+    if (!checked) {
+      setSelectedRows({})
+      return
+    }
+
+    if (trainingList.totalCount <= 0) return
+
+    // Every matching row is already on this page — no extra fetch needed.
+    if (trainingList.data.length >= trainingList.totalCount) {
+      const next: Record<string, SelectedRowMeta> = {}
+      trainingList.data.forEach(item => {
+        next[item._id] = { type: item.type, trainingStatus: item.trainingStatus }
+      })
+      setSelectedRows(next)
+      return
+    }
+
+    if (!socket) {
+      toast.error('Unable to select all items right now')
+      return
+    }
+
+    const requestId = selectAllRequestIdRef.current
+    const q = listQueryRef.current
+    setSelectingAll(true)
+    selectAllTimeoutRef.current = window.setTimeout(() => {
+      if (selectAllRequestIdRef.current !== requestId) return
+      selectAllRequestIdRef.current += 1
+      setSelectingAll(false)
+      toast.error('Timed out selecting all items')
+    }, 20000)
+
+    socket.emit('get-training-list-ids', {
+      requestId,
+      sourcetype: q.sourceTypeFilter,
+      actionType: q.actionTypeFilter,
+      ...(q.search ? { search: q.search } : {}),
+    })
+  }
+
+  const handleSelectRow = (item: TrainingItem, checked: boolean) => {
+    setSelectedRows(prev => {
+      if (!checked) {
+        const next = { ...prev }
+        delete next[item._id]
+        return next
+      }
+      return {
+        ...prev,
+        [item._id]: { type: item.type, trainingStatus: item.trainingStatus },
+      }
+    })
   }
 
   // ── Action handlers ───────────────────────────────────────────────────────────
@@ -360,7 +506,16 @@ export default function EnhancedTrainingPage() {
         const queuedCount = typeof res.count === 'number' ? res.count : queuedIds.size
         // The vector cleanup stays asynchronous, but hide all matching Mongo
         // rows (including historical duplicates returned by the API) now.
-        const deletedWebPages = trainingList.data.filter(item => queuedIds.has(item._id) && item.type === 0)
+        const deletedWebPages = ids
+          .map(id => {
+            const selected = selectedRows[id]
+            if (selected) return selected
+            const item = trainingList.data.find(row => row._id === id)
+            return item
+              ? { type: item.type, trainingStatus: item.trainingStatus }
+              : null
+          })
+          .filter((meta): meta is SelectedRowMeta => meta != null && meta.type === 0)
         const webPagesCount = deletedWebPages.length
         if (webPagesCount > 0) {
           const deletedSyncedCount = deletedWebPages.filter(item => item.trainingStatus === 1).length
@@ -390,6 +545,7 @@ export default function EnhancedTrainingPage() {
         })
         toast.success('Content deletion started')
         setSelectedRows({})
+        socket?.emit('get-agent-data')
       } else {
         toast.error(res?.error || 'Failed to delete training data')
       }
@@ -433,10 +589,7 @@ export default function EnhancedTrainingPage() {
   const handleBulkDelete = () => handleDelete(selectedIds)
 
   const handleBulkRetrain = () => {
-    const webPageIds = selectedIds.filter(id => {
-      const item = trainingList.data.find(d => d._id === id)
-      return item?.type === 0
-    })
+    const webPageIds = selectedIds.filter(id => selectedRows[id]?.type === 0)
     if (webPageIds.length === 0) {
       toast.warning('No web pages selected for retraining')
       return
@@ -529,6 +682,7 @@ export default function EnhancedTrainingPage() {
         createdAt: item.createdAt,
         fileSize: item.fileSize,
         type: item.type,
+        error: item.error || null,
       })) || []
 
       const totalCount = data?.data?.pagination?.total || 0
@@ -537,7 +691,33 @@ export default function EnhancedTrainingPage() {
       setTrainingList({ data: transformedData, loading: false, totalCount, currentPage, totalPages })
     }
 
-    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress }: any) => {
+    const onGetTrainingListIdsResponse = (payload: any) => {
+      if (payload?.requestId !== selectAllRequestIdRef.current) return
+      if (selectAllTimeoutRef.current != null) {
+        window.clearTimeout(selectAllTimeoutRef.current)
+        selectAllTimeoutRef.current = null
+      }
+      setSelectingAll(false)
+      if (!payload?.success) {
+        toast.error(payload?.error || 'Failed to select all items')
+        return
+      }
+      const rows = Array.isArray(payload?.data?.ids) ? payload.data.ids : []
+      const next: Record<string, SelectedRowMeta> = {}
+      for (const row of rows) {
+        if (!row?._id) continue
+        next[String(row._id)] = {
+          type: typeof row.type === 'number' ? row.type : 0,
+          trainingStatus: row.trainingStatus,
+        }
+      }
+      setSelectedRows(next)
+      if (payload?.data?.truncated) {
+        toast.warning(`Selected the first ${rows.length} matching items`)
+      }
+    }
+
+    const onTrainingEvent = ({ client, agent, message, scrapingProgress: progress, trainingSummary }: any) => {
       if (progress) {
         setScrapingProgress(progress)
         if (progress.stoppedReason === 'storage_limit_exceeded' && message) {
@@ -572,7 +752,16 @@ export default function EnhancedTrainingPage() {
           if (message && progress?.stoppedReason !== 'storage_limit_exceeded') {
             toast.error(message)
           } else if (!message && !progress?.stoppedReason) {
-            toast.success('Training completed successfully!')
+            const outcome = buildTrainingOutcomeToast(trainingSummary)
+            if (!outcome || outcome.type === 'success') {
+              toast.success(outcome?.message || 'Training completed successfully!')
+            } else if (outcome.type === 'warning') {
+              toast.warning(outcome.message)
+            } else if (outcome.type === 'info') {
+              toast.info(outcome.message)
+            } else {
+              toast.error(outcome.message)
+            }
           }
         }
         setAgentData(agent)
@@ -600,15 +789,22 @@ export default function EnhancedTrainingPage() {
     socket.on('get-agent-data-response', onGetAgentDataResponse)
     socket.on('get-client-data-response', onGetClientDataResponse)
     socket.on('get-training-list-response', onGetTrainingListResponse)
+    socket.on('get-training-list-ids-response', onGetTrainingListIdsResponse)
     socket.on('training-event', onTrainingEvent)
 
     socket.emit('client-connect')
 
     return () => {
+      if (selectAllTimeoutRef.current != null) {
+        window.clearTimeout(selectAllTimeoutRef.current)
+        selectAllTimeoutRef.current = null
+      }
+      selectAllRequestIdRef.current += 1
       socket.off('client-connect-response', onClientConnectResponse)
       socket.off('get-agent-data-response', onGetAgentDataResponse)
       socket.off('get-client-data-response', onGetClientDataResponse)
       socket.off('get-training-list-response', onGetTrainingListResponse)
+      socket.off('get-training-list-ids-response', onGetTrainingListIdsResponse)
       socket.off('training-event', onTrainingEvent)
     }
   }, [socket])
@@ -633,6 +829,8 @@ export default function EnhancedTrainingPage() {
       prev.actionTypeFilter !== actionTypeFilter
 
     if (filtersChanged) {
+      clearSelectAllRequest()
+      setSelectedRows({})
       if (currentPage !== 1) {
         setCurrentPage(1)
         return
@@ -935,14 +1133,16 @@ export default function EnhancedTrainingPage() {
                 <TableHead className="w-[60px] !px-[20px] text-left">
                   <Checkbox
                     className={headerCheckboxUiClass}
-                    checked={allSelected ? true : hasPartialSelection ? 'indeterminate' : false}
+                    checked={selectingAll || allSelected ? true : hasPartialSelection ? 'indeterminate' : false}
+                    disabled={trainingList.loading || trainingList.totalCount === 0}
                     onCheckedChange={checked => handleSelectAll(checked === true)}
                   />
                 </TableHead>
                 <TableHead className="!pl-0 !pr-[20px] text-[12px] font-medium text-[#94A3B8] uppercase tracking-wide">Source Name</TableHead>
                 <TableHead className="w-[130px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Type</TableHead>
                 <TableHead className="w-[170px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Last Synced</TableHead>
-                <TableHead className="w-[120px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Status</TableHead>
+                <TableHead className="w-[110px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Status</TableHead>
+                <TableHead className="min-w-[180px] text-[12px] px-[20px] font-medium text-[#94A3B8] uppercase tracking-wide">Failure Reason</TableHead>
                 <TableHead className="w-[108px] text-[12px] px-[20px] text-right font-medium text-[#94A3B8] uppercase tracking-wide">Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -965,6 +1165,9 @@ export default function EnhancedTrainingPage() {
                     <TableCell className="px-[20px] py-[10px]">
                       <Skeleton className="h-4 w-20" />
                     </TableCell>
+                    <TableCell className="px-[20px] py-[10px]">
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
                     <TableCell className="px-[20px] py-[10px] text-right">
                       <Skeleton className="h-4 w-16 ml-auto" />
                     </TableCell>
@@ -972,7 +1175,7 @@ export default function EnhancedTrainingPage() {
                 ))
               ) : trainingList.data.length === 0 ? (
                 <TableRow className="border-0 hover:bg-[#F8FAFC]">
-                  <TableCell colSpan={6} className="p-0 border-0">
+                  <TableCell colSpan={7} className="p-0 border-0">
                     <div className="py-16 flex flex-col items-center justify-center text-center">
                       <Database className="w-10 h-10 text-[#CBD5E1] mb-3" />
                       <p className="text-[15px] font-medium text-[#111827] mb-1">No Training Data</p>
@@ -986,43 +1189,69 @@ export default function EnhancedTrainingPage() {
                   const isDeleting = deletingIds.has(item._id)
                   const isRetraining = retrainingIds.has(item._id)
                   const isWebPage = item.type === 0
+                  const sourceLabel = isWebPage
+                    ? (item.url || item.title)
+                    : item.title
+                  const showPageTitle =
+                    isWebPage &&
+                    !!item.title &&
+                    !!item.url &&
+                    item.title !== item.url
 
                   return (
                     <TableRow key={item._id} className="min-h-[50px] hover:bg-[#F8FAFC] transition-colors">
-                      <TableCell className="w-[60px] !px-[20px] text-left">
+                      <TableCell className="w-[60px] !px-[20px] text-left align-top pt-[14px]">
                         <Checkbox
                           className={checkboxUiClass}
                           checked={!!selectedRows[item._id]}
-                          onCheckedChange={checked => handleSelectRow(item._id, checked === true)}
+                          onCheckedChange={checked => handleSelectRow(item, checked === true)}
                         />
                       </TableCell>
 
-                      <TableCell className="px-[20px] !pl-0 !pr-[20px]">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <TableCell className="px-[20px] !pl-0 !pr-[20px] max-w-[420px]">
+                        <div className="flex items-start gap-2 min-w-0">
                           {isWebPage ? (
                             <a
                               href={item.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-[#EEF2FF]"
+                              className="flex-shrink-0 w-6 h-6 mt-0.5 flex items-center justify-center rounded hover:bg-[#EEF2FF]"
                               title={item.url}
                             >
                               <LinkIcon className="w-[14px] h-[14px] text-[#94A3B8]" />
                             </a>
                           ) : (
-                            <FileText className="flex-shrink-0 w-[14px] h-[14px] text-[#94A3B8]" />
+                            <FileText className="flex-shrink-0 w-[14px] h-[14px] text-[#94A3B8] mt-0.5" />
                           )}
-                          <span className="text-[13px] text-[#334155] truncate" title={item.title}>
-                            {item.title}
-                          </span>
-                          {item.entity_type && (
-                            <span 
-                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#EFF5FF] text-[#4686FE] border border-[#dbeafe] flex-shrink-0"
-                              title={`Classification Confidence: ${Math.round((item.classification_confidence ?? 0) * 100)}%`}
-                            >
-                              {item.entity_type}
-                            </span>
-                          )}
+                          <div className="min-w-0 flex-1">
+                            {isWebPage && item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block text-[13px] text-[#334155] break-all hover:text-[#4686FE] hover:underline"
+                              >
+                                {item.url}
+                              </a>
+                            ) : (
+                              <span className="block text-[13px] text-[#334155] break-words">
+                                {sourceLabel}
+                              </span>
+                            )}
+                            {showPageTitle && (
+                              <span className="mt-0.5 block text-[11px] text-[#94A3B8] break-words">
+                                {item.title}
+                              </span>
+                            )}
+                            {item.entity_type && (
+                              <span
+                                className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#EFF5FF] text-[#4686FE] border border-[#dbeafe]"
+                                title={`Classification Confidence: ${Math.round((item.classification_confidence ?? 0) * 100)}%`}
+                              >
+                                {item.entity_type}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
 
@@ -1038,6 +1267,16 @@ export default function EnhancedTrainingPage() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${statusConfig.className}`}>
                           {statusConfig.label}
                         </span>
+                      </TableCell>
+
+                      <TableCell className="px-[20px] !pl-0 !pr-[20px] max-w-[260px]">
+                        {item.trainingStatus === 2 && item.error ? (
+                          <span className="text-[12px] text-[#B91C1C] break-words whitespace-normal">
+                            {item.error}
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-[#94A3B8]">—</span>
+                        )}
                       </TableCell>
 
                       <TableCell className="px-[20px] !pl-0 !pr-[20px]">
@@ -1213,23 +1452,31 @@ export default function EnhancedTrainingPage() {
         )}
 
         {/* ── Bulk Action Bar ── */}
-        {selectedCount > 0 && (
+        {(selectedCount > 0 || selectingAll) && (
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E2E8F0] px-6 py-3 flex items-center justify-between z-40 shadow-lg">
             <p className="text-[13px] text-[#64748B]">
-              <span className="font-semibold text-[#111827]">{selectedCount} selected</span>
-              {' '}will apply to selected content
+              {selectingAll ? (
+                <span className="font-semibold text-[#111827]">Selecting all matching content…</span>
+              ) : (
+                <>
+                  <span className="font-semibold text-[#111827]">{selectedCount} selected</span>
+                  {' '}will apply to selected content
+                </>
+              )}
             </p>
             <div className="flex items-center gap-3">
               <button
                 onClick={handleBulkDelete}
-                className="inline-flex items-center gap-2 h-9 px-4 text-[13px] font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                disabled={selectingAll || selectedCount === 0}
+                className="inline-flex items-center gap-2 h-9 px-4 text-[13px] font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete
               </button>
               <button
                 onClick={handleBulkRetrain}
-                className="inline-flex items-center gap-2 h-9 px-4 text-[13px] font-semibold text-white bg-[#111827] rounded-lg hover:bg-[#1f2937] transition-colors"
+                disabled={selectingAll || selectedCount === 0}
+                className="inline-flex items-center gap-2 h-9 px-4 text-[13px] font-semibold text-white bg-[#111827] rounded-lg hover:bg-[#1f2937] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Retrain Selection
