@@ -37,13 +37,24 @@ export default function AddContentModal({ showModal, onHide, agentId, onBack }: 
   }, [showModal]);
 
   const handleButtonOnClick = async () => {
-    if (toggle && title.trim().length === 0) {
-      toast.error("Enter Title");
-      return false;
+    if (toggle) {
+      if (!title.trim()) {
+        toast.error('Enter a title for the snippet');
+        return false;
+      }
+      const trimmedContent = content.trim();
+      if (!trimmedContent) {
+        toast.error('Enter content for the snippet');
+        return false;
+      }
+      if (trimmedContent.length < 10) {
+        toast.error('Content must be at least 10 characters');
+        return false;
+      }
     }
 
-    if (toggle && content.trim().length === 0) {
-      toast.error("Enter Content");
+    if (!file && !toggle) {
+      toast.error('Please upload a file or add a snippet');
       return false;
     }
 

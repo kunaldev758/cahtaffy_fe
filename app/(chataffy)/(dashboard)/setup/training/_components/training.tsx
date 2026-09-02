@@ -42,6 +42,7 @@ interface TrainingItem {
   entity_type?: string
   classification_confidence?: number
   error?: string | null
+  errorType?: string | null
 }
 
 interface ClientData {
@@ -69,6 +70,7 @@ interface AgentData {
   pagesAdded: {
     success: number
     failed: number
+    skipped?: number
     total: number
   }
   isSitemapAdded?: boolean
@@ -81,12 +83,15 @@ interface WebPagesTrainingStats {
   total: number
   synced: number
   failed: number
+  skipped?: number
   pending: number
 }
 
 interface SelectedRowMeta {
   type: number
   trainingStatus?: number
+  error?: string | null
+  errorType?: string | null
 }
 
 function mergeAgentDataWithWebPageStats(
@@ -97,13 +102,23 @@ function mergeAgentDataWithWebPageStats(
   if (!stats || typeof stats.total !== 'number') return data
   // Mid-job: agent counters update as each page finishes (recompute). List
   // may still be incomplete, so keep agent values until training is idle.
-  if (data.dataTrainingStatus === 1) return data
+  if (data.dataTrainingStatus === 1) {
+    return {
+      ...data,
+      pagesAdded: {
+        ...data.pagesAdded,
+        failed: typeof stats.failed === 'number' ? stats.failed : data.pagesAdded.failed,
+        skipped: stats.skipped ?? data.pagesAdded.skipped ?? 0,
+      },
+    }
+  }
   // Idle: inventory total is training-list row count (rises on add, falls on delete).
   return {
     ...data,
     pagesAdded: {
       success: stats.synced ?? 0,
       failed: stats.failed ?? 0,
+      skipped: stats.skipped ?? 0,
       total: stats.total ?? 0,
     },
   }
@@ -116,6 +131,18 @@ interface TrainingSummary {
   skipped?: number
   unchanged?: number
   skipReasons?: Record<string, number>
+}
+
+function isSkippedTrainingItem(item: {
+  trainingStatus?: number
+  error?: string | null
+  errorType?: string | null
+}): boolean {
+  if (item.trainingStatus !== 2) return false
+  if (item.errorType === 'SKIPPED') return true
+  const msg = String(item.error || '').trim()
+  if (!msg) return false
+  return /^skipped\b/i.test(msg) || /non-content url skipped/i.test(msg)
 }
 
 function formatTrainingSkipReason(reason: string): string {
@@ -379,13 +406,16 @@ export default function EnhancedTrainingPage() {
     return `${d}, ${t}`
   }
 
-  const getStatusConfig = (status: number) => {
+  const getStatusConfig = (item: TrainingItem) => {
+    if (isSkippedTrainingItem(item)) {
+      return { label: 'Skipped', className: 'bg-orange-50 text-orange-700 border border-orange-200' }
+    }
     const map: Record<number, { label: string; className: string }> = {
       0: { label: 'Pending', className: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
       1: { label: 'Completed', className: 'bg-green-50 text-green-700 border border-green-200' },
       2: { label: 'Failed', className: 'bg-red-50 text-red-700 border border-red-200' },
     }
-    return map[status] ?? map[0]
+    return map[item.trainingStatus] ?? map[0]
   }
 
   const prevListFiltersRef = useRef({
@@ -404,7 +434,6 @@ export default function EnhancedTrainingPage() {
   const selectedIds = Object.keys(selectedRows)
   const selectedCount = selectedIds.length
   const allSelected = trainingList.totalCount > 0 && selectedCount >= trainingList.totalCount
-  const hasPartialSelection = selectedCount > 0 && !allSelected
 
   const clearSelectAllRequest = () => {
     selectAllRequestIdRef.current += 1
@@ -429,7 +458,12 @@ export default function EnhancedTrainingPage() {
     if (trainingList.data.length >= trainingList.totalCount) {
       const next: Record<string, SelectedRowMeta> = {}
       trainingList.data.forEach(item => {
-        next[item._id] = { type: item.type, trainingStatus: item.trainingStatus }
+        next[item._id] = {
+          type: item.type,
+          trainingStatus: item.trainingStatus,
+          error: item.error,
+          errorType: item.errorType,
+        }
       })
       setSelectedRows(next)
       return
@@ -467,7 +501,12 @@ export default function EnhancedTrainingPage() {
       }
       return {
         ...prev,
-        [item._id]: { type: item.type, trainingStatus: item.trainingStatus },
+        [item._id]: {
+          type: item.type,
+          trainingStatus: item.trainingStatus,
+          error: item.error,
+          errorType: item.errorType,
+        },
       }
     })
   }
@@ -512,14 +551,22 @@ export default function EnhancedTrainingPage() {
             if (selected) return selected
             const item = trainingList.data.find(row => row._id === id)
             return item
-              ? { type: item.type, trainingStatus: item.trainingStatus }
+              ? {
+                  type: item.type,
+                  trainingStatus: item.trainingStatus,
+                  error: item.error,
+                  errorType: item.errorType,
+                }
               : null
           })
           .filter((meta): meta is SelectedRowMeta => meta != null && meta.type === 0)
         const webPagesCount = deletedWebPages.length
         if (webPagesCount > 0) {
           const deletedSyncedCount = deletedWebPages.filter(item => item.trainingStatus === 1).length
-          const deletedFailedCount = deletedWebPages.filter(item => item.trainingStatus === 2).length
+          const deletedSkippedCount = deletedWebPages.filter(item => isSkippedTrainingItem(item)).length
+          const deletedFailedCount = deletedWebPages.filter(
+            item => item.trainingStatus === 2 && !isSkippedTrainingItem(item)
+          ).length
           setAgentData(prev => {
             if (!prev) return null
             return {
@@ -528,6 +575,7 @@ export default function EnhancedTrainingPage() {
                 total: Math.max(0, prev.pagesAdded.total - webPagesCount),
                 success: Math.max(0, prev.pagesAdded.success - deletedSyncedCount),
                 failed: Math.max(0, prev.pagesAdded.failed - deletedFailedCount),
+                skipped: Math.max(0, (prev.pagesAdded.skipped ?? 0) - deletedSkippedCount),
               }
             }
           })
@@ -676,13 +724,14 @@ export default function EnhancedTrainingPage() {
         title: item.title || item.webPage?.url || 'Untitled',
         url: item.webPage?.url,
         sourceType: getSourceTypeFromNumber(item.type),
-        lastEdit: item.updatedAt || item.createdAt,
+        lastEdit: item.lastEdit || item.updatedAt || item.createdAt,
         status: item.status || 'pending',
         trainingStatus: item.trainingStatus || 0,
         createdAt: item.createdAt,
         fileSize: item.fileSize,
         type: item.type,
         error: item.error || null,
+        errorType: item.errorType || null,
       })) || []
 
       const totalCount = data?.data?.pagination?.total || 0
@@ -709,6 +758,8 @@ export default function EnhancedTrainingPage() {
         next[String(row._id)] = {
           type: typeof row.type === 'number' ? row.type : 0,
           trainingStatus: row.trainingStatus,
+          error: row.error || null,
+          errorType: row.errorType || null,
         }
       }
       setSelectedRows(next)
@@ -768,7 +819,28 @@ export default function EnhancedTrainingPage() {
         agentDataRef.current = agent
       }
 
-      if (client) { setClientData(client) }
+      if (client) {
+        setClientData(client)
+      } else if (progress?.stoppedReason === 'storage_limit_exceeded') {
+        setClientData((prev) =>
+          prev
+            ? {
+                ...prev,
+                upgradePlanStatus: {
+                  ...prev.upgradePlanStatus,
+                  storageLimitExceeded: true,
+                },
+              }
+            : prev,
+        )
+      }
+
+      if (
+        progress?.stoppedReason === 'storage_limit_exceeded' ||
+        client?.upgradePlanStatus?.storageLimitExceeded
+      ) {
+        socket.emit('get-client-data')
+      }
 
       // Refresh agent + aggregated web-page stats whenever training is idle (avoids stale badges vs table).
       if (agent && (!progress || progress.isProcessing === false)) {
@@ -820,6 +892,14 @@ export default function EnhancedTrainingPage() {
   }, [scrapingProgress?.stoppedReason])
 
   useEffect(() => {
+    if (clientData?.upgradePlanStatus?.storageLimitExceeded) return
+    setScrapingProgress((prev) =>
+      prev?.stoppedReason === 'storage_limit_exceeded' ? null : prev
+    )
+    toast.dismiss('training-storage-limit')
+  }, [clientData?.upgradePlanStatus?.storageLimitExceeded])
+
+  useEffect(() => {
     if (!socket) return
 
     const prev = prevListFiltersRef.current
@@ -865,6 +945,8 @@ export default function EnhancedTrainingPage() {
 
   const showStorageStoppedCard =
     scrapingProgress?.stoppedReason === 'storage_limit_exceeded'
+  const isStorageLimitExceeded =
+    !!clientData?.upgradePlanStatus?.storageLimitExceeded || showStorageStoppedCard
   const isTrainingActive =
     agentData?.dataTrainingStatus === 1 ||
     (scrapingProgress?.isProcessing ?? false) ||
@@ -918,7 +1000,7 @@ export default function EnhancedTrainingPage() {
       <div className="rounded-tl-[30px] bg-[#F3F4F6] px-4 pb-[33px] pt-6 lg:px-6 flex flex-col gap-6 h-[calc(100%-89px)]">
 
         {/* ── Alerts ── */}
-        {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+        {isStorageLimitExceeded && (
           <Alert className="border-orange-200 bg-orange-50 mb-4">
             <Zap className="h-4 w-4" />
             <AlertDescription>Storage limit exceeded. Upgrade your plan to continue training.</AlertDescription>
@@ -958,11 +1040,18 @@ export default function EnhancedTrainingPage() {
                   <div className="text-[13px] text-[#64748B]">Total Web Pages</div>
                 </div>
               </div>
-              {(agentData?.pagesAdded.failed ?? 0) > 0 && (
-                <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-md leading-none">
-                  {agentData?.pagesAdded.failed} Failed
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {(agentData?.pagesAdded.skipped ?? 0) > 0 && (
+                  <span className="text-[11px] font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-md leading-none">
+                    {agentData?.pagesAdded.skipped} Skipped
+                  </span>
+                )}
+                {(agentData?.pagesAdded.failed ?? 0) > 0 && (
+                  <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-md leading-none">
+                    {agentData?.pagesAdded.failed} Failed
+                  </span>
+                )}
+              </div>
             </div>
             {/* Progress bar */}
             <div className="w-full h-2 bg-[#F1F5F9] rounded-full overflow-hidden mb-2">
@@ -1065,7 +1154,7 @@ export default function EnhancedTrainingPage() {
               {/* Add Content */}
               {/* <button
                 onClick={() => setShowModal(true)}
-                disabled={isTrainingActive || clientData?.upgradePlanStatus?.storageLimitExceeded}
+                disabled={isTrainingActive || isStorageLimitExceeded}
                 className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -1081,7 +1170,7 @@ export default function EnhancedTrainingPage() {
                         onClick={() => setShowModal(true)}
                         disabled={
                           isTrainingActive ||
-                          clientData?.upgradePlanStatus?.storageLimitExceeded
+                          isStorageLimitExceeded
                         }
                         className="inline-flex items-center gap-2 h-10 px-4 bg-[#111827] text-white text-[13px] font-semibold rounded-lg hover:bg-[#1f2937] disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:cursor-not-allowed transition-colors"
                       >
@@ -1091,7 +1180,7 @@ export default function EnhancedTrainingPage() {
                     </span>
                   </TooltipTrigger>
 
-                  {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+                  {isStorageLimitExceeded && (
                     <TooltipContent>
                       <p>Storage limit exceeded. Upgrade your plan to add more content.</p>
                     </TooltipContent>
@@ -1115,13 +1204,14 @@ export default function EnhancedTrainingPage() {
 
               {/* Status filter */}
               <Select value={actionTypeFilter} onValueChange={setActionTypeFilter}>
-                <SelectTrigger className="h-10 w-32 text-[13px] border-[#E2E8F0]">
+                <SelectTrigger className="h-10 w-36 text-[13px] border-[#E2E8F0]">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="success">Completed</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="skipped">Skipped</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1133,7 +1223,7 @@ export default function EnhancedTrainingPage() {
                 <TableHead className="w-[60px] !px-[20px] text-left">
                   <Checkbox
                     className={headerCheckboxUiClass}
-                    checked={selectingAll || allSelected ? true : hasPartialSelection ? 'indeterminate' : false}
+                    checked={selectingAll || allSelected}
                     disabled={trainingList.loading || trainingList.totalCount === 0}
                     onCheckedChange={checked => handleSelectAll(checked === true)}
                   />
@@ -1185,7 +1275,8 @@ export default function EnhancedTrainingPage() {
                 </TableRow>
               ) : (
                 trainingList.data.map(item => {
-                  const statusConfig = getStatusConfig(item.trainingStatus)
+                  const statusConfig = getStatusConfig(item)
+                  const isSkipped = isSkippedTrainingItem(item)
                   const isDeleting = deletingIds.has(item._id)
                   const isRetraining = retrainingIds.has(item._id)
                   const isWebPage = item.type === 0
@@ -1271,7 +1362,11 @@ export default function EnhancedTrainingPage() {
 
                       <TableCell className="px-[20px] !pl-0 !pr-[20px] max-w-[260px]">
                         {item.trainingStatus === 2 && item.error ? (
-                          <span className="text-[12px] text-[#B91C1C] break-words whitespace-normal">
+                          <span
+                            className={`text-[12px] break-words whitespace-normal ${
+                              isSkipped ? 'text-orange-600' : 'text-[#B91C1C]'
+                            }`}
+                          >
                             {item.error}
                           </span>
                         ) : (
@@ -1304,7 +1399,7 @@ export default function EnhancedTrainingPage() {
                                   <button
                                     onClick={() => {
 
-                                      if (clientData?.upgradePlanStatus?.storageLimitExceeded) {
+                                      if (isStorageLimitExceeded) {
                                         toast.error('Storage limit exceeded. Upgrade your plan to continue.')
                                         return
                                       }
