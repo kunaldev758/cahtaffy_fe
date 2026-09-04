@@ -11,7 +11,7 @@ echo "Local Current Branch: $CURRENT_BRANCH"
 echo "Connecting to EC2 Server..."
 
 # ssh -i "C:\Users\sta\Desktop\chataffy-imp-data\chataffy-live.pem" ubuntu@3.231.129.216 << EOF
-ssh -i "Downloads/chataffy-live.pem" ubuntu@3.231.129.216<< EOF
+ssh -i "C:\chataffy\chataffy-live.pem" ubuntu@3.231.129.216<< EOF
 
 set -e
 
