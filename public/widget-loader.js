@@ -34,13 +34,16 @@
   var scriptPath = fullSrc.split('?')[0];
   var base = scriptPath.replace(/\/widget-loader\.js$/, '');
 
-  function startWithCredentials(wid, token, agent) {
+  function startWithCredentials(wid, token, agent, extraQuery) {
     if (!wid || !token || !agent) {
       console.warn('[Chataffy] widget-loader: missing required params (wid, token, agent).');
       return;
     }
 
     var widgetPageUrl = base + '/openai/widget/' + wid + '/' + token + '/' + agent;
+    if (extraQuery) {
+      widgetPageUrl += '?' + extraQuery;
+    }
     var widgetOrigin = '';
     try {
       widgetOrigin = new URL(widgetPageUrl, window.location.href).origin;
@@ -203,31 +206,75 @@
     return;
   }
 
-  var resolveUrl =
-    base +
-    '/_api/widget-embed/resolve?origin=' +
-    encodeURIComponent(pageOrigin) +
-    (widIn ? '&wid=' + encodeURIComponent(widIn) : '');
+  var PRODUCTION_DASHBOARD = 'https://dashboard.chataffy.com';
+  var PRODUCTION_SOCKET = 'https://chataffy.com/';
 
-  fetch(resolveUrl, { credentials: 'omit' })
+  function resolveUrlFor(resolveBase) {
+    return (
+      resolveBase +
+      '/_api/widget-embed/resolve?origin=' +
+      encodeURIComponent(pageOrigin) +
+      (widIn ? '&wid=' + encodeURIComponent(widIn) : '')
+    );
+  }
+
+  function credentialsFromBody(body) {
+    var d = body && body.data;
+    if (!d || !d.wid || !d.token || !d.agent) return null;
+    return d;
+  }
+
+  function warnResolveFailed(body, err) {
+    console.warn(
+      '[Chataffy] widget-loader: could not resolve embed.',
+      (body && (body.message || body)) || err,
+    );
+    console.warn(
+      '[Chataffy] Fix: use the script tag from Chataffy Widget setup — it includes ?wid=.... Or append ?wid=YOUR_WIDGET_ID to this script URL.',
+    );
+  }
+
+  function isLocalLoader() {
+    return /localhost|127\.0\.0\.1/i.test(base);
+  }
+
+  fetch(resolveUrlFor(base), { credentials: 'omit' })
     .then(function (res) {
       return res.json();
     })
     .then(function (body) {
-      var d = body && body.data;
-      if (!d || !d.wid || !d.token || !d.agent) {
-        console.warn(
-          '[Chataffy] widget-loader: could not resolve embed.',
-          body && (body.message || body),
-        );
-        console.warn(
-          '[Chataffy] Fix: use the script tag from Chataffy Widget setup — it includes ?wid=.... Or append ?wid=YOUR_WIDGET_ID to this script URL.',
-        );
+      var d = credentialsFromBody(body);
+      if (d) {
+        startWithCredentials(d.wid, d.token, d.agent);
         return;
       }
-      startWithCredentials(d.wid, d.token, d.agent);
+
+      if (!isLocalLoader()) {
+        warnResolveFailed(body);
+        return;
+      }
+
+      // Local dashboard DB often does not contain the live marketing-site widget.
+      // Resolve against production, then still load the local widget UI (teaser, etc).
+      return fetch(resolveUrlFor(PRODUCTION_DASHBOARD), { credentials: 'omit' })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (prodBody) {
+          var prod = credentialsFromBody(prodBody);
+          if (!prod) {
+            warnResolveFailed(prodBody);
+            return;
+          }
+          startWithCredentials(
+            prod.wid,
+            prod.token,
+            prod.agent,
+            'socketHost=' + encodeURIComponent(PRODUCTION_SOCKET)
+          );
+        });
     })
     .catch(function (err) {
-      console.warn('[Chataffy] widget-loader: embed resolve request failed', err);
+      warnResolveFailed(null, err);
     });
 })();

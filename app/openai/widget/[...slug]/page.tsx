@@ -47,7 +47,8 @@ export default function EnhancedChatWidget({ params }: any) {
   const [conversationStatus, setConversationStatus] = useState('open');
   const [visitorIp, setVisitorIp] = useState('');
   const [visitorLocation, setVisitorLocation] = useState('');
-  const [showWidget, setShowWidget] = useState(true);
+  const [showWidget, setShowWidget] = useState(false);
+  const [showTeaser, setShowTeaser] = useState(false);
   const [isWidgetDataLoaded, setIsWidgetDataLoaded] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [comment, setComment] = useState('');
@@ -105,6 +106,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const launcherButtonRef = useRef<HTMLButtonElement | null>(null);
   const chatPanelRef = useRef<HTMLDivElement | null>(null);
+  const teaserRef = useRef<HTMLDivElement | null>(null);
   const shouldMaintainFocusRef = useRef<boolean>(false);
   const currentTranscriptRef = useRef<string>('');
   const lastFinalTranscriptRef = useRef<string>('');
@@ -130,6 +132,7 @@ export default function EnhancedChatWidget({ params }: any) {
   const agentId = params?.slug?.[2] || null;
   widgetTokenRef.current = widgetToken;
   const chatCompletedStorageKey = `chataffy-chat-completed-${widgetToken}-${agentId || 'default'}`;
+  const teaserStorageKey = `chataffy-teaser-dismissed-${widgetToken}-${agentId || 'default'}`;
 
   const markChatCompletedForReload = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -241,8 +244,12 @@ export default function EnhancedChatWidget({ params }: any) {
     };
 
     try {
+      const socketHostFromQuery =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('socketHost')
+          : null;
       socketInstance = createWidgetSocket(
-        process.env.NEXT_PUBLIC_SOCKET_HOST || "",
+        socketHostFromQuery || process.env.NEXT_PUBLIC_SOCKET_HOST || "",
         {
           widgetId,
           widgetAuthToken: widgetToken,
@@ -278,9 +285,9 @@ export default function EnhancedChatWidget({ params }: any) {
         }
       });
       socketInstance.on("error", () => {
+        setIsWidgetDataLoaded(true);
         if (!hasSocketConnectedOnceRef.current) {
           setSocketError(true);
-          setIsWidgetDataLoaded(true);
         }
       });
       socketInstance.on("disconnect", (reason: string) => {
@@ -1051,11 +1058,31 @@ export default function EnhancedChatWidget({ params }: any) {
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const persistTeaserDismissed = () => {
+    if (typeof window === 'undefined') return;
+    sessionStorage.setItem(teaserStorageKey, '1');
+  };
+
+  const dismissTeaser = () => {
+    setShowTeaser(false);
+    persistTeaserDismissed();
+  };
+
+  const openFullWidget = () => {
+    setShowTeaser(false);
+    setShowWidget(true);
+    setUnreadCount(0);
+    persistTeaserDismissed();
+  };
+
   const toggleWidget = () => {
-    setShowWidget(!showWidget);
-    if (!showWidget) {
-      setUnreadCount(0);
+    if (showWidget) {
+      setShowWidget(false);
+      setShowTeaser(false);
+      persistTeaserDismissed();
+      return;
     }
+    openFullWidget();
   };
 
   const isBarLauncher = themeSettings?.widgetType === 'bar';
@@ -1072,6 +1099,37 @@ export default function EnhancedChatWidget({ params }: any) {
       ...(alignLeft ? { left: '20px', right: 'auto' } : { right: '20px', left: 'auto' }),
     };
   }, [alignLeft]);
+
+  const teaserMessage = useMemo(() => {
+    const raw = themeSettings?.welcomeMessage && String(themeSettings.welcomeMessage).trim();
+    if (raw) {
+      return raw.replace(/<[^>]+>/g, '').trim();
+    }
+    return 'Hi there! How can I help you today?';
+  }, [themeSettings?.welcomeMessage]);
+
+  const launcherAvatarSrc = (themeSettings as any)?.logo
+    ? clientLogo
+    : `${process.env.NEXT_PUBLIC_DASHBOARD_URL || process.env.NEXT_PUBLIC_APP_URL || ''}${selectedLogo}`;
+
+  useEffect(() => {
+    if (showWidget) {
+      setShowTeaser(false);
+    }
+  }, [showWidget]);
+
+  useEffect(() => {
+    if (!isWidgetDataLoaded || !botVisible || isBarLauncher || showWidget) {
+      return;
+    }
+    if (typeof window !== 'undefined' && sessionStorage.getItem(teaserStorageKey) === '1') {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setShowTeaser(true);
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [isWidgetDataLoaded, botVisible, isBarLauncher, showWidget, teaserStorageKey]);
 
   const chatPanelPositionClass = isBarLauncher
     ? `absolute bottom-[calc(100%+8px)] w-[400px] max-w-[calc(100vw-20px)] ${alignLeft ? 'left-0' : 'right-0'}`
@@ -1108,6 +1166,7 @@ export default function EnhancedChatWidget({ params }: any) {
       const zones = [
         getRectPayload(launcherButtonRef.current),
         showWidget ? getRectPayload(chatPanelRef.current) : null,
+        (!showWidget && showTeaser) ? getRectPayload(teaserRef.current) : null,
       ].filter(Boolean);
 
       window.parent.postMessage(
@@ -1133,6 +1192,12 @@ export default function EnhancedChatWidget({ params }: any) {
       if (showWidget) {
         const panelRect = chatPanelRef.current?.getBoundingClientRect();
         if (panelRect && x >= panelRect.left && x <= panelRect.right && y >= panelRect.top && y <= panelRect.bottom) {
+          return true;
+        }
+      }
+      if (!showWidget && showTeaser) {
+        const teaserRect = teaserRef.current?.getBoundingClientRect();
+        if (teaserRect && x >= teaserRect.left && x <= teaserRect.right && y >= teaserRect.top && y <= teaserRect.bottom) {
           return true;
         }
       }
@@ -1232,7 +1297,7 @@ export default function EnhancedChatWidget({ params }: any) {
       );
       postPointerOutside();
     };
-  }, [showWidget, isBarLauncher, alignLeft, botVisible, unreadCount, isMinimized, isWidgetDataLoaded]);
+  }, [showWidget, showTeaser, isBarLauncher, alignLeft, botVisible, unreadCount, isMinimized, isWidgetDataLoaded]);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -1547,6 +1612,67 @@ export default function EnhancedChatWidget({ params }: any) {
             )}
           </div>
 
+          {!isBarLauncher && !showWidget && showTeaser && (
+            <div
+              ref={teaserRef}
+              className={`${jakarta.className} absolute bottom-20 z-20 w-[300px] max-w-[calc(100vw-40px)] ${alignLeft ? 'left-0' : 'right-0'} bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden`}
+              style={{ animation: 'teaserPop 0.35s ease-out' }}
+            >
+              <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  {(themeSettings as any)?.showLogo !== false && (
+                    <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-white">
+                      <img
+                        src={launcherAvatarSrc}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = defaultImage;
+                        }}
+                      />
+                    </div>
+                  )}
+                  <p className="text-sm font-semibold text-[#111827] truncate">
+                    {(themeSettings as any)?.titleBar || 'Support'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Dismiss greeting"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissTeaser();
+                  }}
+                  className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={openFullWidget}
+                className="w-full text-left px-3 pb-3"
+              >
+                <div className="bg-[#F8FAFC] rounded-xl p-3 mb-3">
+                  <p className="text-sm text-[#334155] whitespace-pre-wrap leading-relaxed line-clamp-6">
+                    {teaserMessage}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 rounded-full border border-gray-200 px-3 py-2 text-sm text-[#94A3B8]">
+                    Write a message...
+                  </div>
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: getThemeColor(0, '#2563eb') }}
+                  >
+                    <Send className="w-4 h-4" style={{ color: getThemeColor(1, '#ffffff') }} />
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* Chat Window */}
           {showWidget && (
             <div
@@ -1611,6 +1737,7 @@ export default function EnhancedChatWidget({ params }: any) {
                         setShowEndSessionConfirm(false);
                         setIsMinimized(false);
                         setShowWidget(false);
+                        persistTeaserDismissed();
                       }}
                       className="p-2 hover:bg-white/20 rounded-full transition-colors"
                     >

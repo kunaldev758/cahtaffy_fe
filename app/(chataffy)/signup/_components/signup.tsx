@@ -6,7 +6,7 @@ import { registrationApi, googleOAuthExchange } from '../../../_api/login/action
 import { toast } from 'react-toastify'
 import Link from 'next/link'
 
-import { CheckCircleIcon, EyeIcon, EyeOffIcon, ScanEyeIcon, XCircleIcon } from 'lucide-react'
+import { CheckCircleIcon, EyeIcon, EyeOffIcon, MailIcon, XCircleIcon } from 'lucide-react'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 import { redirectAfterClientLogin } from '@/lib/postLoginRedirect';
@@ -21,6 +21,7 @@ export function RegistrationForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [buttonStatus, setButtonStatus] = useState({ loading: false, disabled: true })
   const [passwordMatch, setPasswordMatch] = useState(true)
+  const [signupSuccess, setSignupSuccess] = useState(false)
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -78,7 +79,7 @@ export function RegistrationForm() {
         const response = await registrationApi(email, password)
         setButtonStatus({ loading: false, disabled: false })
         if (response?.status_code == 200) {
-          toast.success(response.message)
+          setSignupSuccess(true)
         } else {
           toast.error(response.message)
         }
@@ -140,6 +141,32 @@ export function RegistrationForm() {
   }
 
   const passwordStrength = getPasswordStrength(password)
+
+  if (signupSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full">
+          <div className="bg-white py-10 px-6 shadow-xl rounded-2xl text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
+              <MailIcon className="h-7 w-7 text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">Verify your email</h2>
+            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+              We sent a verification link to{' '}
+              <span className="font-medium text-gray-900">{email}</span>.
+              Please check your Email and click the link to verify your account.
+            </p>
+            <Link
+              href="/login"
+              className="mt-6 inline-flex w-full justify-center items-center py-3 px-4 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200"
+            >
+              Go to sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
