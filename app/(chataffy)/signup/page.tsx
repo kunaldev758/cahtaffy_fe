@@ -1,22 +1,23 @@
-import  { RegistrationForm } from './_components/signup'
-import {Metadata} from 'next'
-
-// export const metadata: Metadata = {
-//   title: 'Chataffy | Signup',
-//   description: 'Chataffy | Signup',
-  
-// }
+import dynamic from 'next/dynamic'
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Signup Chataffy | Free Forever AI Customer Service Agent',
   description: 'Create your Chataffy account to build your free forever AI customer service agent that automates customer support and enables seamless human handoffs.',
 }
 
-export default function Home() {
+const RegistrationForm = dynamic(
+  () => import('./_components/signup').then((mod) => mod.RegistrationForm),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <p className="text-sm text-gray-600">Loading…</p>
+      </div>
+    ),
+  }
+)
 
-  return (
-    <>
-      <RegistrationForm />
-    </>
-  )
+export default function Home() {
+  return <RegistrationForm />
 }

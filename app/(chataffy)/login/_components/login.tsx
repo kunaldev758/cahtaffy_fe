@@ -278,7 +278,7 @@
 
 // Login Component
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { googleOAuthExchange, loginApi as loginUserApi } from '../../../_api/login/action'
 import { redirectAfterClientLogin } from '@/lib/postLoginRedirect'
 import { setSocketToken } from '@/lib/socketSession'
@@ -286,7 +286,7 @@ import { toast } from 'react-toastify'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 import { EyeIcon, EyeOffIcon, MailIcon } from 'lucide-react'
 import Link from 'next/link'
-import { useGoogleLogin } from '@react-oauth/google'
+import { GoogleSignInButton, GoogleSignInUnavailableButton } from '../../_components/GoogleSignInButton'
 import {
   Dialog,
   DialogContent,
@@ -338,6 +338,23 @@ export function LoginForm({ response }: { response?: Response }) {
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [verificationEmailSent, setVerificationEmailSent] = useState(false)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const syncAutofill = () => {
+      const nextEmail = emailRef.current?.value?.trim() ?? ''
+      const nextPassword = passwordRef.current?.value ?? ''
+      if (nextEmail) setEmail(nextEmail)
+      if (nextPassword) setPassword(nextPassword)
+      if (nextEmail && nextPassword) {
+        setButtonStatus({ loading: false, disabled: false })
+      }
+    }
+    syncAutofill()
+    const timer = window.setTimeout(syncAutofill, 300)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     if (response) {
@@ -430,41 +447,25 @@ export function LoginForm({ response }: { response?: Response }) {
     }
   }
 
-  const googleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse: any) => {
-      try {
-        setGoogleLoading(true)
-        const response = await googleOAuthExchange(tokenResponse?.access_token);
-        // console.log(response,"this is the response !");
-        setGoogleLoading(false);
-        if (response?.status_code === 200) {
-          toast.success('Signed in with Google')
-          // ✅ FIX: Use helper to set all required session data
-          setSessionDataAfterLogin(response)
-
-          //           const clientData = sessionStorage.getItem('client');
-          // if (clientData) return JSON.parse(clientData).email || '';
-          // const userData = sessionStorage.getItem('user');
-          // if (userData) return JSON.parse(userData).email || '';
-          dispatchAuthStorageSync()
-          handleSocketEvent(response.userId)
-          redirectAfterClientLogin(!!response.isOnboarded)
-          return
-        } else {
-          toast.error(response?.message || 'Google login failed')
-        }
-      } catch (e: any) {
-        setGoogleLoading(false)
-        toast.error('Google login failed')
-      }
-    },
-    onError: () => {
+  const handleGoogleSuccess = async (accessToken: string) => {
+    try {
+      setGoogleLoading(true)
+      const googleResponse = await googleOAuthExchange(accessToken)
       setGoogleLoading(false)
-      toast.error('Google sign-in was cancelled or failed')
-    },
-    scope: 'openid email profile',
-    flow: 'implicit',
-  })
+      if (googleResponse?.status_code === 200) {
+        toast.success('Signed in with Google')
+        setSessionDataAfterLogin(googleResponse)
+        dispatchAuthStorageSync()
+        handleSocketEvent(googleResponse.userId)
+        redirectAfterClientLogin(!!googleResponse.isOnboarded)
+        return
+      }
+      toast.error(googleResponse?.message || 'Google login failed')
+    } catch {
+      setGoogleLoading(false)
+      toast.error('Google login failed')
+    }
+  }
 
   const handleResendVerification = async () => {
     if (!email.trim() || !password.trim()) return
@@ -584,26 +585,20 @@ export function LoginForm({ response }: { response?: Response }) {
           <div className="bg-white py-8 px-6 shadow-xl rounded-2xl">
             {/* Social auth */}
             <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!googleClientId) {
-                    toast.error('Google Client ID not configured')
-                    return
-                  }
-                  if (!googleLoading) googleLogin()
-                }}
-                className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
-                disabled={googleLoading}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5">
-                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12   c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.64,6.053,29.082,4,24,4C12.955,4,4,12.955,4,24   c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
-                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,13,24,13c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657   C33.64,6.053,29.082,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
-                  <path fill="#4CAF50" d="M24,44c5.164,0,9.86-1.977,13.409-5.197l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946   l-6.522,5.026C9.5,39.556,16.227,44,24,44z" />
-                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.793,2.238-2.231,4.166-4.094,5.565c0,0,0.001,0,0.001,0l6.19,5.238   c-0.438,0.4,6.6-4.826,6.6-14.803C44,22.659,43.862,21.35,43.611,20.083z" />
-                </svg>
-                {googleLoading ? 'Connecting…' : 'Continue with Google'}
-              </button>
+              {googleClientId ? (
+                <GoogleSignInButton
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => {
+                    setGoogleLoading(false)
+                    toast.error('Google sign-in was cancelled or failed')
+                  }}
+                  loading={googleLoading}
+                />
+              ) : (
+                <GoogleSignInUnavailableButton
+                  onClick={() => toast.error('Google Client ID not configured')}
+                />
+              )}
 
               <div className="flex items-center gap-3">
                 <div className="h-px bg-gray-200 w-full" />
@@ -641,6 +636,8 @@ export function LoginForm({ response }: { response?: Response }) {
                   name="email"
                   type="email"
                   required
+                  autoComplete="email"
+                  ref={emailRef}
                   value={email}
                   onChange={handleEmailOnChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"
@@ -659,6 +656,8 @@ export function LoginForm({ response }: { response?: Response }) {
                     name="password"
                     type={showPassword ? "text" : "password"}
                     required
+                    autoComplete="current-password"
+                    ref={passwordRef}
                     value={password}
                     onChange={handlePasswordOnChange}
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"

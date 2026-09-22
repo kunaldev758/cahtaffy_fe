@@ -6,6 +6,7 @@ import '@/app/fonts.css'
 import '@/app/globals.css'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import ShopifyAppBridgeHead from '@/app/_components/ShopifyAppBridgeHead';
+import ChunkErrorReloader from '@/app/_components/ChunkErrorReloader';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({
       </head>
 
       <body className={jakarta.className}>
+        <ChunkErrorReloader />
         {children}
         <ToastContainer position="top-right" autoClose={3000} />
       </body>

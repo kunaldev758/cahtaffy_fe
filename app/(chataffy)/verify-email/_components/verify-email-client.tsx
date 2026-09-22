@@ -5,11 +5,16 @@ import { useSearchParams } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { verifyEmailApi, setClientSessionCookies } from '../../../_api/login/action'
 import { useSocket, dispatchAuthStorageSync } from '../../../socketContext'
-import { LoginForm } from '../../login/_components/login'
+import dynamic from 'next/dynamic'
 import { redirectAfterClientLogin } from '@/lib/postLoginRedirect'
 import { setSocketToken } from '@/lib/socketSession'
 
 const TOAST_ID = 'verify-email-result'
+
+const LoginForm = dynamic(
+  () => import('../../login/_components/login').then((mod) => mod.LoginForm),
+  { ssr: false }
+)
 
 export function VerifyEmailClient() {
   const searchParams = useSearchParams()

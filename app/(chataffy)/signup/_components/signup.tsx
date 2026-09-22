@@ -1,13 +1,13 @@
 // Registration Component
 'use client'
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 // import { registrationApi } from '../../../_api/login/action'
 import { registrationApi, googleOAuthExchange } from '../../../_api/login/action'
 import { toast } from 'react-toastify'
 import Link from 'next/link'
 
 import { CheckCircleIcon, EyeIcon, EyeOffIcon, MailIcon, XCircleIcon } from 'lucide-react'
-import { useGoogleLogin } from '@react-oauth/google'
+import { GoogleSignInButton, GoogleSignInUnavailableButton } from '../../_components/GoogleSignInButton'
 import { useSocket, dispatchAuthStorageSync } from "../../../socketContext";
 import { redirectAfterClientLogin } from '@/lib/postLoginRedirect';
 import { setSocketToken } from '@/lib/socketSession';
@@ -25,6 +25,9 @@ export function RegistrationForm() {
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   const [googleLoading, setGoogleLoading] = useState(false)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmPasswordRef = useRef<HTMLInputElement>(null)
 
   const handleSocketEvent = (userId:any) => {
     if (socket) {
@@ -34,42 +37,50 @@ export function RegistrationForm() {
     }
   }
 
-
-  const googleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse: any) => {
-      try {
-        setGoogleLoading(true)
-        const response = await googleOAuthExchange(tokenResponse?.access_token)
-        setGoogleLoading(false)
-        if (response?.status_code === 200) {
-          toast.success('Signed up with Google')
-          if (response.token) setSocketToken('client', response.token);
-          if (response.userId) {
-            sessionStorage.setItem('role', 'client')
-            sessionStorage.setItem('userId', response.userId)
-          }
-          if (response.agents) {
-            sessionStorage.setItem('agents', JSON.stringify(response.agents))
-            sessionStorage.setItem('currentAgentId', response.agents[0]?._id ?? '')
-          }
-          dispatchAuthStorageSync()
-          handleSocketEvent(response.userId)
-          redirectAfterClientLogin(!!response.isOnboarded)
-          return
-        } else {
-          toast.error(response?.message || 'Google signup failed')
-        }
-      } catch (e: any) {
-        setGoogleLoading(false)
-        toast.error('Google signup failed')
+  useEffect(() => {
+    const syncAutofill = () => {
+      const nextEmail = emailRef.current?.value?.trim() ?? ''
+      const nextPassword = passwordRef.current?.value ?? ''
+      const nextConfirm = confirmPasswordRef.current?.value ?? ''
+      if (nextEmail) setEmail(nextEmail)
+      if (nextPassword) setPassword(nextPassword)
+      if (nextConfirm) setConfirmPassword(nextConfirm)
+      if (nextEmail && nextPassword && nextConfirm && nextPassword === nextConfirm) {
+        setButtonStatus({ loading: false, disabled: false })
       }
-    },
-    onError: () => {
+    }
+    syncAutofill()
+    const timer = window.setTimeout(syncAutofill, 300)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  const handleGoogleSuccess = async (accessToken: string) => {
+    try {
+      setGoogleLoading(true)
+      const googleResponse = await googleOAuthExchange(accessToken)
       setGoogleLoading(false)
-      toast.error('Google sign-in was cancelled or failed')
-    },
-    scope: 'openid email profile'
-  })
+      if (googleResponse?.status_code === 200) {
+        toast.success('Signed up with Google')
+        if (googleResponse.token) setSocketToken('client', googleResponse.token)
+        if (googleResponse.userId) {
+          sessionStorage.setItem('role', 'client')
+          sessionStorage.setItem('userId', googleResponse.userId)
+        }
+        if (googleResponse.agents) {
+          sessionStorage.setItem('agents', JSON.stringify(googleResponse.agents))
+          sessionStorage.setItem('currentAgentId', googleResponse.agents[0]?._id ?? '')
+        }
+        dispatchAuthStorageSync()
+        handleSocketEvent(googleResponse.userId)
+        redirectAfterClientLogin(!!googleResponse.isOnboarded)
+        return
+      }
+      toast.error(googleResponse?.message || 'Google signup failed')
+    } catch {
+      setGoogleLoading(false)
+      toast.error('Google signup failed')
+    }
+  }
 
   const handleOnSubmit = async (event: any) => {
     event.preventDefault()
@@ -187,26 +198,20 @@ export function RegistrationForm() {
 
           {/* Social auth */}
           <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => {
-                if (!googleClientId) {
-                  toast.error('Google Client ID not configured')
-                  return
-                }
-                if (!googleLoading) googleLogin()
-              }}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
-              disabled={googleLoading}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5">
-                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12   c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.64,6.053,29.082,4,24,4C12.955,4,4,12.955,4,24   c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
-                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,13,24,13c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657   C33.64,6.053,29.082,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
-                <path fill="#4CAF50" d="M24,44c5.164,0,9.86-1.977,13.409-5.197l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946   l-6.522,5.026C9.5,39.556,16.227,44,24,44z" />
-                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.793,2.238-2.231,4.166-4.094,5.565c0,0,0.001,0,0.001,0l6.19,5.238   c-0.438,0.4,6.6-4.826,6.6-14.803C44,22.659,43.862,21.35,43.611,20.083z" />
-              </svg>
-              {googleLoading ? 'Connecting…' : 'Continue with Google'}
-            </button>
+            {googleClientId ? (
+              <GoogleSignInButton
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setGoogleLoading(false)
+                  toast.error('Google sign-in was cancelled or failed')
+                }}
+                loading={googleLoading}
+              />
+            ) : (
+              <GoogleSignInUnavailableButton
+                onClick={() => toast.error('Google Client ID not configured')}
+              />
+            )}
 
             <div className="flex items-center gap-3">
               <div className="h-px bg-gray-200 w-full" />
@@ -225,7 +230,8 @@ export function RegistrationForm() {
                 name="email"
                 type="email"
                 required
-                autoComplete="off"
+                autoComplete="email"
+                ref={emailRef}
                 value={email}
                 onChange={handleEmailOnChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"
@@ -244,7 +250,8 @@ export function RegistrationForm() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
-                  autoComplete="off"
+                  autoComplete="new-password"
+                  ref={passwordRef}
                   value={password}
                   onChange={handlePasswordOnChange}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 placeholder-gray-500"
@@ -302,7 +309,8 @@ export function RegistrationForm() {
                   name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   required
-                  autoComplete="off"
+                  autoComplete="new-password"
+                  ref={confirmPasswordRef}
                   value={confirmPassword}
                   onChange={handleConfirmPasswordOnChange}
                   className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 transition-colors duration-200 text-gray-900 placeholder-gray-500 ${confirmPassword === ''
