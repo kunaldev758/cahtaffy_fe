@@ -262,7 +262,7 @@ export default function NewAgentOnboardingPage() {
         ? {
             title: 'Cancel or Train this website',
             description:
-              'Click Cancel to discard website Training or select your pages and click Train & Continue.',
+              'Click Cancel to discard website Training or click Train & Continue.',
           }
         : currentStep === 'widget'
           ? {
