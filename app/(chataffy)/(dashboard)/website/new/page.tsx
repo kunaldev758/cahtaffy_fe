@@ -245,6 +245,37 @@ export default function NewAgentOnboardingPage() {
     setLeavePromptOpen(false)
   }
 
+  const isWorkInProgress = isFetchingUrls || isTrainingUrls || isDocsTraining || isFaqTraining
+  const leavePrompt = isFetchingUrls
+    ? {
+        title: 'Fetching your Website Links',
+        description:
+          'Please stay on this page during the fetching process. Links will be clickable and accessible after fetching finishes.',
+      }
+    : isTrainingUrls || isDocsTraining || isFaqTraining
+      ? {
+          title: 'Training in progress',
+          description:
+            'Your website is being trained right now. Please stay on this page and don’t open other links until training finishes.',
+        }
+      : currentStep === 'train'
+        ? {
+            title: 'Cancel or Train this website',
+            description:
+              'Click Cancel to discard website Training or select your pages and click Train & Continue.',
+          }
+        : currentStep === 'widget'
+          ? {
+              title: 'Complete Setup Details First',
+              description:
+                'Please Complete the setup first. Click “Save Settings” to continue.',
+            }
+          : {
+              title: 'Finish or cancel this website',
+              description:
+                'This website isn’t added yet. Stay here to finish setup, or click Cancel to discard it.',
+            }
+
   // Cancel: delete the newly created agent and restore previous
   const handleCancel = async () => {
     if (isCancelling) return
@@ -456,10 +487,13 @@ export default function NewAgentOnboardingPage() {
       <Dialog open={leavePromptOpen} onOpenChange={(open) => { if (!open) closeLeavePrompt() }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Save the setup page first</DialogTitle>
-            <DialogDescription>
-              Please save the setup page first. This website is not added until you click Save Setting.
-            </DialogDescription>
+            {isWorkInProgress && (
+              <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-[#EEF2FF]">
+                <Loader2 className="h-5 w-5 animate-spin text-[#4B56F2]" />
+              </div>
+            )}
+            <DialogTitle>{leavePrompt.title}</DialogTitle>
+            <DialogDescription>{leavePrompt.description}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <button
