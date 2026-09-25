@@ -7,6 +7,14 @@ import { publicAsset } from '@/lib/publicAsset'
 import { X, Loader2 } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import TrainSetup from '../../../onboarding/components/train-setup'
 import WidgetSetup from '../../../onboarding/components/widget-setup'
 import { getSitemapUrlsApi, startSitemapScrapingApi, openaiCreateSnippet, openaiCreateFaq, updateAgentSettingsApi, updateOnboardingStepApi, getAIAgents } from '@/app/_api/dashboard/action'
@@ -38,6 +46,7 @@ export default function NewAgentOnboardingPage() {
   const onboardingAgentIdRef = useRef<string | null>(null)
   const previousAgentIdRef = useRef<string | null>(null)
   const hasOnboardingSessionRef = useRef(false)
+  const [leavePromptOpen, setLeavePromptOpen] = useState(false)
 
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [extractedUrls, setExtractedUrls] = useState<string[]>([])
@@ -122,6 +131,36 @@ export default function NewAgentOnboardingPage() {
     window.dispatchEvent(new CustomEvent('agent-changed', { detail: { agentId: prevAgentId ?? null } }))
   }
 
+  // Block sidebar and other in-app links until the setup page is saved
+  useEffect(() => {
+    const onClickCapture = (e: MouseEvent) => {
+      if (isIntentionalExit.current) return
+      if (e.defaultPrevented) return
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a')
+      if (!anchor) return
+      const href = anchor.getAttribute('href')
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return
+
+      let url: URL
+      try {
+        url = new URL(href, window.location.origin)
+      } catch {
+        return
+      }
+      if (url.origin !== window.location.origin) return
+      if (url.pathname === '/website/new' || url.pathname.startsWith('/website/new/')) return
+
+      e.preventDefault()
+      e.stopPropagation()
+      setLeavePromptOpen(true)
+    }
+
+    document.addEventListener('click', onClickCapture, true)
+    return () => document.removeEventListener('click', onClickCapture, true)
+  }, [])
+
   // Auto-delete agent if user navigates away mid-flow without finishing
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -202,6 +241,10 @@ export default function NewAgentOnboardingPage() {
     }, 220)
   }
 
+  const closeLeavePrompt = () => {
+    setLeavePromptOpen(false)
+  }
+
   // Cancel: delete the newly created agent and restore previous
   const handleCancel = async () => {
     if (isCancelling) return
@@ -223,6 +266,7 @@ export default function NewAgentOnboardingPage() {
       removeAgentFromStorage(canDeleteOnboardingAgent ? onboardingAgentId : null, prevAgentId)
       router.replace('/website')
     } catch {
+      isIntentionalExit.current = false
       toast.error('Failed to cancel. Please try again.')
       setIsCancelling(false)
     }
@@ -409,6 +453,25 @@ export default function NewAgentOnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] p-6">
+      <Dialog open={leavePromptOpen} onOpenChange={(open) => { if (!open) closeLeavePrompt() }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save the setup page first</DialogTitle>
+            <DialogDescription>
+              Please save the setup page first. This website is not added until you click Save Setting.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={closeLeavePrompt}
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-[#111827] px-5 text-sm font-semibold text-white hover:bg-[#1f2937]"
+            >
+              OK
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Header row with title + cancel */}
       <div className="flex items-center justify-between mb-6 max-w-[1106px] mx-auto">
         <div>
