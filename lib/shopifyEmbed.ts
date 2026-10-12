@@ -32,7 +32,13 @@ export function continueWithOptionalShopifyHeader(
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(SHOPIFY_APP_BRIDGE_HEADER, "1");
 
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: requestHeaders },
   });
+  // Shopify admin embeds the app. frame-ancestors replaces X-Frame-Options.
+  response.headers.set(
+    "Content-Security-Policy",
+    "frame-ancestors https://admin.shopify.com https://*.myshopify.com",
+  );
+  return response;
 }

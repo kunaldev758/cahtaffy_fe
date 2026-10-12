@@ -46,6 +46,16 @@ import {
 
 
 
+function isShopifyEmbeddedLaunch(request: NextRequest): boolean {
+  if (request.method !== "GET") return false;
+  const shop = request.nextUrl.searchParams.get("shop")?.toLowerCase() || "";
+  if (shop.endsWith(".myshopify.com")) return true;
+  return Boolean(
+    request.nextUrl.searchParams.get("host") &&
+      request.nextUrl.searchParams.get("hmac"),
+  );
+}
+
 function portalForPath(pathname: string): Portal {
 
   if (isAgentPath(pathname)) return "agent";
@@ -139,8 +149,6 @@ export async function middleware(request: NextRequest) {
   const rawPathname = new URL(request.url).pathname;
 
   let pathname = request.nextUrl.pathname;
-
-
 
   if (rawPathname.startsWith(LEGACY_BASE_PATH)) {
 
@@ -272,7 +280,7 @@ export async function middleware(request: NextRequest) {
 
       }
 
-      if (isMarketingOnlyPath(pathname)) {
+      if (isMarketingOnlyPath(pathname) && !isShopifyEmbeddedLaunch(request)) {
 
         return NextResponse.redirect(getDashboardUrl());
 
