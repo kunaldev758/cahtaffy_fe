@@ -332,10 +332,14 @@ function LoadPageContent() {
 
             // Build params — prefer id_token, fallback to install_token etc.
             const allParams = Object.fromEntries(searchParams?.entries() ?? []);
+
+            console.log("all params :",allParams)
             // const params = id_token
             //   ? { shop, host, id_token } // App Bridge flow (normal load)
             //   : allParams; // Post-install flow (install_token)
-            const params = allParams;
+            // The URL's id_token expires after ~1 minute; send the fresh App
+            // Bridge token when we have one.
+            const params = id_token ? { ...allParams, id_token } : allParams;
 
             // const res = await axios.get(`${apiBase}/api/shopify/auth/load`, {
             //   params,
@@ -343,6 +347,8 @@ function LoadPageContent() {
             // });
             const res = await sfAuthLoadApi(params);
             const result = res;
+
+            console.log("res check : ",res);
             if (result.status) {
               const { userId, isOnboarded, agents, shopifyShop, token } = result;
               if (token) {
@@ -364,6 +370,8 @@ function LoadPageContent() {
             }
 
             const httpStatus = getHttpStatusFromLoadResult(result);
+
+            console.log("http Status check :",httpStatus);
             // Not installed or uninstalled → trigger OAuth
             if (
               httpStatus === 400 ||
