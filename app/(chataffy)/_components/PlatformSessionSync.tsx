@@ -37,7 +37,10 @@ export default function PlatformSessionSync() {
       const domain = process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN?.trim();
       const domainAttr = domain ? `; domain=${domain}` : '';
       const maxAgeAttr = `; max-age=${7 * 24 * 60 * 60}`;
-      document.cookie = `platform=${value}${domainAttr}${maxAgeAttr}; path=/; SameSite=None; Secure`;
+      // Embedded (Shopify/BigCommerce) cookies must be Partitioned so they survive
+      // third-party cookie blocking; the standalone web tab keeps a normal cookie.
+      const partitionedAttr = value === 'local' ? '' : '; Partitioned';
+      document.cookie = `platform=${value}${domainAttr}${maxAgeAttr}; path=/; SameSite=None; Secure${partitionedAttr}`;
     };
 
     const syncPlatformSession = async () => {

@@ -297,6 +297,7 @@ function LoadPageContent() {
             if (token) {
               setSocketToken("client", token);
             }
+            sessionStorage.setItem("role", "client");
             sessionStorage.setItem("userId", userId);
             sessionStorage.setItem("agents", JSON.stringify(agents));
             sessionStorage.setItem("currentAgentId", agents[0]?._id ?? "");
@@ -354,6 +355,7 @@ function LoadPageContent() {
               if (token) {
                 setSocketToken("client", token);
               }
+              sessionStorage.setItem("role", "client");
               sessionStorage.setItem("userId", userId);
               sessionStorage.setItem("agents", JSON.stringify(agents));
               sessionStorage.setItem("currentAgentId", agents[0]?._id ?? "");

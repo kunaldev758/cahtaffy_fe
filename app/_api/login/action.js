@@ -16,6 +16,10 @@ import {
 
   serverPlatformCookieOpts,
 
+  serverEmbeddedAuthCookieOpts,
+
+  serverEmbeddedPlatformCookieOpts,
+
 } from '@/lib/authCookies'
 
 
@@ -405,11 +409,11 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
   })
 
   const result = await response.json()
-  const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
-  console.log(token, "this is the token bigcommerce!");
-  if(result.status) {
-    cookies().set({ name: 'platform', value: 'bigcommerce', ...platformCookieOpts() })
-    cookies().set({ name: 'bc_token', value: token, ...cookieOpts() })
+  const token = result.token || response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
+  if(result.status && token) {
+    // Partitioned: the app runs in a third-party iframe inside the BigCommerce admin.
+    cookies().set({ name: 'platform', value: 'bigcommerce', ...serverEmbeddedPlatformCookieOpts() })
+    cookies().set({ name: 'bc_token', value: token, ...serverEmbeddedAuthCookieOpts() })
   }
   return { ...result, token };
 
@@ -429,10 +433,13 @@ export async function sfAuthLoadApi(params) {
 
   const result = await response.json()
 //  getting the token from set-cookie   `Set-Cookie` header
-  const token = response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
-  if(result.status) {
-    cookies().set({ name: 'platform', value: 'shopify', ...platformCookieOpts() })
-    cookies().set({ name: 'sf_token', value: token, ...cookieOpts() })
+  // Prefer the token in the JSON body; fall back to parsing the Set-Cookie header.
+  const token = result.token || response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
+  if(result.status && token) {
+    // Partitioned: the app runs in a third-party iframe inside Shopify admin, where
+    // Incognito/Safari/Brave only accept partitioned (CHIPS) cookies.
+    cookies().set({ name: 'platform', value: 'shopify', ...serverEmbeddedPlatformCookieOpts() })
+    cookies().set({ name: 'sf_token', value: token, ...serverEmbeddedAuthCookieOpts() })
   }
   return { ...result, httpStatus: response.status, token };
 

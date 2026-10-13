@@ -34,6 +34,15 @@ export function serverAuthCookieOpts() {
   };
 }
 
+/**
+ * Same as `serverAuthCookieOpts` but Partitioned (CHIPS). Use for Shopify/BigCommerce
+ * embedded sessions: the app runs in a third-party iframe, where browsers that block
+ * third-party cookies (Chrome Incognito, Safari, Brave) only accept partitioned cookies.
+ */
+export function serverEmbeddedAuthCookieOpts() {
+  return { ...serverAuthCookieOpts(), partitioned: true as const };
+}
+
 /** Options for Next.js `cookies().set` on platform routing cookies (not httpOnly so JS can access). */
 export function serverPlatformCookieOpts() {
   const domain = (process.env.AUTH_COOKIE_DOMAIN || process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN)?.trim();
@@ -48,4 +57,9 @@ export function serverPlatformCookieOpts() {
     path: "/",
     ...(domain ? { domain } : {}),
   };
+}
+
+/** Partitioned (CHIPS) variant of `serverPlatformCookieOpts` for embedded Shopify/BigCommerce. */
+export function serverEmbeddedPlatformCookieOpts() {
+  return { ...serverPlatformCookieOpts(), partitioned: true as const };
 }
