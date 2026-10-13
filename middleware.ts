@@ -272,35 +272,35 @@ export async function middleware(request: NextRequest) {
 
       }
 
-      // if (isMarketingOnlyPath(pathname)) {
-
-      //   const shop = request.nextUrl.searchParams.get("shop");
-
-      //   const embeddedHost = request.nextUrl.searchParams.get("host");
-
-      //   // Shopify opens the App URL at `/`. Sending that back to the dashboard
-
-      //   // origin is another request for `/`, which loops. Hand the embed to
-
-      //   // `/load`, which exchanges the shop session and continues inside admin.
-
-      //   if (shop || embeddedHost) {
-
-      //     return NextResponse.redirect(
-
-      //       absolutePortalUrl("dashboard", "/load", request.nextUrl.search),
-
-      //     );
-
-      //   }
-
-      // }
-
       if (isMarketingOnlyPath(pathname)) {
 
-        return NextResponse.redirect(getDashboardUrl());
+        const shop = request.nextUrl.searchParams.get("shop");
+
+        const embeddedHost = request.nextUrl.searchParams.get("host");
+
+        // Shopify opens the App URL at `/`. Sending that back to the dashboard
+
+        // origin is another request for `/`, which loops. Hand the embed to
+
+        // `/load`, which exchanges the shop session and continues inside admin.
+
+        if (shop || embeddedHost) {
+
+          return NextResponse.redirect(
+
+            absolutePortalUrl("dashboard", "/load", request.nextUrl.search),
+
+          );
+
+        }
 
       }
+
+      // if (isMarketingOnlyPath(pathname)) {
+
+      //   return NextResponse.redirect(getDashboardUrl());
+
+      // }
 
     } else if (portal === "agent") {
 
