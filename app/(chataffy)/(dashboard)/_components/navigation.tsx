@@ -243,13 +243,13 @@ export default function IntegratedSidebar() {
           Human Agent
         </Link>
 
-        <button
+        {/* <button
           className={navItemClass(false) + ' w-full text-left cursor-default'}
           tabIndex={-1}
         >
           <CreditCard className={iconClass(false)} />
           Pricing
-        </button>
+        </button> */}
       </nav>
 
       {/* Bottom */}
