@@ -317,6 +317,21 @@ function LoadPageContent() {
         // ── Shopify ──────────────────────────────────────────────────────
         if (shop) {
           try {
+            // A different store than the one this tab last used: drop the old
+            // store's session state so its agents/shop can never leak into this one.
+            const previousShop = sessionStorage.getItem("shopifyShop");
+            if (previousShop && previousShop !== shop) {
+              [
+                "userId",
+                "agents",
+                "currentAgentId",
+                "provider",
+                "shopifyShop",
+                "sf_params",
+                "role",
+              ].forEach((key) => sessionStorage.removeItem(key));
+            }
+
             // Get session token from new App Bridge via window.shopify
             let id_token: string | null = searchParams?.get("id_token") ?? null;
 
