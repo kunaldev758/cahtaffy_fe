@@ -233,7 +233,11 @@ const LOAD_TIMEOUT_MS = 25000;
 type LoadFailure = { code: string; message: string; shop?: string };
 
 /** Failures where re-installing the app is the fix. */
-const INSTALL_CODES = new Set(["NOT_INSTALLED", "TOKEN_REVOKED"]);
+const INSTALL_CODES = new Set([
+  "NOT_INSTALLED",
+  "TOKEN_REVOKED",
+  "APP_CREDENTIAL_MISMATCH",
+]);
 /** Transient failures where simply reloading may fix it. */
 const RELOAD_CODES = new Set([
   "SESSION_EXPIRED",
@@ -246,7 +250,6 @@ const RELOAD_CODES = new Set([
 ]);
 
 const FAILURE_TITLES: Record<string, string> = {
-  APP_CREDENTIAL_MISMATCH: "App configuration mismatch",
   SESSION_EXPIRED: "Session expired",
   SESSION_INVALID: "Session invalid",
   NOT_INSTALLED: "App not installed",
@@ -529,16 +532,12 @@ function LoadPageContent() {
             const loadFailure = resolveLoadFailure(result, shop);
             console.log("load failure :", loadFailure.code);
 
-            // Legacy install links open the app at the top level: continue the
-            // OAuth install automatically there. Inside the Shopify iframe the
-            // browser blocks unprompted top-level navigation, so the user gets
-            // an "Install / Reconnect" button instead (a click is a user gesture).
-            if (
-              INSTALL_CODES.has(loadFailure.code) &&
-              window.self === window.top
-            ) {
+            // Bounce to Shopify authorize so Shopify can show its own page
+            // when the client ID is invalid. redirectToInstall already exits
+            // the iframe via window.open(..., "_top").
+            if (INSTALL_CODES.has(loadFailure.code) && loadFailure.shop) {
               settled = true;
-              redirectToInstall(buildInstallUrl(shop, host));
+              redirectToInstall(buildInstallUrl(loadFailure.shop, host));
               return;
             }
 
