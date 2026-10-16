@@ -224,13 +224,138 @@ function getHttpStatusFromLoadResult(result: unknown): number | undefined {
   return undefined;
 }
 
-function getErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object" && "message" in err) {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === "string" && message) return message;
+const GENERIC_LOAD_ERROR =
+  "Something went wrong while loading the app. Please try again.";
+
+/** How long the page may spin before we give up and show an error. */
+const LOAD_TIMEOUT_MS = 25000;
+
+type LoadFailure = { code: string; message: string; shop?: string };
+
+/** Failures where re-installing the app is the fix. */
+const INSTALL_CODES = new Set(["NOT_INSTALLED", "TOKEN_REVOKED"]);
+/** Transient failures where simply reloading may fix it. */
+const RELOAD_CODES = new Set([
+  "SESSION_EXPIRED",
+  "SESSION_INVALID",
+  "EXCHANGE_FAILED",
+  "SERVER_UNREACHABLE",
+  "LOAD_FAILED",
+  "LOAD_TIMEOUT",
+  "UNKNOWN",
+]);
+
+const FAILURE_TITLES: Record<string, string> = {
+  APP_CREDENTIAL_MISMATCH: "App configuration mismatch",
+  SESSION_EXPIRED: "Session expired",
+  SESSION_INVALID: "Session invalid",
+  NOT_INSTALLED: "App not installed",
+  TOKEN_REVOKED: "Shopify access revoked",
+  EXCHANGE_FAILED: "Could not connect your store",
+  INVALID_REQUEST: "Invalid link",
+  USER_NOT_FOUND: "Account not found",
+  SERVER_UNREACHABLE: "Cannot reach the server",
+  LOAD_TIMEOUT: "Taking too long",
+  LOAD_FAILED: "Something went wrong",
+  SHOPIFY_NOT_CONFIGURED: "Shopify is not configured",
+};
+
+/**
+ * Turn an /auth/load result into a user-safe failure. Prefers the backend's
+ * stable `code`; falls back to the HTTP status for older responses.
+ */
+function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure {
+  const r = (result && typeof result === "object" ? result : {}) as {
+    code?: unknown;
+    message?: unknown;
+    shop?: unknown;
+  };
+  const httpStatus = getHttpStatusFromLoadResult(result);
+
+  let code = typeof r.code === "string" && r.code ? r.code : "";
+  if (!code) {
+    if (httpStatus === 401) code = "SESSION_EXPIRED";
+    else if (httpStatus === 403) code = "NOT_INSTALLED";
+    else if (httpStatus === 400) code = "INVALID_REQUEST";
+    else if (httpStatus === 0) code = "SERVER_UNREACHABLE";
+    else code = "UNKNOWN";
   }
-  return "Authentication failed";
+
+  return {
+    code,
+    message:
+      typeof r.message === "string" && r.message ? r.message : GENERIC_LOAD_ERROR,
+    shop: (typeof r.shop === "string" && r.shop) || shop || undefined,
+  };
+}
+
+function buildInstallUrl(shop: string, host?: string | null): string {
+  const installUrl = new URL(
+    `${process.env.NEXT_PUBLIC_API_HOST}/api/shopify/auth/install`,
+  );
+  installUrl.searchParams.set("shop", shop);
+  if (host) installUrl.searchParams.set("host", host);
+  return installUrl.toString();
+}
+
+function LoadErrorScreen({
+  failure,
+  host,
+}: {
+  failure: LoadFailure;
+  host: string | null;
+}) {
+  const showInstall = INSTALL_CODES.has(failure.code) && !!failure.shop;
+  const showReload = RELOAD_CODES.has(failure.code);
+
+  // Runs inside a click handler, so the browser treats the top-level
+  // navigation as user-initiated (auto redirects from an iframe are blocked).
+  const handleInstall = () => {
+    if (!failure.shop) return;
+    const url = buildInstallUrl(failure.shop, host);
+    if (window.self !== window.top) {
+      window.open(url, "_top");
+    } else {
+      window.location.href = url;
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen w-full px-4">
+      <div className="text-center max-w-md">
+        <h1 className="text-2xl font-bold text-red-600 mb-3">
+          {FAILURE_TITLES[failure.code] || "Unable to load the app"}
+        </h1>
+        <p className="text-gray-700 mb-6">{failure.message}</p>
+
+        <div className="flex items-center justify-center gap-3">
+          {showInstall && (
+            <button
+              type="button"
+              onClick={handleInstall}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            >
+              Install / Reconnect
+            </button>
+          )}
+          {showReload && (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+            >
+              Reload
+            </button>
+          )}
+        </div>
+
+        <p className="mt-6 text-xs text-gray-400">
+          Code: {failure.code}
+          {failure.shop ? ` · Shop: ${failure.shop}` : ""}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // Extend window type for App Bridge
@@ -251,7 +376,7 @@ function LoadPageContent() {
   const { socket } = useSocket();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [error, setError] = useState("");
+  const [failure, setFailure] = useState<LoadFailure | null>(null);
   const [pendingJoinUserId, setPendingJoinUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -275,6 +400,22 @@ function LoadPageContent() {
   }
 
   useEffect(() => {
+    // Set once we have navigated away or shown an error; stops the timeout.
+    let settled = false;
+    const fail = (f: LoadFailure) => {
+      settled = true;
+      setFailure(f);
+    };
+    const timeoutId = window.setTimeout(() => {
+      if (!settled) {
+        fail({
+          code: "LOAD_TIMEOUT",
+          message: "Loading is taking too long. Please reload the page.",
+          shop: searchParams?.get("shop") || undefined,
+        });
+      }
+    }, LOAD_TIMEOUT_MS);
+
     const verifyAndRedirect = async () => {
       try {
         const signedPayload = searchParams?.get("signed_payload_jwt");
@@ -309,7 +450,10 @@ function LoadPageContent() {
             sessionStorage.removeItem("shopifyShop");
             dispatchAuthStorageSync();
             setPendingJoinUserId(userId);
+            settled = true;
             router.replace(isOnboarded ? "/dashboard" : "/onboarding");
+          } else {
+            fail(resolveLoadFailure(result));
           }
           return;
         }
@@ -382,56 +526,54 @@ function LoadPageContent() {
               sessionStorage.removeItem("bcStoreUrl");
               dispatchAuthStorageSync();
               setPendingJoinUserId(userId);
+              settled = true;
               router.replace(isOnboarded ? "/dashboard" : "/onboarding");
               return;
             }
 
-            const httpStatus = getHttpStatusFromLoadResult(result);
+            const loadFailure = resolveLoadFailure(result, shop);
+            console.log("load failure :", loadFailure.code);
 
-            console.log("http Status check :",httpStatus);
-            // Not installed or uninstalled → trigger OAuth
+            // Legacy install links open the app at the top level: continue the
+            // OAuth install automatically there. Inside the Shopify iframe the
+            // browser blocks unprompted top-level navigation, so the user gets
+            // an "Install / Reconnect" button instead (a click is a user gesture).
             if (
-              httpStatus === 400 ||
-              httpStatus === 401 ||
-              httpStatus === 403
+              INSTALL_CODES.has(loadFailure.code) &&
+              window.self === window.top
             ) {
-              const installUrl = new URL(
-                `${process.env.NEXT_PUBLIC_API_HOST}/api/shopify/auth/install`,
-              );
-              installUrl.searchParams.set("shop", shop);
-              if (host) installUrl.searchParams.set("host", host);
-              redirectToInstall(installUrl.toString());
+              settled = true;
+              redirectToInstall(buildInstallUrl(shop, host));
               return;
             }
 
-            setError(
-              String(result.message || "Shopify authentication failed"),
-            );
+            fail(loadFailure);
           } catch (shopifyErr) {
-            setError(getErrorMessage(shopifyErr));
+            console.error("[load] Shopify load failed:", shopifyErr);
+            fail({ code: "UNKNOWN", message: GENERIC_LOAD_ERROR, shop });
           }
           return;
         }
 
-        setError(
-          "Authentication Failed."
-        );
+        fail({
+          code: "INVALID_REQUEST",
+          message:
+            "Invalid link. Please open the app again from your Shopify admin.",
+        });
       } catch (e) {
-        setError(getErrorMessage(e));
+        console.error("[load] Load failed:", e);
+        fail({ code: "UNKNOWN", message: GENERIC_LOAD_ERROR });
       }
     };
 
     verifyAndRedirect();
+
+    return () => window.clearTimeout(timeoutId);
   }, [searchParams]);
 
-  if (error) {
+  if (failure) {
     return (
-      <div className="flex items-center justify-center min-h-screen w-full">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-          <p>{error}</p>
-        </div>
-      </div>
+      <LoadErrorScreen failure={failure} host={searchParams?.get("host") ?? null} />
     );
   }
 

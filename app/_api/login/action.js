@@ -420,18 +420,31 @@ export async function bcAuthLoadApi(signedPayloadJwt) {
 }
 
 export async function sfAuthLoadApi(params) {
-  const response = await fetch(`${process.env.API_HOST}shopify/auth/load?${new URLSearchParams(params).toString()}`, {
+  let response
+  let result
+  try {
+    response = await fetch(`${process.env.API_HOST}shopify/auth/load?${new URLSearchParams(params).toString()}`, {
 
-    method: 'GET',
+      method: 'GET',
 
-    cache: 'no-cache',
+      cache: 'no-cache',
 
-    headers: makeFetchHeaders({ Authorization: `Bearer ${getClientSessionToken()}` }),
+      headers: makeFetchHeaders({ Authorization: `Bearer ${getClientSessionToken()}` }),
 
-  })
+      // Never leave the UI spinning forever if the API is unreachable.
+      signal: AbortSignal.timeout(20000),
 
-
-  const result = await response.json()
+    })
+    result = await response.json()
+  } catch (error) {
+    console.error('sfAuthLoadApi failed:', error?.name || error)
+    return {
+      status: false,
+      code: 'SERVER_UNREACHABLE',
+      message: 'Cannot reach the server. Please try again in a moment.',
+      httpStatus: 0,
+    }
+  }
 //  getting the token from set-cookie   `Set-Cookie` header
   // Prefer the token in the JSON body; fall back to parsing the Set-Cookie header.
   const token = result.token || response.headers.get('set-cookie')?.split(';')[0].split('=')[1]
