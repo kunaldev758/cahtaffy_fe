@@ -348,11 +348,6 @@ function LoadErrorScreen({
             </button>
           )}
         </div>
-
-        <p className="mt-6 text-xs text-gray-400">
-          Code: {failure.code}
-          {failure.shop ? ` · Shop: ${failure.shop}` : ""}
-        </p>
       </div>
     </div>
   );
