@@ -140,7 +140,7 @@
 //                   );
 //                   installUrl.searchParams.set("shop", shop);
 //                   if (host) installUrl.searchParams.set("host", host);
-          
+         
 //                   redirectToInstall(installUrl.toString());
 //                   return;
 //                 }
@@ -233,7 +233,11 @@ const LOAD_TIMEOUT_MS = 25000;
 type LoadFailure = { code: string; message: string; shop?: string };
 
 /** Failures where re-installing the app is the fix. */
-const INSTALL_CODES = new Set(["NOT_INSTALLED", "TOKEN_REVOKED"]);
+const INSTALL_CODES = new Set([
+  "NOT_INSTALLED",
+  "TOKEN_REVOKED",
+  "APP_CREDENTIAL_MISMATCH",
+]);
 /** Transient failures where simply reloading may fix it. */
 const RELOAD_CODES = new Set([
   "SESSION_EXPIRED",
@@ -385,13 +389,15 @@ function LoadPageContent() {
     const embedded = window.self !== window.top;
     if (embedded) {
       queueMicrotask(() => {
-        window.open(url, "_top");
+        try {
+          window.open(url, "_top");
+        } catch {
+          window.location.href = url;
+        }
       });
       return;
     }
     window.location.href = url;
-     // 👇 New tab — do NOT redirect to Shopify
-    // return false;
   }
 
   useEffect(() => {
@@ -529,17 +535,14 @@ function LoadPageContent() {
             const loadFailure = resolveLoadFailure(result, shop);
             console.log("load failure :", loadFailure.code);
 
-            // Legacy install links open the app at the top level: continue the
-            // OAuth install automatically there. Inside the Shopify iframe the
-            // browser blocks unprompted top-level navigation, so the user gets
-            // an "Install / Reconnect" button instead (a click is a user gesture).
-            if (
-              INSTALL_CODES.has(loadFailure.code) &&
-              window.self === window.top
-            ) {
-              settled = true;
-              redirectToInstall(buildInstallUrl(shop, host));
-              return;
+            if (INSTALL_CODES.has(loadFailure.code)) {
+              const targetShop = loadFailure.shop || shop;
+              if (targetShop) {
+                const installUrl = buildInstallUrl(targetShop, host);
+                redirectToInstall(installUrl);
+                fail(loadFailure);
+                return;
+              }
             }
 
             fail(loadFailure);
