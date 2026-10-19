@@ -431,20 +431,6 @@ function LoadPageContent() {
     setPendingJoinUserId(null);
   }, [socket, pendingJoinUserId]);
 
-  function redirectToInstall(url: string) {
-    if (typeof window === "undefined") return;
-    const embedded = window.self !== window.top;
-    if (embedded) {
-      queueMicrotask(() => {
-        window.open(url, "_top");
-      });
-      return;
-    }
-    window.location.href = url;
-     // 👇 New tab — do NOT redirect to Shopify
-    // return false;
-  }
-
   useEffect(() => {
     // Set once we have navigated away or shown an error; stops the timeout.
     let settled = false;
@@ -597,19 +583,6 @@ function LoadPageContent() {
               if (!loadFailure.authorizeUrl && !(shop && window.self !== window.top)) {
                 fail(loadFailure);
               }
-              return;
-            }
-
-            // Legacy install links open the app at the top level: continue the
-            // OAuth install automatically there. Inside the Shopify iframe the
-            // browser blocks unprompted top-level navigation, so the user gets
-            // an "Install / Reconnect" button instead (a click is a user gesture).
-            if (
-              INSTALL_CODES.has(loadFailure.code) &&
-              window.self === window.top
-            ) {
-              settled = true;
-              redirectToInstall(buildInstallUrl(shop, host));
               return;
             }
 
