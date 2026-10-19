@@ -234,7 +234,7 @@ type LoadFailure = {
   code: string;
   message: string;
   shop?: string;
-  authorizeUrl?: string;
+  apiKey?: string;
 };
 
 /** Failures where re-installing the app is the fix. */
@@ -265,26 +265,7 @@ const FAILURE_TITLES: Record<string, string> = {
   SHOPIFY_NOT_CONFIGURED: "Shopify is not configured",
 };
 
-function isSafeShopifyAuthorizeUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return false;
-    if (
-      parsed.hostname.endsWith(".myshopify.com") &&
-      parsed.pathname === "/admin/oauth/authorize"
-    ) {
-      return true;
-    }
-    return (
-      parsed.hostname === "admin.shopify.com" &&
-      /^\/store\/[^/]+\/oauth\/authorize$/.test(parsed.pathname)
-    );
-  } catch {
-    return false;
-  }
-}
-
-/** Leave the app iframe so Shopify can render its own oauth error page. */
+/** Leave the app iframe so the credential error can render top-level. */
 function escapeIframeToShopifyError(url: string) {
   if (window.self === window.top) {
     window.location.replace(url);
@@ -311,13 +292,13 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
     code?: unknown;
     message?: unknown;
     shop?: unknown;
-    authorizeUrl?: unknown;
+    apiKey?: unknown;
   };
   const httpStatus = getHttpStatusFromLoadResult(result);
   const rawMessage = typeof r.message === "string" ? r.message : "";
-  const authorizeUrl =
-    typeof r.authorizeUrl === "string" && isSafeShopifyAuthorizeUrl(r.authorizeUrl)
-      ? r.authorizeUrl
+  const apiKey =
+    typeof r.apiKey === "string" && /^[0-9a-f]{32}$/i.test(r.apiKey)
+      ? r.apiKey
       : undefined;
 
   let code = typeof r.code === "string" && r.code ? r.code : "";
@@ -336,7 +317,7 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
     code,
     message: rawMessage || GENERIC_LOAD_ERROR,
     shop: (typeof r.shop === "string" && r.shop) || shop || undefined,
-    authorizeUrl,
+    apiKey,
   };
 }
 
@@ -508,12 +489,17 @@ function LoadPageContent() {
               ].forEach((key) => sessionStorage.removeItem(key));
             }
 
-            // Get session token from new App Bridge via window.shopify
-            let id_token: string | null = searchParams?.get("id_token") ?? null;
+            // Keep Shopify's original query (including id_token + hmac) intact
+            // so HMAC still verifies. Send App Bridge's token separately —
+            // overwriting id_token would hide the client_id of the app that
+            // was actually opened.
+            const allParams = Object.fromEntries(searchParams?.entries() ?? []);
+            const params: Record<string, string> = { ...allParams };
 
             if (typeof window !== "undefined" && window.shopify?.idToken) {
               try {
-                id_token = await window.shopify.idToken();
+                const sessionToken = await window.shopify.idToken();
+                if (sessionToken) params.session_token = sessionToken;
               } catch (tokenErr) {
                 console.warn(
                   "Could not get App Bridge session token:",
@@ -522,16 +508,7 @@ function LoadPageContent() {
               }
             }
 
-            // Build params — prefer id_token, fallback to install_token etc.
-            const allParams = Object.fromEntries(searchParams?.entries() ?? []);
-
-            console.log("all params :",allParams)
-            // const params = id_token
-            //   ? { shop, host, id_token } // App Bridge flow (normal load)
-            //   : allParams; // Post-install flow (install_token)
-            // The URL's id_token expires after ~1 minute; send the fresh App
-            // Bridge token when we have one.
-            const params = id_token ? { ...allParams, id_token } : allParams;
+            console.log("all params :", allParams);
 
             // const res = await axios.get(`${apiBase}/api/shopify/auth/load`, {
             //   params,
@@ -566,23 +543,24 @@ function LoadPageContent() {
             const loadFailure = resolveLoadFailure(result, shop);
             console.log("load failure :", loadFailure.code);
 
-            // Wrong credentials: do not load the app. Leave the iframe and
-            // open Shopify's own application_cannot_be_found page. The
-            // authorize client_id is not our live app id, so nothing installs.
+            // Wrong credentials: do not start OAuth (that installs whatever
+            // client_id is in the authorize URL). Show the not-found page
+            // with the same client_id the merchant opened.
             if (loadFailure.code === "APP_CREDENTIAL_MISMATCH") {
               settled = true;
-              if (loadFailure.authorizeUrl) {
-                escapeIframeToShopifyError(loadFailure.authorizeUrl);
+              const apiHost = process.env.NEXT_PUBLIC_API_HOST;
+              if (shop && apiHost) {
+                const exitUrl = new URL(
+                  `${apiHost}/api/shopify/auth/credential-error`,
+                );
+                exitUrl.searchParams.set("shop", shop);
+                if (loadFailure.apiKey) {
+                  exitUrl.searchParams.set("client_id", loadFailure.apiKey);
+                }
+                escapeIframeToShopifyError(exitUrl.toString());
+                return;
               }
-              if (shop && window.self !== window.top) {
-                const exitUrl = `${process.env.NEXT_PUBLIC_API_HOST}/api/shopify/auth/credential-error?shop=${encodeURIComponent(shop)}`;
-                window.setTimeout(() => {
-                  window.location.replace(exitUrl);
-                }, 250);
-              }
-              if (!loadFailure.authorizeUrl && !(shop && window.self !== window.top)) {
-                fail(loadFailure);
-              }
+              fail(loadFailure);
               return;
             }
 
