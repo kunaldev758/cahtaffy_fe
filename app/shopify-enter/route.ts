@@ -30,8 +30,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/load", request.url));
   }
 
-  const adminApp = `https://${data.shop}/admin/apps/${encodeURIComponent(data.clientId)}`;
-  const res = NextResponse.redirect(adminApp);
+  // After OAuth callback, redirect to our own /load page with the shop param so
+  // App Bridge can take over.  Previously we redirected to
+  //   https://{shop}/admin/apps/{clientId}
+  // which opens Shopify's own admin, and that page refuses to be embedded in an
+  // iframe (X-Frame-Options: DENY), causing "admin.shopify.com refused to connect".
+  const loadUrl = new URL("/load", request.url);
+  loadUrl.searchParams.set("shop", data.shop);
+
+  const res = NextResponse.redirect(loadUrl);
   res.cookies.set({
     name: SHOPIFY_GATE_COOKIE,
     value: data.shop,

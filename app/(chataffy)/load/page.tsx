@@ -394,22 +394,15 @@ function LoadErrorScreen({
   const showInstall = INSTALL_CODES.has(failure.code) && !!failure.shop;
   const showReload = RELOAD_CODES.has(failure.code);
 
-  useEffect(() => {
+  // For credential-mismatch: show a button so the user can click to navigate
+  // top-level.  An auto-redirect from useEffect is NOT a user gesture and is
+  // blocked by Chrome / Safari when we are inside Shopify's iframe, which
+  // caused a blank "refused to connect" screen instead of a real error.
+  const handleMismatch = () => {
     if (shopifyAuthorize) {
       redirectTopLevel(shopifyAuthorize);
     }
-  }, [shopifyAuthorize]);
-
-  // Runs inside a click handler, so the browser treats the top-level
-  // navigation as user-initiated (auto redirects from an iframe are blocked).
-  const handleInstall = () => {
-    if (!failure.shop) return;
-    redirectTopLevel(buildInstallUrl(failure.shop, host));
   };
-
-  if (shopifyAuthorize) {
-    return null;
-  }
 
   return (
     <div className="flex items-center justify-center min-h-screen w-full px-4">
@@ -420,10 +413,22 @@ function LoadErrorScreen({
         <p className="text-gray-700 mb-6">{failure.message}</p>
 
         <div className="flex items-center justify-center gap-3">
+          {shopifyAuthorize && (
+            <button
+              type="button"
+              onClick={handleMismatch}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            >
+              Continue to Shopify
+            </button>
+          )}
           {showInstall && (
             <button
               type="button"
-              onClick={handleInstall}
+              onClick={() => {
+                if (!failure.shop) return;
+                redirectTopLevel(buildInstallUrl(failure.shop, host));
+              }}
               className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             >
               Install / Reconnect
