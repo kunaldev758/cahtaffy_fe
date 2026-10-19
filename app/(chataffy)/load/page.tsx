@@ -339,6 +339,33 @@ function mismatchBounceUrl(failure: LoadFailure): string | null {
   return null;
 }
 
+function shopAppsSettingsUrl(shopDomain: string): string {
+  const handle = shopDomain.replace(/\.myshopify\.com$/i, "");
+  return `https://admin.shopify.com/store/${encodeURIComponent(handle)}/settings/apps`;
+}
+
+function recentlyBouncedMismatch(url: string): boolean {
+  try {
+    const raw = sessionStorage.getItem("sf_mismatch_bounce");
+    if (!raw) return false;
+    const prev = JSON.parse(raw) as { url?: string; at?: number };
+    return prev.url === url && Date.now() - (prev.at || 0) < 20000;
+  } catch {
+    return false;
+  }
+}
+
+function markBouncedMismatch(url: string) {
+  try {
+    sessionStorage.setItem(
+      "sf_mismatch_bounce",
+      JSON.stringify({ url, at: Date.now() }),
+    );
+  } catch {
+    // ignore
+  }
+}
+
 function redirectTopLevel(url: string) {
   if (typeof window === "undefined") return;
   if (window.self !== window.top) {
@@ -599,6 +626,13 @@ function LoadPageContent() {
               : null;
             if (mismatchUrl) {
               settled = true;
+              // If Shopify reopened the already-installed app, do not OAuth-loop.
+              // Send the merchant to Apps settings instead (Installed / Uninstalled).
+              if (recentlyBouncedMismatch(mismatchUrl) && shop) {
+                redirectTopLevel(shopAppsSettingsUrl(shop));
+                return;
+              }
+              markBouncedMismatch(mismatchUrl);
               redirectToInstall(mismatchUrl);
               return;
             }
