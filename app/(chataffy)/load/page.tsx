@@ -230,7 +230,12 @@ const GENERIC_LOAD_ERROR =
 /** How long the page may spin before we give up and show an error. */
 const LOAD_TIMEOUT_MS = 25000;
 
-type LoadFailure = { code: string; message: string; shop?: string };
+type LoadFailure = {
+  code: string;
+  message: string;
+  shop?: string;
+  authorizeUrl?: string;
+};
 
 /** Failures where re-installing the app is the fix. */
 const INSTALL_CODES = new Set(["NOT_INSTALLED", "TOKEN_REVOKED"]);
@@ -271,6 +276,7 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
     code?: unknown;
     message?: unknown;
     shop?: unknown;
+    authorizeUrl?: unknown;
   };
   const httpStatus = getHttpStatusFromLoadResult(result);
 
@@ -283,12 +289,31 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
     else code = "UNKNOWN";
   }
 
+  const authorizeUrl =
+    typeof r.authorizeUrl === "string" && isSafeShopifyAuthorizeUrl(r.authorizeUrl)
+      ? r.authorizeUrl
+      : undefined;
+
   return {
     code,
     message:
       typeof r.message === "string" && r.message ? r.message : GENERIC_LOAD_ERROR,
     shop: (typeof r.shop === "string" && r.shop) || shop || undefined,
+    authorizeUrl,
   };
+}
+
+function isSafeShopifyAuthorizeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.hostname.endsWith(".myshopify.com") &&
+      parsed.pathname === "/admin/oauth/authorize"
+    );
+  } catch {
+    return false;
+  }
 }
 
 function buildInstallUrl(shop: string, host?: string | null): string {
@@ -298,6 +323,20 @@ function buildInstallUrl(shop: string, host?: string | null): string {
   installUrl.searchParams.set("shop", shop);
   if (host) installUrl.searchParams.set("host", host);
   return installUrl.toString();
+}
+
+function buildMismatchUrl(shop: string): string {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_HOST}/api/shopify/auth/mismatch`,
+  );
+  url.searchParams.set("shop", shop);
+  return url.toString();
+}
+
+function mismatchBounceUrl(failure: LoadFailure): string | null {
+  if (failure.authorizeUrl) return failure.authorizeUrl;
+  if (failure.shop) return buildMismatchUrl(failure.shop);
+  return null;
 }
 
 function redirectTopLevel(url: string) {
@@ -316,10 +355,9 @@ function LoadErrorScreen({
   failure: LoadFailure;
   host: string | null;
 }) {
-  const shopifyAuthorize =
-    SHOPIFY_OAUTH_CODES.has(failure.code) && failure.shop
-      ? buildInstallUrl(failure.shop, host)
-      : null;
+  const shopifyAuthorize = SHOPIFY_OAUTH_CODES.has(failure.code)
+    ? mismatchBounceUrl(failure)
+    : null;
   const showInstall = INSTALL_CODES.has(failure.code) && !!failure.shop;
   const showReload = RELOAD_CODES.has(failure.code);
 
@@ -572,14 +610,15 @@ function LoadPageContent() {
             // OAuth install automatically there. Inside the Shopify iframe the
             // browser blocks unprompted top-level navigation, so the user gets
             // an "Install / Reconnect" button instead (a click is a user gesture).
-            if (
-              SHOPIFY_OAUTH_CODES.has(loadFailure.code) &&
-              (loadFailure.shop || shop)
-            ) {
+            const mismatchUrl = SHOPIFY_OAUTH_CODES.has(loadFailure.code)
+              ? mismatchBounceUrl({
+                  ...loadFailure,
+                  shop: loadFailure.shop || shop || undefined,
+                })
+              : null;
+            if (mismatchUrl) {
               settled = true;
-              redirectToInstall(
-                buildInstallUrl(loadFailure.shop || shop, host),
-              );
+              redirectToInstall(mismatchUrl);
               return;
             }
 
