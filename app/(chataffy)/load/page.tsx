@@ -230,7 +230,12 @@ const GENERIC_LOAD_ERROR =
 /** How long the page may spin before we give up and show an error. */
 const LOAD_TIMEOUT_MS = 25000;
 
-type LoadFailure = { code: string; message: string; shop?: string };
+type LoadFailure = {
+  code: string;
+  message: string;
+  shop?: string;
+  authorizeUrl?: string;
+};
 
 /** Failures where re-installing the app is the fix. */
 const INSTALL_CODES = new Set(["NOT_INSTALLED", "TOKEN_REVOKED"]);
@@ -246,7 +251,7 @@ const RELOAD_CODES = new Set([
 ]);
 
 const FAILURE_TITLES: Record<string, string> = {
-  APP_CREDENTIAL_MISMATCH: "App configuration mismatch",
+  APP_CREDENTIAL_MISMATCH: "Shopify app credentials are invalid",
   SESSION_EXPIRED: "Session expired",
   SESSION_INVALID: "Session invalid",
   NOT_INSTALLED: "App not installed",
@@ -260,6 +265,25 @@ const FAILURE_TITLES: Record<string, string> = {
   SHOPIFY_NOT_CONFIGURED: "Shopify is not configured",
 };
 
+function isSafeShopifyAuthorizeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    if (
+      parsed.hostname.endsWith(".myshopify.com") &&
+      parsed.pathname === "/admin/oauth/authorize"
+    ) {
+      return true;
+    }
+    return (
+      parsed.hostname === "admin.shopify.com" &&
+      /^\/store\/[^/]+\/oauth\/authorize$/.test(parsed.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Turn an /auth/load result into a user-safe failure. Prefers the backend's
  * stable `code`; falls back to the HTTP status for older responses.
@@ -269,23 +293,32 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
     code?: unknown;
     message?: unknown;
     shop?: unknown;
+    authorizeUrl?: unknown;
   };
   const httpStatus = getHttpStatusFromLoadResult(result);
+  const rawMessage = typeof r.message === "string" ? r.message : "";
+  const authorizeUrl =
+    typeof r.authorizeUrl === "string" && isSafeShopifyAuthorizeUrl(r.authorizeUrl)
+      ? r.authorizeUrl
+      : undefined;
 
   let code = typeof r.code === "string" && r.code ? r.code : "";
   if (!code) {
     if (httpStatus === 401) code = "SESSION_EXPIRED";
-    else if (httpStatus === 403) code = "NOT_INSTALLED";
-    else if (httpStatus === 400) code = "INVALID_REQUEST";
+    else if (httpStatus === 403) {
+      code = /application_cannot_be_found|credential/i.test(rawMessage)
+        ? "APP_CREDENTIAL_MISMATCH"
+        : "NOT_INSTALLED";
+    } else if (httpStatus === 400) code = "INVALID_REQUEST";
     else if (httpStatus === 0) code = "SERVER_UNREACHABLE";
     else code = "UNKNOWN";
   }
 
   return {
     code,
-    message:
-      typeof r.message === "string" && r.message ? r.message : GENERIC_LOAD_ERROR,
+    message: rawMessage || GENERIC_LOAD_ERROR,
     shop: (typeof r.shop === "string" && r.shop) || shop || undefined,
+    authorizeUrl,
   };
 }
 
@@ -528,6 +561,19 @@ function LoadPageContent() {
 
             const loadFailure = resolveLoadFailure(result, shop);
             console.log("load failure :", loadFailure.code);
+
+            // Wrong credentials: open Shopify's own oauth error in this iframe
+            // (not window.top — that is blocked). No oauth state, so we do not
+            // complete an install if a code ever comes back.
+            if (loadFailure.code === "APP_CREDENTIAL_MISMATCH") {
+              if (loadFailure.authorizeUrl) {
+                settled = true;
+                window.location.replace(loadFailure.authorizeUrl);
+                return;
+              }
+              fail(loadFailure);
+              return;
+            }
 
             // Legacy install links open the app at the top level: continue the
             // OAuth install automatically there. Inside the Shopify iframe the
