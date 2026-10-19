@@ -375,26 +375,7 @@ function LoadErrorScreen({
   };
 
   if (shopifyAuthorize) {
-    return (
-      <div className="flex items-center justify-center min-h-screen w-full px-4">
-        <div className="text-center max-w-md">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-3">
-            Opening Shopify
-          </h1>
-          <p className="text-gray-700 mb-6">
-            Taking you to Shopify to continue installation.
-          </p>
-          <button
-            type="button"
-            onClick={() => redirectTopLevel(shopifyAuthorize)}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            Continue on Shopify
-          </button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -659,6 +640,12 @@ function LoadPageContent() {
     return (
       <LoadErrorScreen failure={failure} host={searchParams?.get("host") ?? null} />
     );
+  }
+
+  // Shopify entry: stay blank until load succeeds or we bounce to Shopify.
+  // A spinner here was flashing before application_cannot_be_found.
+  if (searchParams?.get("shop")) {
+    return null;
   }
 
   return (
