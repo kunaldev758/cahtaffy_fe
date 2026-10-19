@@ -234,7 +234,7 @@ type LoadFailure = {
   code: string;
   message: string;
   shop?: string;
-  authorizeUrl?: string;
+  apiKey?: string;
 };
 
 /** Failures where re-installing the app is the fix. */
@@ -251,7 +251,7 @@ const RELOAD_CODES = new Set([
 ]);
 
 const FAILURE_TITLES: Record<string, string> = {
-  APP_CREDENTIAL_MISMATCH: "Shopify app credentials are invalid",
+  APP_CREDENTIAL_MISMATCH: "Oops, something went wrong.",
   SESSION_EXPIRED: "Session expired",
   SESSION_INVALID: "Session invalid",
   NOT_INSTALLED: "App not installed",
@@ -265,23 +265,9 @@ const FAILURE_TITLES: Record<string, string> = {
   SHOPIFY_NOT_CONFIGURED: "Shopify is not configured",
 };
 
-function isSafeShopifyAuthorizeUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return false;
-    if (
-      parsed.hostname.endsWith(".myshopify.com") &&
-      parsed.pathname === "/admin/oauth/authorize"
-    ) {
-      return true;
-    }
-    return (
-      parsed.hostname === "admin.shopify.com" &&
-      /^\/store\/[^/]+\/oauth\/authorize$/.test(parsed.pathname)
-    );
-  } catch {
-    return false;
-  }
+function shopifyAppNotFoundMessage(apiKey?: string) {
+  const key = apiKey || "unknown";
+  return `oauth_error application_cannot_be_found Could not find Shopify API application with api_key ${key}`;
 }
 
 /**
@@ -293,14 +279,11 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
     code?: unknown;
     message?: unknown;
     shop?: unknown;
-    authorizeUrl?: unknown;
+    apiKey?: unknown;
   };
   const httpStatus = getHttpStatusFromLoadResult(result);
+  const apiKey = typeof r.apiKey === "string" && r.apiKey ? r.apiKey : undefined;
   const rawMessage = typeof r.message === "string" ? r.message : "";
-  const authorizeUrl =
-    typeof r.authorizeUrl === "string" && isSafeShopifyAuthorizeUrl(r.authorizeUrl)
-      ? r.authorizeUrl
-      : undefined;
 
   let code = typeof r.code === "string" && r.code ? r.code : "";
   if (!code) {
@@ -316,9 +299,12 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
 
   return {
     code,
-    message: rawMessage || GENERIC_LOAD_ERROR,
+    message:
+      code === "APP_CREDENTIAL_MISMATCH"
+        ? rawMessage || shopifyAppNotFoundMessage(apiKey)
+        : rawMessage || GENERIC_LOAD_ERROR,
     shop: (typeof r.shop === "string" && r.shop) || shop || undefined,
-    authorizeUrl,
+    apiKey,
   };
 }
 
@@ -331,6 +317,58 @@ function buildInstallUrl(shop: string, host?: string | null): string {
   return installUrl.toString();
 }
 
+function ShopifyOauthNotFoundScreen({ failure }: { failure: LoadFailure }) {
+  const adminHref = failure.shop
+    ? `https://${failure.shop}/admin`
+    : "https://admin.shopify.com";
+  const detail =
+    failure.message || shopifyAppNotFoundMessage(failure.apiKey);
+
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center bg-white px-6 py-16">
+      <div className="w-full max-w-xl text-center">
+        <svg
+          className="mx-auto mb-7 h-[88px] w-[88px] opacity-55"
+          viewBox="0 0 60 60"
+          fill="none"
+          stroke="#8c9196"
+          strokeWidth="1.2"
+          strokeDasharray="3 3"
+          aria-hidden="true"
+        >
+          <path d="M12 20h36l-3 28H15L12 20z" />
+          <path d="M22 20c0-6 3.5-11 8-11s8 5 8 11" />
+        </svg>
+        <p className="mb-9 flex items-center justify-center gap-2 text-base text-[#8c9196]">
+          <span aria-hidden="true">⚠️</span>
+          Oops, something went wrong.
+        </p>
+        <div className="text-left">
+          <h2 className="mb-3 text-sm font-semibold text-[#202223]">
+            What happened?
+          </h2>
+          <p className="rounded bg-[#eaf4ff] px-3 py-2.5 text-[13px] leading-5 text-[#2c6ecb] break-words">
+            {detail}
+          </p>
+          <h2 className="mb-2 mt-8 text-sm font-semibold text-[#202223]">
+            What can I do?
+          </h2>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-[#202223]">
+            <li>Press the back button on your browser.</li>
+            <li>
+              Return to your{" "}
+              <a className="text-[#2c6ecb] underline" href={adminHref}>
+                admin dashboard
+              </a>
+              .
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoadErrorScreen({
   failure,
   host,
@@ -338,6 +376,10 @@ function LoadErrorScreen({
   failure: LoadFailure;
   host: string | null;
 }) {
+  if (failure.code === "APP_CREDENTIAL_MISMATCH") {
+    return <ShopifyOauthNotFoundScreen failure={failure} />;
+  }
+
   const showInstall = INSTALL_CODES.has(failure.code) && !!failure.shop;
   const showReload = RELOAD_CODES.has(failure.code);
 
@@ -562,15 +604,9 @@ function LoadPageContent() {
             const loadFailure = resolveLoadFailure(result, shop);
             console.log("load failure :", loadFailure.code);
 
-            // Wrong credentials: open Shopify's own oauth error in this iframe
-            // (not window.top — that is blocked). No oauth state, so we do not
-            // complete an install if a code ever comes back.
+            // Wrong credentials: never start OAuth. A real client_id in
+            // /oauth/authorize would install that app on the store.
             if (loadFailure.code === "APP_CREDENTIAL_MISMATCH") {
-              if (loadFailure.authorizeUrl) {
-                settled = true;
-                window.location.replace(loadFailure.authorizeUrl);
-                return;
-              }
               fail(loadFailure);
               return;
             }
