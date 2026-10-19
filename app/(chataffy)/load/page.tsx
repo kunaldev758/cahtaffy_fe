@@ -306,10 +306,16 @@ function resolveLoadFailure(result: unknown, shop?: string | null): LoadFailure 
 function isSafeShopifyAuthorizeUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return (
-      parsed.protocol === "https:" &&
+    if (parsed.protocol !== "https:") return false;
+    if (
       parsed.hostname.endsWith(".myshopify.com") &&
       parsed.pathname === "/admin/oauth/authorize"
+    ) {
+      return true;
+    }
+    return (
+      parsed.hostname === "admin.shopify.com" &&
+      /^\/store\/[^/]+\/oauth\/authorize$/.test(parsed.pathname)
     );
   } catch {
     return false;
