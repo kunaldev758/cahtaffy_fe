@@ -234,6 +234,8 @@ type LoadFailure = { code: string; message: string; shop?: string };
 
 /** Failures where re-installing the app is the fix. */
 const INSTALL_CODES = new Set(["NOT_INSTALLED", "TOKEN_REVOKED"]);
+/** Wrong client id/secret: bounce to Shopify OAuth so Shopify shows its error. */
+const SHOPIFY_OAUTH_CODES = new Set(["APP_CREDENTIAL_MISMATCH"]);
 /** Transient failures where simply reloading may fix it. */
 const RELOAD_CODES = new Set([
   "SESSION_EXPIRED",
@@ -246,7 +248,7 @@ const RELOAD_CODES = new Set([
 ]);
 
 const FAILURE_TITLES: Record<string, string> = {
-  APP_CREDENTIAL_MISMATCH: "App configuration mismatch",
+  APP_CREDENTIAL_MISMATCH: "Opening Shopify",
   SESSION_EXPIRED: "Session expired",
   SESSION_INVALID: "Session invalid",
   NOT_INSTALLED: "App not installed",
@@ -298,6 +300,15 @@ function buildInstallUrl(shop: string, host?: string | null): string {
   return installUrl.toString();
 }
 
+function redirectTopLevel(url: string) {
+  if (typeof window === "undefined") return;
+  if (window.self !== window.top) {
+    window.open(url, "_top");
+    return;
+  }
+  window.location.href = url;
+}
+
 function LoadErrorScreen({
   failure,
   host,
@@ -305,20 +316,48 @@ function LoadErrorScreen({
   failure: LoadFailure;
   host: string | null;
 }) {
+  const shopifyAuthorize =
+    SHOPIFY_OAUTH_CODES.has(failure.code) && failure.shop
+      ? buildInstallUrl(failure.shop, host)
+      : null;
   const showInstall = INSTALL_CODES.has(failure.code) && !!failure.shop;
   const showReload = RELOAD_CODES.has(failure.code);
+
+  useEffect(() => {
+    if (shopifyAuthorize) {
+      redirectTopLevel(shopifyAuthorize);
+    }
+  }, [shopifyAuthorize]);
 
   // Runs inside a click handler, so the browser treats the top-level
   // navigation as user-initiated (auto redirects from an iframe are blocked).
   const handleInstall = () => {
     if (!failure.shop) return;
-    const url = buildInstallUrl(failure.shop, host);
-    if (window.self !== window.top) {
-      window.open(url, "_top");
-    } else {
-      window.location.href = url;
-    }
+    redirectTopLevel(buildInstallUrl(failure.shop, host));
   };
+
+  if (shopifyAuthorize) {
+    return (
+      <div className="flex items-center justify-center min-h-screen w-full px-4">
+        <div className="text-center max-w-md">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">
+            Opening Shopify
+          </h1>
+          <p className="text-gray-700 mb-6">
+            Taking you to Shopify to continue installation.
+          </p>
+          <button
+            type="button"
+            onClick={() => redirectTopLevel(shopifyAuthorize)}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          >
+            Continue on Shopify
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen w-full px-4">
@@ -533,6 +572,17 @@ function LoadPageContent() {
             // OAuth install automatically there. Inside the Shopify iframe the
             // browser blocks unprompted top-level navigation, so the user gets
             // an "Install / Reconnect" button instead (a click is a user gesture).
+            if (
+              SHOPIFY_OAUTH_CODES.has(loadFailure.code) &&
+              (loadFailure.shop || shop)
+            ) {
+              settled = true;
+              redirectToInstall(
+                buildInstallUrl(loadFailure.shop || shop, host),
+              );
+              return;
+            }
+
             if (
               INSTALL_CODES.has(loadFailure.code) &&
               window.self === window.top
