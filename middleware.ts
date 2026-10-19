@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { continueWithOptionalShopifyHeader } from "./lib/shopifyEmbed";
+import {
+  continueWithOptionalShopifyHeader,
+  redirectShopifyToCredentialGate,
+} from "./lib/shopifyEmbed";
 
 import {
 
@@ -180,6 +183,10 @@ export async function middleware(request: NextRequest) {
 
   }
 
+  // Shopify embed: check .env client_id via OAuth BEFORE /load and App Bridge.
+  const shopifyGate = redirectShopifyToCredentialGate(request);
+  if (shopifyGate) return shopifyGate;
+
 
 
   if (
@@ -341,7 +348,7 @@ export async function middleware(request: NextRequest) {
 
 
   const directClientLoginPrefix = "/direct-client-login";
-  const publicRoutes = ["/login", "/signup", "/forget-password", "/reset-password", "/verify-email", "/agent-login", "/agent-accept-invite", "/load","/platform-redirection-login"];
+  const publicRoutes = ["/login", "/signup", "/forget-password", "/reset-password", "/verify-email", "/agent-login", "/agent-accept-invite", "/load","/platform-redirection-login", "/shopify-enter"];
   /** Logged-in clients may visit any route except these auth pages */
   const clientLoginSignupRoutes = ["/login", "/signup"];
 
