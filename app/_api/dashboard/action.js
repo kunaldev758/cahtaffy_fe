@@ -666,3 +666,43 @@ export async function generateShortLivedToken() {
 
   return response;
 }
+
+export async function getBlogsApi() {
+  return await getFetchData('blogs');
+}
+
+export async function generateBlogApi(payload) {
+  return await fetchData('blogs/generate', payload);
+}
+
+export async function saveBlogApi(payload) {
+  return await fetchData('blogs', payload);
+}
+
+export async function getShopifyBlogCollectionsApi(storeId) {
+  return await getFetchData(`shopify/blogs?storeId=${encodeURIComponent(storeId)}`);
+}
+
+export async function publishBlogApi(payload) {
+  return await fetchData('shopify/blogs/publish', payload);
+}
+
+export async function getBlogStatusApi(blogId) {
+  return await getFetchData(`blogs/${blogId}/status`);
+}
+
+export async function getBlogPublisherHomeApi() {
+  return await getFetchData('blog-publisher');
+}
+
+export async function generateAndPublishBlogApi(payload) {
+  return await fetchData('blog-publisher/generate-publish', payload);
+}
+
+export async function getBlogPublishingJobApi(jobId) {
+  return await getFetchData(`blog-publisher/jobs/${jobId}`);
+}
+
+export async function getPublisherShopifyBlogsApi(storeId) {
+  return await getFetchData(`blog-publisher/shopify/blogs?storeId=${encodeURIComponent(storeId)}`);
+}
