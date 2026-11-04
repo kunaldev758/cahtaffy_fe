@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Plus, LayoutDashboard, Globe, Settings2, Inbox, Brain, Users, CreditCard, Loader2 } from "lucide-react"
+import { Plus, LayoutDashboard, Globe, Settings2, Inbox, Brain, Users, CreditCard, Loader2, Newspaper } from "lucide-react"
 import { toast } from 'react-toastify'
 
 import logoPic from '@/images/logo.png'
@@ -231,6 +231,11 @@ export default function IntegratedSidebar() {
         <Link href="/training" className={navItemClass(isActive('/training'))}>
           <Brain className={iconClass(isActive('/training'))} />
           Training
+        </Link>
+
+        <Link href="/blog" className={navItemClass(isActive('/blog'))}>
+          <Newspaper className={iconClass(isActive('/blog'))} />
+          Blog
         </Link>
 
         {/* CONFIGURATION section */}

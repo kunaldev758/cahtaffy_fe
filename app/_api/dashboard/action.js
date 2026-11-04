@@ -666,3 +666,24 @@ export async function generateShortLivedToken() {
 
   return response;
 }
+
+// AI Blog Writer
+export async function getBlogStoresApi() {
+  return await getFetchData('blog/stores');
+}
+
+export async function getBlogPostsApi() {
+  return await getFetchData('blog/posts');
+}
+
+export async function getBlogPublishStatusApi(requestId) {
+  return await getFetchData(`blog/status/${requestId}`);
+}
+
+export async function generateBlogApi({ topic, tone, language }) {
+  return await fetchData('blog/generate', { topic, tone, language });
+}
+
+export async function publishBlogApi(payload) {
+  return await fetchData('blog/publish', payload);
+}
