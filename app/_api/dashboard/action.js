@@ -687,3 +687,26 @@ export async function generateBlogApi({ topic, tone, language }) {
 export async function publishBlogApi(payload) {
   return await fetchData('blog/publish', payload);
 }
+
+export async function connectWordPressApi(payload) {
+  return await fetchData('wordpress/connect', payload);
+}
+
+export async function validateWordPressApi(payload) {
+  return await fetchData('wordpress/validate', payload);
+}
+
+export async function disconnectWordPressApi(storeHash) {
+  const response = await fetch(
+    `${process.env.API_HOST}wordpress/${encodeURIComponent(storeHash)}`,
+    {
+      method: 'DELETE',
+      cache: 'no-cache',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: getAuthorizationHeader(),
+      },
+    },
+  );
+  return await parseApiJson(response);
+}

@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 
 import TopHead from "../_components/TopHead";
 import { Button } from "@/components/ui/button";
 import { useSocket } from "@/app/socketContext";
 import {
+  connectWordPressApi,
+  disconnectWordPressApi,
   generateBlogApi,
   getBlogPostsApi,
   getBlogPublishStatusApi,
@@ -29,10 +31,11 @@ type BlogDraft = {
 type BlogStore = {
   storeHash: string;
   storeUrl?: string;
-  platform: "shopify" | "bigcommerce";
+  platform: "shopify" | "bigcommerce" | "wordpress";
   name: string;
   canPublish: boolean;
   missingScope?: string | null;
+  wpUsername?: string | null;
 };
 
 type BlogPostRow = {
@@ -69,12 +72,25 @@ export default function BlogPage() {
   const [loadingStores, setLoadingStores] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [publishNow, setPublishNow] = useState(true);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
+
+  const [wpSiteUrl, setWpSiteUrl] = useState("");
+  const [wpUsername, setWpUsername] = useState("");
+  const [wpAppPassword, setWpAppPassword] = useState("");
+  const [wpName, setWpName] = useState("");
+  const [connectingWp, setConnectingWp] = useState(false);
+  const [disconnectingHash, setDisconnectingHash] = useState<string | null>(null);
 
   const selectedStore = useMemo(
     () => stores.find((s) => s.storeHash === selectedStoreHash) || null,
     [stores, selectedStoreHash],
+  );
+
+  const wordpressSites = useMemo(
+    () => stores.filter((s) => s.platform === "wordpress"),
+    [stores],
   );
 
   const loadStores = useCallback(async () => {
@@ -143,7 +159,7 @@ export default function BlogPage() {
               ? `Published successfully: ${payload.url}`
               : "Published successfully.",
           );
-          toast.success("Blog published to your store");
+          toast.success("Blog published");
         } else {
           setPublishMessage(payload.error || "Publishing failed");
           toast.error(payload.error || "Publishing failed");
@@ -182,7 +198,7 @@ export default function BlogPage() {
               ? `Published successfully: ${post.publishedUrl}`
               : "Published successfully.",
           );
-          toast.success("Blog published to your store");
+          toast.success("Blog published");
         } else if (post.status === "failed") {
           setPublishMessage(post.error || "Publishing failed");
           toast.error(post.error || "Publishing failed");
@@ -235,14 +251,14 @@ export default function BlogPage() {
   const handlePublish = async () => {
     if (!blog) return;
     if (!selectedStore) {
-      toast.error("Select a connected store");
+      toast.error("Select a connected store or WordPress site");
       return;
     }
     if (!selectedStore.canPublish) {
       toast.error(
         selectedStore.missingScope
-          ? `Missing permission: ${selectedStore.missingScope}. Re-authorize the app.`
-          : "This store cannot publish blogs yet",
+          ? `Missing permission: ${selectedStore.missingScope}. Re-authorize or reconnect.`
+          : "This destination cannot publish blogs yet",
       );
       return;
     }
@@ -252,7 +268,7 @@ export default function BlogPage() {
     try {
       const data = await publishBlogApi({
         ...blog,
-        publishNow: true,
+        publishNow,
         storeHash: selectedStore.storeHash,
       });
       if (!data?.status) {
@@ -262,7 +278,11 @@ export default function BlogPage() {
 
       const requestId = data.requestId as string;
       setActiveRequestId(requestId);
-      setPublishMessage("Publishing started. Waiting for store confirmation…");
+      setPublishMessage(
+        publishNow
+          ? "Publishing started. Waiting for confirmation…"
+          : "Saving as draft. Waiting for confirmation…",
+      );
       setPosts((prev) => [
         {
           requestId,
@@ -275,7 +295,7 @@ export default function BlogPage() {
         },
         ...prev.filter((p) => p.requestId !== requestId),
       ]);
-      toast.info("Publishing started");
+      toast.info(publishNow ? "Publishing started" : "Draft publish started");
     } catch (error: any) {
       toast.error(error?.message || "Could not start publishing");
     } finally {
@@ -283,13 +303,73 @@ export default function BlogPage() {
     }
   };
 
+  const handleConnectWordPress = async () => {
+    if (!wpSiteUrl.trim() || !wpUsername.trim() || !wpAppPassword.trim()) {
+      toast.error("Site URL, username, and Application Password are required");
+      return;
+    }
+    setConnectingWp(true);
+    try {
+      const data = await connectWordPressApi({
+        siteUrl: wpSiteUrl.trim(),
+        username: wpUsername.trim(),
+        appPassword: wpAppPassword.trim(),
+        name: wpName.trim() || undefined,
+      });
+      if (!data?.status) {
+        toast.error(data?.message || "Could not connect WordPress");
+        return;
+      }
+      toast.success("WordPress site connected");
+      setWpAppPassword("");
+      setWpSiteUrl("");
+      setWpUsername("");
+      setWpName("");
+      await loadStores();
+      if (data.site?.storeHash) {
+        setSelectedStoreHash(data.site.storeHash);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Could not connect WordPress");
+    } finally {
+      setConnectingWp(false);
+    }
+  };
+
+  const handleDisconnectWordPress = async (storeHash: string) => {
+    setDisconnectingHash(storeHash);
+    try {
+      const data = await disconnectWordPressApi(storeHash);
+      if (!data?.status) {
+        toast.error(data?.message || "Could not disconnect");
+        return;
+      }
+      toast.success("WordPress site disconnected");
+      await loadStores();
+    } catch (error: any) {
+      toast.error(error?.message || "Could not disconnect");
+    } finally {
+      setDisconnectingHash(null);
+    }
+  };
+
   const tagsText = blog?.tags?.join(", ") || "";
+
+  const missingScopeHint = (store: BlogStore) => {
+    if (store.platform === "shopify") {
+      return " Reopen Chataffy from Shopify admin to approve write_content.";
+    }
+    if (store.platform === "bigcommerce") {
+      return " Set Content to Modify in the BigCommerce developer portal, then re-authorize.";
+    }
+    return " Reconnect the WordPress site with a user that can publish posts.";
+  };
 
   return (
     <div className="min-h-screen bg-[#F3F4F6]">
       <TopHead
         title="AI Blog Writer"
-        subtitle="Generate an SEO blog with AI, preview it, then publish to Shopify or BigCommerce"
+        subtitle="Generate an SEO blog with AI, preview it, then publish to Shopify, BigCommerce, or WordPress"
         showDatePicker={false}
         showWebsiteSelect={false}
         showNotificationBell={false}
@@ -370,6 +450,112 @@ export default function BlogPage() {
           </div>
         </section>
 
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-[#111827]">Connect WordPress</h2>
+            <p className="text-sm text-[#64748B] mt-1">
+              Use Site URL, WP username, and an Application Password
+              (WP Admin → Users → Profile → Application Passwords). Self-hosted or
+              WordPress.com Business+.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="text-sm text-[#64748B] space-y-1.5 sm:col-span-2">
+              <span>Site URL</span>
+              <input
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111827]"
+                placeholder="https://example.com"
+                value={wpSiteUrl}
+                onChange={(e) => setWpSiteUrl(e.target.value)}
+                autoComplete="url"
+              />
+            </label>
+            <label className="text-sm text-[#64748B] space-y-1.5">
+              <span>Username</span>
+              <input
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111827]"
+                placeholder="admin"
+                value={wpUsername}
+                onChange={(e) => setWpUsername(e.target.value)}
+                autoComplete="username"
+              />
+            </label>
+            <label className="text-sm text-[#64748B] space-y-1.5">
+              <span>Display name (optional)</span>
+              <input
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111827]"
+                placeholder="My blog"
+                value={wpName}
+                onChange={(e) => setWpName(e.target.value)}
+              />
+            </label>
+            <label className="text-sm text-[#64748B] space-y-1.5 sm:col-span-2">
+              <span>Application Password</span>
+              <input
+                type="password"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111827]"
+                placeholder="xxxx xxxx xxxx xxxx"
+                value={wpAppPassword}
+                onChange={(e) => setWpAppPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </label>
+          </div>
+
+          <Button
+            onClick={handleConnectWordPress}
+            disabled={connectingWp}
+            className="bg-[#111827] hover:bg-gray-800 text-white rounded-xl"
+          >
+            {connectingWp ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Connecting…
+              </>
+            ) : (
+              "Connect WordPress site"
+            )}
+          </Button>
+
+          {wordpressSites.length > 0 && (
+            <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl">
+              {wordpressSites.map((site) => (
+                <li
+                  key={site.storeHash}
+                  className="px-3 py-2.5 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[#111827] truncate">
+                      {site.name}
+                    </p>
+                    <p className="text-xs text-[#94A3B8] truncate">
+                      {site.storeUrl || site.storeHash}
+                      {site.wpUsername ? ` · ${site.wpUsername}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl shrink-0 text-red-700 border-red-200 hover:bg-red-50"
+                    disabled={disconnectingHash === site.storeHash}
+                    onClick={() => handleDisconnectWordPress(site.storeHash)}
+                  >
+                    {disconnectingHash === site.storeHash ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         {blog && (
           <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
             <h2 className="text-lg font-semibold text-[#111827]">Preview & edit</h2>
@@ -431,16 +617,16 @@ export default function BlogPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end pt-2">
               <label className="text-sm text-[#64748B] space-y-1.5">
-                <span>Publish to store</span>
+                <span>Publish to</span>
                 {loadingStores ? (
                   <div className="flex items-center gap-2 text-sm text-[#64748B] py-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading stores…
+                    Loading destinations…
                   </div>
                 ) : stores.length === 0 ? (
                   <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-                    No installed Shopify/BigCommerce store found for this account.
-                    Install the Chataffy app on your store first.
+                    No destination found. Install the Chataffy app on Shopify/BigCommerce,
+                    or connect a WordPress site above.
                   </p>
                 ) : (
                   <select
@@ -458,34 +644,48 @@ export default function BlogPage() {
                 )}
               </label>
 
-              <Button
-                onClick={handlePublish}
-                disabled={
-                  publishing ||
-                  !!activeRequestId ||
-                  !selectedStore ||
-                  !selectedStore.canPublish
-                }
-                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
-              >
-                {publishing || activeRequestId ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {publishing ? "Starting…" : "Publishing…"}
-                  </>
-                ) : (
-                  "Publish to my store"
-                )}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <label className="inline-flex items-center gap-2 text-sm text-[#64748B] px-1">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={publishNow}
+                    onChange={(e) => setPublishNow(e.target.checked)}
+                  />
+                  Publish now
+                  <span className="text-xs text-[#94A3B8]">
+                    {publishNow ? "(live)" : "(save as draft)"}
+                  </span>
+                </label>
+                <Button
+                  onClick={handlePublish}
+                  disabled={
+                    publishing ||
+                    !!activeRequestId ||
+                    !selectedStore ||
+                    !selectedStore.canPublish
+                  }
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+                >
+                  {publishing || activeRequestId ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {publishing ? "Starting…" : "Publishing…"}
+                    </>
+                  ) : publishNow ? (
+                    "Publish"
+                  ) : (
+                    "Save as draft"
+                  )}
+                </Button>
+              </div>
             </div>
 
             {selectedStore && !selectedStore.canPublish && (
               <p className="text-sm text-amber-700">
-                This store needs{" "}
-                <strong>{selectedStore.missingScope || "extra OAuth scopes"}</strong>.
-                {selectedStore.platform === "shopify"
-                  ? " Reopen Chataffy from Shopify admin to approve write_content."
-                  : " Set Content to Modify in the BigCommerce developer portal, then re-authorize."}
+                This destination needs{" "}
+                <strong>{selectedStore.missingScope || "extra permissions"}</strong>.
+                {missingScopeHint(selectedStore)}
               </p>
             )}
 
