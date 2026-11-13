@@ -666,3 +666,37 @@ export async function generateShortLivedToken() {
 
   return response;
 }
+
+/* AI blog generate / edit / history */
+export async function generateBlogApi({ topic, tone, language, length, agentId }) {
+  return await fetchData('blogs/generate', { topic, tone, language, length, agentId });
+}
+
+export async function updateBlogApi(payload) {
+  return await fetchData('blogs/update', payload);
+}
+
+export async function listBlogPostsApi({ page = 1, limit = 20 } = {}) {
+  return await fetchData('blogs/list', { page, limit });
+}
+
+export async function getBlogApi(blogId) {
+  return await fetchData('blogs/get', { blogId });
+}
+
+/* Wix blog publishing (OAuth + Blog REST API) */
+export async function wixConnectApi() {
+  return await fetchData('wix/connect', {});
+}
+
+export async function wixStatusApi() {
+  return await fetchData('wix/status', {});
+}
+
+export async function wixDisconnectApi() {
+  return await fetchData('wix/disconnect', {});
+}
+
+export async function publishBlogToWixApi({ blogId, status = 'publish' }) {
+  return await fetchData('wix/publish', { blogId, status });
+}
