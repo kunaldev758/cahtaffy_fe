@@ -616,6 +616,14 @@ export async function createOrder(value, currency, plan_name, billing_cycle) {
   return await fetchData(`paypal/create-order`, { value, currency, plan_name, billing_cycle })
 }
 
+export async function createRazorpayOrder(plan_name, billing_cycle) {
+  return await fetchData(`razorpay/create-order`, { plan_name, billing_cycle })
+}
+
+export async function verifyRazorpayPayment(payload) {
+  return await fetchData(`razorpay/verify-payment`, payload)
+}
+
 export async function sendEmailForOfflineChat(visitorDetails, contactNote, userId) {
   return await fetchDatawithoutToken(`sendEmailForOfflineChat`, { message: contactNote, visitorDetails: visitorDetails, userId: userId });
 }

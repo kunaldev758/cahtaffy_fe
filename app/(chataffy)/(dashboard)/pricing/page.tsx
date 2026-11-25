@@ -1,8 +1,28 @@
 'use client'
 import React, { useState, useEffect } from 'react';
 import { Check, ArrowLeft, Shield, CreditCard, Clock, Star } from 'lucide-react';
-import {createOrder,capturePayment} from '../../../_api/dashboard/action';
+import {createOrder,capturePayment,createRazorpayOrder,verifyRazorpayPayment} from '../../../_api/dashboard/action';
 import { getPlans } from '../../../_api/dashboard/action';
+
+const currencySymbol = (currency?: string) => (currency || 'USD').toUpperCase() === 'INR' ? '₹' : '$';
+
+const loadRazorpayScript = () => {
+  return new Promise<boolean>((resolve) => {
+    if (typeof window === 'undefined') return resolve(false);
+    if ((window as any).Razorpay) return resolve(true);
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 // Checkout Page Component
 const CheckoutPage = ({ selectedPlan, billingCycle = 'monthly', onBack, onSuccess, onError }:any) => {
@@ -100,6 +120,74 @@ const CheckoutPage = ({ selectedPlan, billingCycle = 'monthly', onBack, onSucces
     onSuccess && onSuccess({ plan: selectedPlan, amount: 0 });
   };
 
+  const handleRazorpay = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const loaded = await loadRazorpayScript();
+      if (!loaded || !(window as any).Razorpay) {
+        throw new Error('Could not load Razorpay checkout. Check your connection and try again.');
+      }
+
+      const order = await createRazorpayOrder(selectedPlan.name, billingCycle);
+      if (!order?.success || !order.orderId || !order.keyId) {
+        throw new Error(order?.error || 'Could not start the Razorpay payment.');
+      }
+
+      const options = {
+        key: order.keyId,
+        amount: order.amountPaise,
+        currency: 'INR',
+        name: 'Chataffy',
+        description: `${selectedPlan.displayName} · ${billingCycle}`,
+        order_id: order.orderId,
+        handler: async (response: any) => {
+          try {
+            setLoading(true);
+            const result = await verifyRazorpayPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            if (!result?.success) {
+              const message = result?.error || 'Payment verification failed.';
+              setError(message);
+              onError && onError(message);
+              return;
+            }
+            onSuccess && onSuccess(result);
+          } catch (err: any) {
+            setError(err.message);
+            onError && onError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setError('Payment was cancelled.');
+            setLoading(false);
+          },
+        },
+        theme: { color: '#2563eb' },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.on('payment.failed', (response: any) => {
+        const message = response?.error?.description || 'Payment failed. Please try again.';
+        setError(message);
+        onError && onError(message);
+        setLoading(false);
+      });
+      razorpay.open();
+    } catch (err: any) {
+      setError(err.message || 'Payment failed. Please try again.');
+      onError && onError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatBytes = (bytes:any) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -180,7 +268,7 @@ const CheckoutPage = ({ selectedPlan, billingCycle = 'monthly', onBack, onSucces
                   </div>
                   <div className="text-right">
                     <div className="text-3xl font-bold text-gray-900">
-                      ${getPrice()}
+                      {currencySymbol(selectedPlan.pricing?.currency)}{getPrice()}
                       <span className="text-lg text-gray-600 font-normal">
                         {billingCycle === 'monthly' ? '/month' : '/year'}
                       </span>
@@ -250,7 +338,7 @@ const CheckoutPage = ({ selectedPlan, billingCycle = 'monthly', onBack, onSucces
               </div>
               <div className="flex items-center text-sm text-gray-600">
                 <CreditCard className="w-5 h-5 mr-2 text-blue-500" />
-                <span>PayPal Secure</span>
+                <span>Razorpay / PayPal</span>
               </div>
             </div>
 
@@ -273,7 +361,22 @@ const CheckoutPage = ({ selectedPlan, billingCycle = 'monthly', onBack, onSucces
             ) : (
               <div>
                 <div className="mb-4">
-                  <h3 className="font-medium text-gray-900 mb-2">Pay with PayPal</h3>
+                  <h3 className="font-medium text-gray-900 mb-2">Pay with UPI, card, or net banking</h3>
+                  <p className="text-sm text-gray-600">
+                    UPI, debit and credit cards, net banking, and wallets. Razorpay shows the exact amount in INR before you pay.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRazorpay}
+                  disabled={loading}
+                  className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 mb-6"
+                >
+                  {loading ? 'Processing...' : 'Pay with Razorpay'}
+                </button>
+
+                <div className="mb-4">
+                  <h3 className="font-medium text-gray-900 mb-2">Or pay with PayPal</h3>
                   <p className="text-sm text-gray-600">
                     Secure payment powered by PayPal. You can pay with your PayPal account or credit card.
                   </p>
@@ -343,7 +446,7 @@ const PaymentSuccess = ({ paymentData, onContinue }: any) => {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Amount:</span>
-              <span className="font-medium">${paymentData?.amount || '0'}</span>
+              <span className="font-medium">{currencySymbol(paymentData?.currency)}{paymentData?.amount || '0'}</span>
             </div>
           </div>
           
@@ -552,13 +655,13 @@ const PaymentFlow = () => {
                   <div className="mb-6">
                     <div className="flex items-baseline">
                       <span className="text-4xl font-bold text-gray-900">
-                        ${getMonthlyPrice(plan)}
+                        {currencySymbol(plan.pricing?.currency)}{getMonthlyPrice(plan)}
                       </span>
                       <span className="text-gray-600 ml-2">/month</span>
                     </div>
                     {billingCycle === 'yearly' && plan.pricing.yearly > 0 && (
                       <p className="text-sm text-green-600 mt-1">
-                        Billed yearly (${plan.pricing.yearly})
+                        Billed yearly ({currencySymbol(plan.pricing?.currency)}{plan.pricing.yearly})
                       </p>
                     )}
                     {plan.metadata.trial.enabled && (
